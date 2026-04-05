@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Create Project</title>
+  <link rel="stylesheet" href="./css/style.css">
+  <script src="./js/common.js"></script>
+</head>
+<body>
+<div id="header"></div>
+
+<div class="container">
+  <div id="header"></div>
+
+  <div class="card">
+    <h2>Create Project</h2>
+
+    <div class="row">
+
+      <div class="col">
+        <input id="name" placeholder="Project Name">
+        <select id="bu">
+          <option>Finance</option>
+          <option>Retail</option>
+          <option>ANZ</option>
+          <option>AMEA</option>
+          <option>USA</option>
+          <option>ULL</option>
+        </select>
+        <select id="tech">
+          <option>NodeJS</option>
+          <option>Python</option>
+          <option>Pega</option>
+          <option>.Net</option>
+        </select>
+      </div>
+
+      <div class="col">
+        <input id="complexity" placeholder="Complexity">
+        <input id="team" placeholder="Team Size">
+        <input id="hours" placeholder="Estimated Hours">
+        <input id="exp" placeholder="Avg Experience">
+        <input id="techScore" placeholder="Technology Score">
+      </div>
+
+    </div>
+
+    <button onclick="createProject()">Create Project</button>
+
+    <h3 id="result"></h3>
+  </div>
+</div>
+
+<script>
+loadHeader().then(initHeader);
+
+async function createProject() {
+  const user = JSON.parse(localStorage.getItem("user"));
+
+  const res = await fetch("http://localhost:3000/projects", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      name: document.getElementById("name").value,
+      business_unit: document.getElementById("bu").value,
+      technology: document.getElementById("tech").value,
+      complexity: Number(document.getElementById("complexity").value),
+      team_size: Number(document.getElementById("team").value),
+      estimated_hours: Number(document.getElementById("hours").value),
+      avg_experience: Number(document.getElementById("exp").value),
+      technology_score: Number(document.getElementById("techScore").value),
+      created_by: user.id
+    })
+  });
+
+  const data = await res.json();
+
+  document.getElementById("result").innerText =
+  "Predicted Hours: " + data.predicted_hours +
+  " | Reason: " + data.explanation;
+}
+</script>
+
+</body>
+</html>

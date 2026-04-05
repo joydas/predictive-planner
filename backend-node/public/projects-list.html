@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Projects</title>
+  <link rel="stylesheet" href="./css/style.css">
+
+  <script src="./js/common.js"></script>
+</head>
+<body>
+
+<div id="header"></div>
+
+<div class="container">
+  <div id="header"></div>
+
+  <div class="card">
+    <h2>My Projects</h2>
+
+<table border="1" width="100%">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>BU</th>
+      <th>Estimated</th>
+      <th>Predicted</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody id="table"></tbody>
+</table>
+
+ </div>
+</div>
+
+<script>
+
+
+loadHeader().then(initHeader);
+
+const user = JSON.parse(localStorage.getItem("user"));
+
+async function loadProjects() {
+  const res = await fetch("http://localhost:3000/projects");
+  const data = await res.json();
+
+  const table = document.getElementById("table");
+
+  data
+    .filter(p => p.created_by === user.id)
+    .forEach(p => {
+      table.innerHTML += `
+        <tr>
+          <td>${p.name}</td>
+          <td>${p.business_unit}</td>
+          <td>${p.estimated_hours}</td>
+          <td>${p.predicted_hours}</td>
+          <td>
+            <button onclick="goProgress(${p.id})">Progress</button>
+            <button onclick="goCR(${p.id})">CR</button>
+            <button onclick="goTeam(${p.id})">Team</button>
+          </td>
+        </tr>
+      `;
+    });
+}
+
+function goCR(id) {
+  window.location.href = `change.html?projectId=${id}`;
+}
+
+function goTeam(id) {
+  window.location.href = `team.html?projectId=${id}`;
+}
+
+function goProgress(id) {
+  window.location.href = `progress.html?projectId=${id}`;
+}
+
+loadProjects();
+</script>
+
+</body>
+</html>

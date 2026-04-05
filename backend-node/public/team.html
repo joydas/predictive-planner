@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Team Recommendation</title>
+  <link rel="stylesheet" href="./css/style.css">
+  <script src="./js/common.js"></script>
+</head>
+<body>
+<div id="header"></div>
+
+<h3 id="result"></h3>
+
+<ul id="teamList"></ul>
+
+<script>
+
+loadHeader();
+
+async function getTeam() {
+  const projectId = getProjectId();
+
+  const res = await fetch(`http://localhost:3000/recommend-team/${projectId}`);
+  const data = await res.json();
+
+  document.getElementById("result").innerText =
+    "Recommended Team Size: " + data.recommended_team_size;
+
+  const list = document.getElementById("teamList");
+  list.innerHTML = "";
+
+  data.team.forEach(member => {
+    const li = document.createElement("li");
+    li.innerText = `${member.name} (${member.skill})`;
+    list.appendChild(li);
+  });
+}
+
+// auto load
+getTeam();
+
+</script>
+
+</body>
+</html>

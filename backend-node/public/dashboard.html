@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Leadership Dashboard</title>
+  <link rel="stylesheet" href="./css/style.css">
+  <script src="./js/chart.js"></script>
+  <script src="./js/common.js"></script>
+</head>
+<body>
+
+<div id="header"></div>
+
+<h2>Leadership Dashboard</h2>
+
+<table id="table" border="1">
+  <thead>
+    <tr>
+      <th>Project</th>
+      <th>BU</th>
+      <th>Estimated</th>
+      <th>Predicted</th>
+      <th>Variance</th>
+      <th>Risk</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<div style="display: flex; gap: 20px;">
+   
+  <div style="width: 400px; height: 300px;">
+    <h3>Effort Comparison</h3>
+    <canvas id="effortChart"></canvas>
+  </div>
+  
+  <div style="width: 400px; height: 300px;">
+    <h3>BU Distribution</h3>
+    <canvas id="buChart"></canvas>
+  </div>
+</div>
+
+<script>
+async function loadProjects() {
+  const res = await fetch("http://localhost:3000/projects");
+  const data = await res.json();
+
+  const tbody = document.querySelector("#table tbody");
+
+  let labels = [];
+  let estimated = [];
+  let predicted = [];
+  let buMap = {};
+
+  data.forEach(p => {
+    const variance = (p.predicted_hours - p.estimated_hours).toFixed(1);
+    let risk = variance > 100 ? "High" : variance > 50 ? "Medium" : "Low";
+
+    // table
+    tbody.innerHTML += `
+      <tr>
+        <td>${p.name}</td>
+        <td>${p.business_unit}</td>
+        <td>${p.estimated_hours}</td>
+        <td>${p.predicted_hours}</td>
+        <td>${variance}</td>
+        <td>${risk}</td>
+      </tr>
+    `;
+
+    // chart data
+    labels.push(p.name);
+    estimated.push(p.estimated_hours);
+    predicted.push(p.predicted_hours);
+
+    // BU aggregation
+    buMap[p.business_unit] = (buMap[p.business_unit] || 0) + p.predicted_hours;
+  });
+
+  // Effort Chart
+  new Chart(document.getElementById("effortChart"), {
+    type: "bar",
+    data: {
+      labels: labels,
+      datasets: [
+        { label: "Estimated", data: estimated },
+        { label: "Predicted", data: predicted }
+      ]
+    }
+  });
+
+  // BU Chart
+  new Chart(document.getElementById("buChart"), {
+    type: "pie",
+    data: {
+      labels: Object.keys(buMap),
+      datasets: [{
+        data: Object.values(buMap)
+      }]
+    }
+  });
+}
+
+loadProjects();
+loadHeader().then(initHeader);
+</script>
+
+</body>
+</html>

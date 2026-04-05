@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Project Progress</title>
+  <link rel="stylesheet" href="./css/style.css">
+  <script src="./js/common.js"></script>
+</head>
+<body>
+
+<div id="header"></div>
+
+<div class="container">
+  <div id="header"></div>
+
+  <div class="card">
+    <h2>Update Progress</h2>
+
+<input id="date" type="date"><br><br>
+<input id="effort" placeholder="Effort Spent"><br><br>
+<input id="tasks" placeholder="Tasks Completed"><br><br>
+
+<button onclick="submitProgress()">Submit</button>
+
+<h3 id="result"></h3>
+
+<hr>
+
+<h3>Predicted Final Effort</h3>
+<button onclick="getPrediction()">Check Delay</button>
+
+<h3 id="prediction"></h3>
+</div>
+</div>
+
+<script>
+
+
+async function submitProgress() {
+  const projectId = getProjectId();
+
+  const res = await fetch("http://localhost:3000/progress", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      project_id: Number(projectId),
+      date: document.getElementById("date").value,
+      effort_spent: Number(document.getElementById("effort").value),
+      tasks_completed: Number(document.getElementById("tasks").value)
+    })
+  });
+
+  const data = await res.json();
+  document.getElementById("result").innerText = data.message;
+}
+
+async function getPrediction() {
+  const projectId = getProjectId();
+
+  const res = await fetch(`http://localhost:3000/project-delay/${projectId}`);
+  const data = await res.json();
+
+  document.getElementById("prediction").innerText =
+    "Predicted Final Effort: " + data.predicted_final_effort;
+}
+
+loadHeader().then(initHeader);
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Change Request</title>
+  <link rel="stylesheet" href="./css/style.css">
+  <script src="./js/common.js"></script>
+</head>
+<body>
+<div id="header"></div>  
+
+<h2>Add Change Request</h2>
+
+
+<input id="desc" placeholder="Description"><br><br>
+<input id="impact" placeholder="Impact Hours"><br><br>
+
+<button onclick="submitCR()">Submit</button>
+
+<h3 id="result"></h3>
+
+<script>
+
+loadHeader().then(initHeader);
+
+async function submitCR() {
+  const projectId = getProjectId();
+  const user = JSON.parse(localStorage.getItem("user"));
+
+  const res = await fetch("http://localhost:3000/change-request", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      project_id: Number(projectId),
+      description: document.getElementById("desc").value,
+      impact_hours: Number(document.getElementById("impact").value),
+      created_by: user.id
+    })
+  });
+
+  const data = await res.json();
+
+  document.getElementById("result").innerText =
+    "New Predicted Hours: " + data.new_prediction;
+}
+</script>
+
+</body>
+</html>
