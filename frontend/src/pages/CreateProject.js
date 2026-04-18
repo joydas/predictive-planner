@@ -194,11 +194,11 @@ const CreateProject = () => {
                       required
                     >
                       <option value="">Select business unit</option>
-                      <option value="retail">Retail</option>
-                      <option value="finance">Finance</option>
-                      <option value="healthcare">Healthcare</option>
-                      <option value="technology">Technology</option>
-                      <option value="education">Education</option>
+                      <option value="Retail">Retail</option>
+                      <option value="Finance">Finance</option>
+                      <option value="Healthcare">Healthcare</option>
+                      <option value="Technology">Technology</option>
+                      <option value="Education">Education</option>
                     </CFormSelect>
                   </CCol>
                 </CRow>
@@ -217,13 +217,15 @@ const CreateProject = () => {
                       required
                     >
                       <option value="">Select technology</option>
-                      <option value="react">React</option>
-                      <option value="vue">Vue.js</option>
-                      <option value="angular">Angular</option>
-                      <option value="node">Node.js</option>
-                      <option value="python">Python</option>
-                      <option value="java">Java</option>
-                      <option value="dotnet">.NET</option>
+                      <option value="Pega">Pega</option>
+                      <option value="PHP">PHP</option>
+                      <option value="React">React</option>
+                      <option value="Vue.js">Vue.js</option>
+                      <option value="Angular">Angular</option>
+                      <option value="Node.js">Node.js</option>
+                      <option value="Python">Python</option>
+                      <option value="Java">Java</option>
+                      <option value=".NET">.NET</option>
                     </CFormSelect>
                     {formErrors.technology && <CFormFeedback invalid>{formErrors.technology}</CFormFeedback>}
                   </CCol>

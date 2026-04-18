@@ -211,33 +211,34 @@ Important notes for `resources`:
 
 ## Configuration
 
+### Service URLs and CORS
+
+The frontend, backend, and ML service are now environment-driven for service discovery and cross-origin access.
+
+| Layer | Setting | Example value | Purpose |
+| --- | --- | --- | --- |
+| Frontend | `REACT_APP_NODE_API_URL` | `http://localhost:3001` | Backend base URL used by the React app |
+| Frontend | `REACT_APP_ML_API_URL` | `http://127.0.0.1:8000` | ML base URL for future/direct frontend calls |
+| Backend | `ML_API_URL` | `http://127.0.0.1:8000` | ML base URL used by the Node API |
+| Backend | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated browser origins allowed to call the backend |
+| Backend | `PORT` | `3001` | Express listen port |
+| ML service | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000,http://localhost:3001` | Comma-separated browser origins allowed to call the ML API |
+
+Frontend notes:
+
+- Copy [frontend/.env.example](/C:/OurWorkspace/Dipanjan/AI/predictive-planner/frontend/.env.example) to `frontend/.env` for local development.
+- `REACT_APP_NODE_API_URL` is the URL the current UI actively uses.
+- `REACT_APP_ML_API_URL` is still useful for future/direct browser calls and keeps the deployment config explicit.
+
+Backend and ML notes:
+
+- Use [backend-node/.env.example](/C:/OurWorkspace/Dipanjan/AI/predictive-planner/backend-node/.env.example) and [ml-service/.env.example](/C:/OurWorkspace/Dipanjan/AI/predictive-planner/ml-service/.env.example) as references.
+- The backend and ML service do not auto-load `.env` files today. For local development, set these as shell variables. In Azure, add them as App Settings or container environment variables.
+- `CORS_ALLOWED_ORIGINS` accepts a comma-separated list such as `https://predictive-planner-frontend.azurewebsites.net,https://predictive-planner-backend.azurewebsites.net`.
+
 ### Backend database connection
 
-The backend currently uses a hardcoded MySQL connection in [backend-node/index.js](/C:/OurWorkspace/Dipanjan/AI/predictive-planner/backend-node/index.js:12).
-
-Update this block if your local MySQL credentials differ:
-
-```js
-const db = mysql.createPool({
-  host: "localhost",
-  user: "root",
-  password: "",
-  database: "predictive_planner",
-});
-```
-
-### Frontend service URLs
-
-The frontend reads service URLs from [frontend/src/config.js](/C:/OurWorkspace/Dipanjan/AI/predictive-planner/frontend/src/config.js:3).
-
-You can optionally create `frontend/.env` with:
-
-```bash
-REACT_APP_NODE_API_URL=http://localhost:3001
-REACT_APP_ML_API_URL=http://localhost:8000
-```
-
-`REACT_APP_NODE_API_URL` is the one the current UI actually uses. `REACT_APP_ML_API_URL` is defined in config for future/direct use, but the current frontend talks to the ML service through the backend for user flows.
+The backend MySQL connection is still hardcoded in [backend-node/index.js](/C:/OurWorkspace/Dipanjan/AI/predictive-planner/backend-node/index.js). Update that block if your local MySQL credentials differ.
 
 ## Running the Application
 
@@ -256,6 +257,12 @@ What this does:
 - `python train.py` trains a demo model from `project_data.csv` and creates `model.pkl`
 - `uvicorn main:app --reload` starts the FastAPI service used by the backend
 
+Optional PowerShell env setup before starting it:
+
+```powershell
+$env:CORS_ALLOWED_ORIGINS="http://localhost:3000,http://localhost:3001"
+```
+
 ML service URL:
 
 ```text
@@ -266,15 +273,19 @@ http://127.0.0.1:8000
 
 In a second terminal:
 
-```bash
+```powershell
 cd backend-node
+$env:ML_API_URL="http://127.0.0.1:8000"
+$env:CORS_ALLOWED_ORIGINS="http://localhost:3000"
 node index.js
 ```
 
 Optional development mode:
 
-```bash
+```powershell
 cd backend-node
+$env:ML_API_URL="http://127.0.0.1:8000"
+$env:CORS_ALLOWED_ORIGINS="http://localhost:3000"
 npm run dev
 ```
 
@@ -293,6 +304,12 @@ cd frontend
 npm start
 ```
 
+Optional local config:
+
+```bash
+cp .env.example .env
+```
+
 Frontend URL:
 
 ```text
@@ -304,6 +321,32 @@ Open the app in a browser:
 ```text
 http://localhost:3000/login
 ```
+
+## Azure Deployment Settings
+
+Use the same environment variable names in Azure App Service, Container Apps, or Web App configuration.
+
+Example values:
+
+```text
+Frontend
+REACT_APP_NODE_API_URL=https://predictive-planner-api.azurewebsites.net
+REACT_APP_ML_API_URL=https://predictive-planner-ml.azurewebsites.net
+
+Backend
+ML_API_URL=https://predictive-planner-ml.azurewebsites.net
+CORS_ALLOWED_ORIGINS=https://predictive-planner-frontend.azurewebsites.net
+
+ML service
+CORS_ALLOWED_ORIGINS=https://predictive-planner-frontend.azurewebsites.net,https://predictive-planner-api.azurewebsites.net
+```
+
+Deployment guidance:
+
+- Set the frontend app URL in the backend `CORS_ALLOWED_ORIGINS`.
+- Set the frontend app URL in the ML `CORS_ALLOWED_ORIGINS` if the browser will ever call the ML API directly.
+- Point backend `ML_API_URL` to the public or internal Azure URL of the deployed ML service.
+- Rebuild the React frontend after changing `REACT_APP_*` values because Create React App embeds them at build time.
 
 ## Demo Login Accounts
 
@@ -376,13 +419,14 @@ http://localhost:3000/login
 ## Troubleshooting
 
 - Login fails: confirm the demo users were inserted into `users` and the backend is pointed at the correct MySQL instance.
-- Project creation returns `ML service error`: make sure `python train.py` was run and the FastAPI service is listening on `127.0.0.1:8000`.
+- Project creation returns `ML service error`: make sure `python train.py` was run and `ML_API_URL` points to a reachable FastAPI deployment.
 - Team recommendation is empty: check that `resources.role` values match the backend values exactly and that developer `technology` matches the project technology.
-- Frontend cannot reach backend: verify `REACT_APP_NODE_API_URL` or the default `http://localhost:3001`, then restart `npm start`.
+- Frontend cannot reach backend: verify `REACT_APP_NODE_API_URL`, make sure the backend `CORS_ALLOWED_ORIGINS` contains the frontend origin, then rebuild or restart the frontend.
+- Browser gets CORS errors against the ML API: add the frontend origin to the ML service `CORS_ALLOWED_ORIGINS`.
 
 ## Future Improvements
 
-- Move backend config to environment variables
+- Move remaining backend database config to environment variables
 - Add migrations and seed scripts
 - Add `requirements.txt` for the ML service
 - Hash passwords and add proper auth tokens/session handling

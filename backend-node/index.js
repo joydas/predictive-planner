@@ -3,9 +3,40 @@ const mysql = require("mysql2");
 const cors = require("cors");
 const axios = require("axios");
 
+const DEFAULT_PORT = 3001;
+const DEFAULT_ML_API_URL = "http://127.0.0.1:8000";
+const DEFAULT_CORS_ALLOWED_ORIGINS = [
+  "http://localhost:3000",
+  "http://127.0.0.1:3000"
+];
+
+const normalizeUrl = (url) => url.replace(/\/+$/, "");
+const parseAllowedOrigins = (value) =>
+  value
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+const PORT = Number(process.env.PORT || DEFAULT_PORT);
+const ML_API_URL = normalizeUrl(process.env.ML_API_URL || DEFAULT_ML_API_URL);
+const allowedOrigins = parseAllowedOrigins(
+  process.env.CORS_ALLOWED_ORIGINS || DEFAULT_CORS_ALLOWED_ORIGINS.join(",")
+);
+const allowAllOrigins = allowedOrigins.includes("*");
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin || allowAllOrigins || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(null, false);
+  }
+};
+
 const app = express();
 app.use(express.json());
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.static("public"));
 
 // DB connection pool
@@ -116,7 +147,7 @@ app.post("/projects", async (req, res) => {
     
 
     // Step 1: Call ML API
-    const mlResponse = await axios.post("http://127.0.0.1:8000/predict", {
+    const mlResponse = await axios.post(`${ML_API_URL}/predict`, {
       team_size,
       complexity,
       change_count:0,
@@ -221,10 +252,10 @@ app.post("/change-request", async (req, res) => {
           const project = projRes[0];
 
            // Step 4: Call ML with updated change_count
-          const mlResponse = await axios.post("http://127.0.0.1:8000/predict", {
+          const mlResponse = await axios.post(`${ML_API_URL}/predict`, {
             team_size: project.team_size,
             complexity: project.complexity,
-            change_count: change_count,
+            change_count,
             avg_experience: project.avg_experience,
             technology_score: project.technology_score
         });
@@ -279,7 +310,7 @@ app.get("/project-delay/:id", async (req, res) => {
   db.query(query, [projectId], async (err, results) => {
     if (err) return res.status(500).send(err);
 
-    const mlResponse = await axios.post("http://127.0.0.1:8000/predict-delay", {
+    const mlResponse = await axios.post(`${ML_API_URL}/predict-delay`, {
       progress: results
     });
 
@@ -358,6 +389,10 @@ app.get("/recommend-team/:projectId", (req, res) => {
   });
 });
 
-app.listen(3001, () => {
-  console.log("Server running on port 3001");
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`ML service URL: ${ML_API_URL}`);
+  console.log(
+    `CORS allowed origins: ${allowAllOrigins ? "*" : allowedOrigins.join(", ")}`
+  );
 });

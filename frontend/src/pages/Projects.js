@@ -12,7 +12,7 @@ const Projects = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
+  const itemsPerPage = 5;
   const navigate = useNavigate();
 
   useEffect(() => {
