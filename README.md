@@ -222,6 +222,11 @@ The frontend, backend, and ML service are now environment-driven for service dis
 | Backend | `ML_API_URL` | `http://127.0.0.1:8000` | ML base URL used by the Node API |
 | Backend | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated browser origins allowed to call the backend |
 | Backend | `PORT` | `3001` | Express listen port |
+| Backend | `DB_HOST` | `localhost` | MySQL host name |
+| Backend | `DB_PORT` | `3306` | MySQL port |
+| Backend | `DB_USER` | `root` | MySQL user name |
+| Backend | `DB_PASSWORD` | `` | MySQL password |
+| Backend | `DB_NAME` | `predictive_planner` | MySQL database name |
 | ML service | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000,http://localhost:3001` | Comma-separated browser origins allowed to call the ML API |
 
 Frontend notes:
@@ -233,12 +238,20 @@ Frontend notes:
 Backend and ML notes:
 
 - Use [backend-node/.env.example](/C:/OurWorkspace/Dipanjan/AI/predictive-planner/backend-node/.env.example) and [ml-service/.env.example](/C:/OurWorkspace/Dipanjan/AI/predictive-planner/ml-service/.env.example) as references.
-- The backend and ML service do not auto-load `.env` files today. For local development, set these as shell variables. In Azure, add them as App Settings or container environment variables.
+- The backend now auto-loads `backend-node/.env` when present and still prefers real environment variables from the shell, Azure App Settings, or container runtime.
 - `CORS_ALLOWED_ORIGINS` accepts a comma-separated list such as `https://predictive-planner-frontend.azurewebsites.net,https://predictive-planner-backend.azurewebsites.net`.
 
 ### Backend database connection
 
-The backend MySQL connection is still hardcoded in [backend-node/index.js](/C:/OurWorkspace/Dipanjan/AI/predictive-planner/backend-node/index.js). Update that block if your local MySQL credentials differ.
+The backend MySQL connection now reads from environment variables in [backend-node/index.js](/C:/OurWorkspace/Dipanjan/AI/predictive-planner/backend-node/index.js). Supported names are:
+
+- `DB_HOST` or `MYSQL_HOST`
+- `DB_PORT` or `MYSQL_PORT`
+- `DB_USER`, `DB_USERNAME`, or `MYSQL_USER`
+- `DB_PASSWORD` or `MYSQL_PASSWORD`
+- `DB_NAME` or `MYSQL_DATABASE`
+
+If none are provided, the backend falls back to `localhost`, `3306`, `root`, an empty password, and `predictive_planner`.
 
 ## Running the Application
 
@@ -277,6 +290,11 @@ In a second terminal:
 cd backend-node
 $env:ML_API_URL="http://127.0.0.1:8000"
 $env:CORS_ALLOWED_ORIGINS="http://localhost:3000"
+$env:DB_HOST="localhost"
+$env:DB_PORT="3306"
+$env:DB_USER="root"
+$env:DB_PASSWORD=""
+$env:DB_NAME="predictive_planner"
 node index.js
 ```
 
@@ -336,6 +354,11 @@ REACT_APP_ML_API_URL=https://predictive-planner-ml.azurewebsites.net
 Backend
 ML_API_URL=https://predictive-planner-ml.azurewebsites.net
 CORS_ALLOWED_ORIGINS=https://predictive-planner-frontend.azurewebsites.net
+DB_HOST=your-mysql-host.mysql.database.azure.com
+DB_PORT=3306
+DB_USER=your-db-user
+DB_PASSWORD=your-db-password
+DB_NAME=predictive_planner
 
 ML service
 CORS_ALLOWED_ORIGINS=https://predictive-planner-frontend.azurewebsites.net,https://predictive-planner-api.azurewebsites.net
@@ -426,7 +449,6 @@ Deployment guidance:
 
 ## Future Improvements
 
-- Move remaining backend database config to environment variables
 - Add migrations and seed scripts
 - Add `requirements.txt` for the ML service
 - Hash passwords and add proper auth tokens/session handling

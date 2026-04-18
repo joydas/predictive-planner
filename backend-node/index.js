@@ -1,3 +1,5 @@
+const fs = require("fs");
+const path = require("path");
 const express = require("express");
 const mysql = require("mysql2");
 const cors = require("cors");
@@ -9,13 +11,85 @@ const DEFAULT_CORS_ALLOWED_ORIGINS = [
   "http://localhost:3000",
   "http://127.0.0.1:3000"
 ];
+const DEFAULT_DB_CONFIG = {
+  host: "localhost",
+  port: 3306,
+  user: "root",
+  password: "",
+  database: "predictive_planner",
+  connectionLimit: 10,
+  queueLimit: 0
+};
+
+const loadLocalEnv = () => {
+  const envPath = path.join(__dirname, ".env");
+
+  if (!fs.existsSync(envPath)) {
+    return;
+  }
+
+  const envContent = fs.readFileSync(envPath, "utf8");
+
+  for (const line of envContent.split(/\r?\n/)) {
+    const trimmedLine = line.trim();
+
+    if (!trimmedLine || trimmedLine.startsWith("#")) {
+      continue;
+    }
+
+    const separatorIndex = trimmedLine.indexOf("=");
+
+    if (separatorIndex === -1) {
+      continue;
+    }
+
+    const key = trimmedLine.slice(0, separatorIndex).trim();
+
+    if (!key || process.env[key] !== undefined) {
+      continue;
+    }
+
+    let value = trimmedLine.slice(separatorIndex + 1).trim();
+
+    if (
+      (value.startsWith("\"") && value.endsWith("\"")) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    process.env[key] = value;
+  }
+};
 
 const normalizeUrl = (url) => url.replace(/\/+$/, "");
+const getFirstEnv = (...keys) => {
+  for (const key of keys) {
+    const value = process.env[key];
+
+    if (value !== undefined && value !== "") {
+      return value;
+    }
+  }
+
+  return undefined;
+};
+const parseEnvNumber = (value, fallback) => {
+  if (value === undefined || value === "") {
+    return fallback;
+  }
+
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
 const parseAllowedOrigins = (value) =>
   value
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
+
+loadLocalEnv();
 
 const PORT = Number(process.env.PORT || DEFAULT_PORT);
 const ML_API_URL = normalizeUrl(process.env.ML_API_URL || DEFAULT_ML_API_URL);
@@ -23,6 +97,32 @@ const allowedOrigins = parseAllowedOrigins(
   process.env.CORS_ALLOWED_ORIGINS || DEFAULT_CORS_ALLOWED_ORIGINS.join(",")
 );
 const allowAllOrigins = allowedOrigins.includes("*");
+const DB_CONFIG = {
+  host: getFirstEnv("DB_HOST", "MYSQL_HOST") || DEFAULT_DB_CONFIG.host,
+  port: parseEnvNumber(
+    getFirstEnv("DB_PORT", "MYSQL_PORT"),
+    DEFAULT_DB_CONFIG.port
+  ),
+  user:
+    getFirstEnv("DB_USER", "DB_USERNAME", "MYSQL_USER") ||
+    DEFAULT_DB_CONFIG.user,
+  password:
+    getFirstEnv("DB_PASSWORD", "MYSQL_PASSWORD") ||
+    DEFAULT_DB_CONFIG.password,
+  database:
+    getFirstEnv("DB_NAME", "MYSQL_DATABASE") ||
+    DEFAULT_DB_CONFIG.database,
+  waitForConnections: true,
+  connectionLimit: parseEnvNumber(
+    process.env.DB_CONNECTION_LIMIT,
+    DEFAULT_DB_CONFIG.connectionLimit
+  ),
+  queueLimit: parseEnvNumber(
+    process.env.DB_QUEUE_LIMIT,
+    DEFAULT_DB_CONFIG.queueLimit
+  )
+};
+const dbLabel = `${DB_CONFIG.host}:${DB_CONFIG.port}/${DB_CONFIG.database}`;
 
 const corsOptions = {
   origin(origin, callback) {
@@ -40,15 +140,7 @@ app.use(cors(corsOptions));
 app.use(express.static("public"));
 
 // DB connection pool
-const db = mysql.createPool({
-  host: "localhost",
-  user: "root",
-  password: "", // change if needed
-  database: "predictive_planner",
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-});
+const db = mysql.createPool(DB_CONFIG);
 
 let dbConnected = false;
 
@@ -76,11 +168,11 @@ const tryDbConnect = async () => {
     const connection = await db.promise().getConnection();
     connection.release();
     dbConnected = true;
-    console.log("Connected to MySQL");
+    console.log(`Connected to MySQL at ${dbLabel}`);
     return true;
   } catch (err) {
     dbConnected = false;
-    console.error("DB connection failed:", err.message || err);
+    console.error(`DB connection failed for ${dbLabel}:`, err.message || err);
     return false;
   }
 };
@@ -392,6 +484,7 @@ app.get("/recommend-team/:projectId", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`ML service URL: ${ML_API_URL}`);
+  console.log(`Database target: ${dbLabel}`);
   console.log(
     `CORS allowed origins: ${allowAllOrigins ? "*" : allowedOrigins.join(", ")}`
   );
