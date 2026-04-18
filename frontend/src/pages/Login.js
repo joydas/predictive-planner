@@ -168,14 +168,14 @@ const Login = () => {
                 </CForm>
 
                 {/* Demo Credentials */}
-                <div className="mt-4 pt-3 border-top">
+                {/* <div className="mt-4 pt-3 border-top">
                   <p className="text-muted small mb-2">Demo Credentials:</p>
                   <div className="bg-light p-2 rounded small">
                     <div><strong>PM:</strong> pm@example.com / password</div>
                     <div><strong>Leadership:</strong> leadership@example.com / password</div>
                     <div><strong>Admin:</strong> admin@example.com / password</div>
                   </div>
-                </div>
+                </div> */}
               </CCardBody>
             </CCard>
           </CCol>

@@ -8,43 +8,48 @@
 
 .app-layout {
   min-height: 100vh;
+  background-color: #f8fafc;
+}
+
+.app-layout.is-desktop {
+  display: flex;
+  align-items: stretch;
 }
 
 .app-sidebar.sidebar {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  bottom: 0 !important;
-  width: 220px !important;
-  max-width: 220px !important;
-  height: 100vh !important;
-  z-index: 1035 !important;
-  transition: width 0.25s ease, transform 0.25s ease !important;
+  width: var(--app-sidebar-width, 220px) !important;
+  max-width: var(--app-sidebar-width, 220px) !important;
+  transition:
+    width 0.25s ease,
+    min-width 0.25s ease,
+    max-width 0.25s ease,
+    flex-basis 0.25s ease,
+    transform 0.25s ease !important;
 }
 
 .app-layout.is-desktop .app-sidebar.sidebar {
-  transform: translateX(0) !important;
-}
-
-.app-layout.is-desktop .app-sidebar.sidebar.collapsed {
-  width: 70px !important;
-  max-width: 70px !important;
-}
-
-.app-layout.is-desktop .app-sidebar.sidebar.collapsed:hover {
-  width: 70px !important;
-  max-width: 70px !important;
+  position: sticky !important;
+  top: 0 !important;
+  bottom: auto !important;
+  left: auto !important;
+  margin-inline-start: 0 !important;
+  margin-inline-end: 0 !important;
+  transform: none !important;
+  flex: 0 0 var(--app-sidebar-width, 220px) !important;
+  min-width: var(--app-sidebar-width, 220px) !important;
+  height: 100vh !important;
+  overflow-x: hidden;
+  z-index: 1020 !important;
 }
 
 .main-content-wrapper {
   width: 100%;
   min-width: 0;
-  margin-left: 0;
-  transition: margin-left 0.25s ease;
+  flex: 1 1 auto;
 }
 
 .app-layout.is-desktop .main-content-wrapper {
-  margin-left: var(--app-sidebar-offset);
+  width: auto;
 }
 
 .app-sidebar-brand {
@@ -53,6 +58,17 @@
   gap: 0.75rem;
   min-height: 64px;
   padding: 0 1rem !important;
+}
+
+.app-sidebar-header {
+  gap: 0.75rem;
+}
+
+.app-sidebar-header .app-sidebar-brand {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: auto;
+  padding: 0 !important;
 }
 
 .app-sidebar-brand-mark {
@@ -70,7 +86,10 @@
 }
 
 .app-sidebar-brand-text {
+  min-width: 0;
+  overflow: hidden;
   white-space: nowrap;
+  transition: width 0.25s ease, opacity 0.2s ease, visibility 0.2s ease;
 }
 
 .app-sidebar-link {
@@ -84,29 +103,80 @@
 }
 
 .app-sidebar-label {
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
+  transition: width 0.25s ease, opacity 0.2s ease, visibility 0.2s ease;
 }
 
 .app-layout.is-desktop .app-sidebar.sidebar.collapsed .app-sidebar-brand {
   justify-content: center;
   padding: 0 !important;
+  gap: 0;
 }
 
 .app-layout.is-desktop .app-sidebar.sidebar.collapsed .app-sidebar-brand-text,
 .app-layout.is-desktop .app-sidebar.sidebar.collapsed .app-sidebar-label {
   width: 0;
   opacity: 0;
+  visibility: hidden;
 }
 
 .app-layout.is-desktop .app-sidebar.sidebar.collapsed .app-sidebar-link {
   justify-content: center;
+  gap: 0;
   padding-left: 0.75rem;
   padding-right: 0.75rem;
 }
 
 .app-layout.is-desktop .app-sidebar.sidebar.collapsed .app-sidebar-icon {
   margin-right: 0;
+}
+
+.app-sidebar-footer {
+  margin-top: auto;
+  justify-content: flex-end;
+  padding: 0.75rem 1rem !important;
+}
+
+.app-sidebar-footer-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem !important;
+}
+
+.app-sidebar-footer-toggle:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.app-sidebar-footer-toggle-label {
+  overflow: hidden;
+  white-space: nowrap;
+  transition: width 0.25s ease, opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.app-layout.is-desktop .app-sidebar.sidebar.collapsed .app-sidebar-footer {
+  justify-content: center;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.app-layout.is-desktop .app-sidebar.sidebar.collapsed .app-sidebar-footer-toggle {
+  gap: 0;
+  padding-left: 0.5rem !important;
+  padding-right: 0.5rem !important;
+}
+
+.app-layout.is-desktop .app-sidebar.sidebar.collapsed .app-sidebar-footer-toggle-label {
+  width: 0;
+  opacity: 0;
+  visibility: hidden;
 }
 
 .sidebar-toggle-btn {
@@ -118,29 +188,42 @@
   background-color: rgba(0, 0, 0, 0.05);
 }
 
-.welcome-message-item {
-  transition: margin-left 0.25s ease;
+.app-sidebar-close-btn {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.app-sidebar-close-btn:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  color: #fff;
 }
 
 .sidebar-backdrop {
   z-index: 1030 !important;
 }
 
-@media (max-width: 767.98px) {
-  .app-sidebar.sidebar {
+@media (max-width: 991.98px) {
+  .app-layout.is-mobile .app-sidebar.sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
     width: 220px !important;
     max-width: 220px !important;
     z-index: 1045 !important;
     transform: translateX(-100%) !important;
     box-shadow: 2px 0 16px rgba(0, 0, 0, 0.2);
+    margin-inline-start: 0 !important;
+    margin-inline-end: 0 !important;
   }
 
-  .app-sidebar.sidebar.show {
+  .app-layout.is-mobile .app-sidebar.sidebar.show {
     transform: translateX(0) !important;
   }
 
-.main-content-wrapper {
-    margin-left: 0 !important;
+  .main-content-wrapper {
+    width: 100%;
   }
 }
 
@@ -186,7 +269,7 @@ tbody td {
 }
 
 .card-header {
-  background-color: white;
+  background-color: rgb(23, 28, 176);
   border-bottom: 1px solid #e2e8f0;
   font-weight: 600;
 }
@@ -220,7 +303,7 @@ tbody td {
 .kpi-card .card-title {
   font-size: 0.75rem;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(59, 94, 172, 0.8);
   margin-bottom: 0.25rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;

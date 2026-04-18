@@ -88,7 +88,7 @@ code {
 }
 
 /* Desktop sidebar - always visible when not narrow */
-@media (min-width: 768px) {
+@media (min-width: 992px) {
   .sidebar {
     transform: translateX(0) !important;
     position: relative !important;
@@ -98,7 +98,7 @@ code {
 }
 
 /* Mobile overlay for sidebar */
-@media (max-width: 767.98px) {
+@media (max-width: 991.98px) {
   .sidebar {
     width: 280px !important;
   }
@@ -118,7 +118,7 @@ code {
 
 /* Main content wrapper */
 .main-content-wrapper {
-  transition: margin-left 0.3s ease !important;
+  min-width: 0;
 }
 
 /* Welcome message responsive behavior */
@@ -225,8 +225,8 @@ code {
 }
 
 .card-header {
-  background: var(--cui-light) !important;
-  color: var(--cui-body-color) !important;
+  background-color: #5856d6;
+  color: white !important;
   border-radius: 8px 8px 0 0 !important;
   border-bottom: 1px solid var(--card-border) !important;
   font-weight: 600 !important;

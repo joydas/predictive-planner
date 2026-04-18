@@ -389,9 +389,9 @@ const CreateProject = () => {
                 <div className="p-2 border rounded">
                   <strong>Hours:</strong> Include buffer time for unexpected challenges
                 </div>
-                <div className="p-2 border rounded">
+                {/* <div className="p-2 border rounded">
                   <strong>Description:</strong> Be specific about deliverables and constraints
-                </div>
+                </div> */}
               </div>
             </CCardBody>
           </CCard>

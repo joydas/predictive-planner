@@ -91,7 +91,7 @@ const Dashboard = () => {
       {
         label: 'Estimated Hours',
         data: projects.slice(0, 10).map((p) => p.estimated_hours || 0),
-        backgroundColor: 'rgba(44, 62, 80, 0.7)',
+        backgroundColor: 'rgba(21, 108, 194, 0.7)',
         borderColor: 'rgba(44, 62, 80, 1)',
         borderWidth: 1,
         borderRadius: 4,
@@ -99,7 +99,7 @@ const Dashboard = () => {
       {
         label: 'Predicted Hours',
         data: projects.slice(0, 10).map((p) => p.predicted_hours || 0),
-        backgroundColor: 'rgba(127, 140, 141, 0.7)',
+        backgroundColor: 'rgba(27, 191, 62, 0.7)',
         borderColor: 'rgba(127, 140, 141, 1)',
         borderWidth: 1,
         borderRadius: 4,
@@ -120,7 +120,7 @@ const Dashboard = () => {
       {
         data: Object.values(businessUnits),
         backgroundColor: [
-          '#2c3e50',
+          '#82cda2',
           '#34495e',
           '#7f8c8d',
           '#95a5a6',
@@ -326,7 +326,7 @@ const Dashboard = () => {
       <CRow className="mb-4 section-gap">
         <CCol lg={6} className="mb-4">
           <CCard className="border-0 shadow-sm">
-            <CCardHeader className="bg-white border-bottom">
+            <CCardHeader className="border-bottom">
               <strong>Estimated vs Predicted Hours (Top 10 Projects)</strong>
             </CCardHeader>
             <CCardBody>
@@ -343,7 +343,7 @@ const Dashboard = () => {
 
         <CCol lg={6} className="mb-4">
           <CCard className="border-0 shadow-sm">
-            <CCardHeader className="bg-white border-bottom">
+            <CCardHeader className="border-bottom">
               <strong>Business Unit Distribution</strong>
             </CCardHeader>
             <CCardBody>
@@ -366,7 +366,7 @@ const Dashboard = () => {
         <CRow className="section-gap">
           <CCol xs={12}>
             <CCard className="border-0 shadow-sm">
-              <CCardHeader className="bg-white border-bottom">
+              <CCardHeader className="border-bottom">
                 <strong>High Risk Projects ({highRiskProjects.length})</strong>
               </CCardHeader>
               <CCardBody>

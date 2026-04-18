@@ -9,23 +9,27 @@ import {
   CNavLink,
   CSidebar,
   CSidebarBrand,
+  CSidebarFooter,
   CSidebarHeader,
   CSidebarNav,
   CTooltip,
 } from '@coreui/react';
 import {
   cilAccountLogout,
+  cilChevronLeft,
+  cilChevronRight,
   cilFolderOpen,
   cilMenu,
   cilPlus,
   cilSpeedometer,
+  cilX,
 } from '@coreui/icons';
 import CIcon from '@coreui/icons-react';
 import authService from '../services/authService';
 
 const SIDEBAR_EXPANDED_WIDTH = 220;
 const SIDEBAR_COLLAPSED_WIDTH = 70;
-const DESKTOP_BREAKPOINT = 768;
+const DESKTOP_BREAKPOINT = 992;
 const SIDEBAR_STORAGE_KEY = 'layout.sidebarCollapsed';
 
 const navigationItems = [
@@ -62,9 +66,13 @@ const DefaultLayout = () => {
   const [mobileSidebarVisible, setMobileSidebarVisible] = useState(false);
 
   const currentUser = authService.getCurrentUser();
+  const isSidebarCollapsed = isDesktop && collapsed;
   const sidebarWidth = collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_EXPANDED_WIDTH;
-  const sidebarClassName = `app-sidebar border-end${collapsed ? ' collapsed' : ''}`;
+  const sidebarClassName = `app-sidebar border-end${isSidebarCollapsed ? ' collapsed' : ''}`;
   const layoutClassName = `app-layout ${isDesktop ? 'is-desktop' : 'is-mobile'}`;
+  const layoutStyle = {
+    '--app-sidebar-width': `${isDesktop ? sidebarWidth : SIDEBAR_EXPANDED_WIDTH}px`,
+  };
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
@@ -146,59 +154,109 @@ const DefaultLayout = () => {
       : 'Open sidebar';
 
   return (
-    <div
-      className={layoutClassName}
-      style={{ '--app-sidebar-offset': isDesktop ? `${sidebarWidth}px` : '0px' }}
-    >
+    <div className={layoutClassName} style={layoutStyle}>
       <CSidebar
         className={sidebarClassName}
         colorScheme="dark"
         overlaid={!isDesktop}
         placement="start"
-        position="fixed"
+        position={!isDesktop ? 'fixed' : undefined}
         unfoldable={false}
         visible={!isDesktop ? mobileSidebarVisible : undefined}
         onHide={handleSidebarHide}
       >
-        <CSidebarHeader className="border-bottom">
+        <CSidebarHeader className="app-sidebar-header border-bottom">
           <CSidebarBrand className="app-sidebar-brand">
             <span className="app-sidebar-brand-mark" aria-hidden="true">
               PP
             </span>
-            <span className="app-sidebar-brand-text">Planner</span>
+            <span aria-hidden={isSidebarCollapsed} className="app-sidebar-brand-text">
+              Planner
+            </span>
           </CSidebarBrand>
+          {!isDesktop && (
+            <CTooltip content={toggleLabel} placement="right">
+              <CButton
+                aria-label={toggleLabel}
+                aria-expanded={mobileSidebarVisible}
+                className="app-sidebar-close-btn"
+                color="light"
+                size="sm"
+                variant="ghost"
+                onClick={handleSidebarToggle}
+              >
+                <CIcon icon={cilX} size="sm" />
+              </CButton>
+            </CTooltip>
+          )}
         </CSidebarHeader>
 
         <CSidebarNav>
           {navigationItems.map(({ icon, label, to }) => (
             <CNavItem key={to}>
-              <CNavLink as={NavLink} className="app-sidebar-link" to={to}>
-                <CIcon className="nav-icon app-sidebar-icon" icon={icon} />
-                <span className="app-sidebar-label">{label}</span>
-              </CNavLink>
+              <CTooltip content={isSidebarCollapsed ? label : ''} placement="right">
+                <CNavLink
+                  as={NavLink}
+                  aria-label={isSidebarCollapsed ? label : undefined}
+                  className="app-sidebar-link"
+                  to={to}
+                >
+                  <CIcon className="nav-icon app-sidebar-icon" icon={icon} />
+                  <span aria-hidden={isSidebarCollapsed} className="app-sidebar-label">
+                    {label}
+                  </span>
+                </CNavLink>
+              </CTooltip>
             </CNavItem>
           ))}
         </CSidebarNav>
+
+        {isDesktop && (
+          <CSidebarFooter className="app-sidebar-footer border-top">
+            <CTooltip content={toggleLabel} placement={isSidebarCollapsed ? 'right' : 'top'}>
+              <CButton
+                aria-label={toggleLabel}
+                aria-expanded={!collapsed}
+                className="app-sidebar-footer-toggle"
+                color="light"
+                size="sm"
+                variant="ghost"
+                onClick={handleSidebarToggle}
+              >
+                <CIcon icon={isSidebarCollapsed ? cilChevronRight : cilChevronLeft} size="sm" />
+                <span
+                  aria-hidden={isSidebarCollapsed}
+                  className="app-sidebar-footer-toggle-label"
+                >
+                  {isSidebarCollapsed ? 'Expand' : 'Collapse'}
+                </span>
+              </CButton>
+            </CTooltip>
+          </CSidebarFooter>
+        )}
       </CSidebar>
 
       <div className="main-content-wrapper d-flex flex-column min-vh-100">
         <CHeader className="border-bottom sticky-top">
           <CContainer fluid>
             <CHeaderNav className="d-flex align-items-center me-auto">
-              <CNavItem>
-                <CTooltip content={toggleLabel}>
-                  <CButton
-                    aria-label={toggleLabel}
-                    className="sidebar-toggle-btn"
-                    color="light"
-                    size="sm"
-                    variant="ghost"
-                    onClick={handleSidebarToggle}
-                  >
-                    <CIcon icon={cilMenu} size="sm" />
-                  </CButton>
-                </CTooltip>
-              </CNavItem>
+              {!isDesktop && (
+                <CNavItem>
+                  <CTooltip content={toggleLabel}>
+                    <CButton
+                      aria-label={toggleLabel}
+                      aria-expanded={mobileSidebarVisible}
+                      className="sidebar-toggle-btn"
+                      color="light"
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleSidebarToggle}
+                    >
+                      <CIcon icon={cilMenu} size="sm" />
+                    </CButton>
+                  </CTooltip>
+                </CNavItem>
+              )}
 
               <CNavItem className="welcome-message-item ms-2">
                 <CNavLink className="welcome-message">
