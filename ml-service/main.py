@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import joblib
 import numpy as np
 from timeseries import predict_final_effort
+import uvicorn
 
 app = FastAPI()
 
@@ -68,3 +69,7 @@ def predict(data: dict):
 def predict_delay(data: dict):
     result = predict_final_effort(data["progress"])
     return {"predicted_final_effort": result}
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
