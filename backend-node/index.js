@@ -8,24 +8,65 @@ app.use(express.json());
 app.use(cors());
 app.use(express.static("public"));
 
-// DB connection
-const db = mysql.createConnection({
+// DB connection pool
+const db = mysql.createPool({
   host: "localhost",
   user: "root",
   password: "", // change if needed
-  database: "predictive_planner"
+  database: "predictive_planner",
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
 });
 
-db.connect(err => {
-  if (err) {
-    console.error("DB connection failed:", err);
-  } else {
-    console.log("Connected to MySQL");
+let dbConnected = false;
+
+const sampleProjects = [
+  {
+    id: 1,
+    name: "Sample Project A",
+    business_unit: "Operations",
+    predicted_hours: 120
+  },
+  {
+    id: 2,
+    name: "Sample Project B",
+    business_unit: "Technology",
+    predicted_hours: 210
   }
+];
+
+const tryDbConnect = async () => {
+  if (dbConnected) {
+    return true;
+  }
+
+  try {
+    const connection = await db.promise().getConnection();
+    connection.release();
+    dbConnected = true;
+    console.log("Connected to MySQL");
+    return true;
+  } catch (err) {
+    dbConnected = false;
+    console.error("DB connection failed:", err.message || err);
+    return false;
+  }
+};
+
+tryDbConnect();
+
+app.use(async (req, res, next) => {
+  if (!dbConnected) {
+    await tryDbConnect();
+  }
+  next();
 });
 
 // test route
 app.get("/", (req, res) => {
+  tryDbConnect();
+  console.log("DB Connected:", dbConnected);
   res.send("Backend is running 🚀");
 });
 
@@ -71,6 +112,8 @@ app.post("/projects", async (req, res) => {
     avg_experience,
     technology_score
     } = req.body;
+
+    
 
     // Step 1: Call ML API
     const mlResponse = await axios.post("http://127.0.0.1:8000/predict", {
@@ -126,10 +169,18 @@ app.post("/projects", async (req, res) => {
 
 //GET LIST OF PROJECTS
 app.get("/projects", (req, res) => {
+  if (!dbConnected) {
+    console.warn("DB unavailable - returning sample project data");
+    return res.json(sampleProjects);
+  }
+
   const query = "SELECT *,(predicted_hours - estimated_hours) AS variance FROM projects";
 
   db.query(query, (err, results) => {
-    if (err) return res.status(500).send(err);
+    if (err) {
+      console.error("Project query failed:", err);
+      return res.status(500).send(err);
+    }
 
     res.json(results);
   });
@@ -236,7 +287,7 @@ app.get("/project-delay/:id", async (req, res) => {
   });
 });
 
-//GET TEAM RECOMMENDATION
+// GET TEAM RECOMMENDATION
 app.get("/recommend-team/:projectId", (req, res) => {
   const projectId = req.params.projectId;
 
@@ -244,43 +295,69 @@ app.get("/recommend-team/:projectId", (req, res) => {
   const projectQuery = "SELECT * FROM projects WHERE id = ?";
 
   db.query(projectQuery, [projectId], (err, projectRes) => {
+    
     if (err) return res.status(500).send(err);
 
     const project = projectRes[0];
 
-    // Step 2: Get resources
+    // Step 2: Get all resources
     const resourceQuery = "SELECT * FROM resources";
 
     db.query(resourceQuery, (err, resources) => {
       if (err) return res.status(500).send(err);
 
-      // Step 3: Filter relevant skills
-      const relevant = resources.filter(r =>
-        r.skill.toLowerCase().includes(project.technology.toLowerCase()) ||
-        r.skill.toLowerCase().includes("testing") ||
-        r.skill.toLowerCase().includes("devops")
-      );
+        //res.json({"debug": project.predicted_hours});
 
-      // Step 4: Sort by experience + availability
-      relevant.sort((a, b) =>
-        (b.experience_years + b.availability/100) -
-        (a.experience_years + a.availability/100)
-      );
+      // Step 3: Define required roles
+      const requiredRoles = {
+        Developer: Math.ceil(project.predicted_hours / 160),
+        QA: 1,
+        BA: 1,
+        PM: 1,
+        UX: project.complexity > 3 ? 1 : 0,
+        UI: project.complexity > 3 ? 1 : 0
+      };
 
-      // Step 5: Pick top resources based on effort
-      const teamSize = Math.ceil(project.predicted_hours / 150); // 150 is productive hrs per month per resource
+      const team = [];
 
-      const team = relevant.slice(0, teamSize);
+      // Step 4: Allocate resources role-wise
+      Object.keys(requiredRoles).forEach(role => {
+        let candidates = resources.filter(r => r.role === role);
+
+        // Developers must match project technology
+        if (role === "Developer") {
+          candidates = candidates.filter(
+            r => r.technology && r.technology.toLowerCase() === project.technology.toLowerCase()
+          );
+        }
+
+        // Sort by experience + availability
+        candidates.sort((a, b) =>
+          (b.experience_years + b.availability / 100) -
+          (a.experience_years + a.availability / 100)
+        );
+
+        // Pick required number
+        const selected = candidates.slice(0, requiredRoles[role]);
+
+        team.push(...selected);
+      });
+
+      // Step 5: Calculate total team size
+      const totalTeamSize = team.length;
 
       res.json({
         project: project.name,
-        recommended_team_size: teamSize,
+        technology: project.technology,
+        predicted_hours: project.predicted_hours,
+        team_composition: requiredRoles,
+        recommended_team_size: totalTeamSize,
         team
       });
     });
   });
 });
 
-app.listen(3000, () => {
-  console.log("Server running on port 3000");
+app.listen(3001, () => {
+  console.log("Server running on port 3001");
 });
