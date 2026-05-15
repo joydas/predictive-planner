@@ -1,36 +1,104 @@
-import React, { useState } from 'react';
-import { CCard, CCardBody, CCardHeader, CCol, CRow, CForm, CFormInput, CFormTextarea, CButton, CAlert, CFormFeedback, CSpinner } from '@coreui/react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  CAlert,
+  CBadge,
+  CButton,
+  CCard,
+  CCardBody,
+  CCardHeader,
+  CCol,
+  CForm,
+  CFormFeedback,
+  CFormInput,
+  CFormSelect,
+  CFormTextarea,
+  CRow,
+  CSpinner,
+} from '@coreui/react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import WorkflowPanel from '../components/WorkflowPanel';
 import authService from '../services/authService';
-import { NODE_API_URL } from '../config';
+import {
+  createChangeRequest,
+  getChangeRequest,
+  getProjectChangeRequests,
+  transitionChangeRequest,
+} from '../services/crService';
+
+const statusColors = {
+  DRAFT: 'secondary',
+  SUBMITTED: 'info',
+  RETURNED: 'warning',
+  APPROVED: 'success',
+  REJECTED: 'danger',
+};
+
+const valueOrDash = (value) => (value === null || value === undefined || value === '' ? '-' : value);
 
 const ChangeRequest = () => {
   const { projectId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
     description: '',
-    impactHours: ''
+    impactHours: '',
+    category: '',
+    severity: '',
+    comment: '',
   });
-
   const [showSuccess, setShowSuccess] = useState(false);
   const [newPrediction, setNewPrediction] = useState(null);
   const [apiMessage, setApiMessage] = useState('');
   const [submitError, setSubmitError] = useState('');
   const [formErrors, setFormErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [changeRequests, setChangeRequests] = useState([]);
+  const [selectedCr, setSelectedCr] = useState(null);
+  const [workflowHistory, setWorkflowHistory] = useState([]);
+  const [workflowLoading, setWorkflowLoading] = useState(false);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
+  const loadChangeRequests = useCallback(async () => {
+    try {
+      const data = await getProjectChangeRequests(projectId);
+      setChangeRequests(data.changeRequests || []);
+    } catch (error) {
+      setSubmitError(error.message || 'Failed to load change requests');
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    loadChangeRequests();
+  }, [loadChangeRequests]);
+
+  useEffect(() => {
+    const crId = searchParams.get('crId');
+    if (crId) {
+      loadCrDetails(crId);
+    }
+  }, [searchParams]);
+
+  const loadCrDetails = async (crId) => {
+    try {
+      const data = await getChangeRequest(crId);
+      setSelectedCr(data.changeRequest);
+      setWorkflowHistory(data.workflowHistory || []);
+      setSubmitError('');
+    } catch (error) {
+      setSubmitError(error.message || 'Failed to load change request');
+    }
+  };
+
+  const handleInputChange = (event) => {
+    const { name, value } = event.target;
+    setFormData((current) => ({
+      ...current,
+      [name]: value,
     }));
-    // Clear field-specific error when user starts typing
     if (formErrors[name]) {
-      setFormErrors(prev => ({
-        ...prev,
-        [name]: ''
+      setFormErrors((current) => ({
+        ...current,
+        [name]: '',
       }));
     }
   };
@@ -50,13 +118,20 @@ const ChangeRequest = () => {
       errors.impactHours = 'Impact hours must be between -1000 and 1000';
     }
 
+    if (!formData.comment.trim()) {
+      errors.comment = 'PM submit comment is required';
+    }
+
     return errors;
   };
 
   const resetForm = () => {
     setFormData({
       description: '',
-      impactHours: ''
+      impactHours: '',
+      category: '',
+      severity: '',
+      comment: '',
     });
     setFormErrors({});
     setApiMessage('');
@@ -65,8 +140,8 @@ const ChangeRequest = () => {
     setShowSuccess(false);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setSubmitError('');
 
     const errors = validateForm();
@@ -76,38 +151,23 @@ const ChangeRequest = () => {
     }
 
     setLoading(true);
-
     try {
-      const currentUser = authService.getCurrentUser();
-      if (!currentUser) {
-        setSubmitError('Authentication required. Please login again.');
-        setLoading(false);
-        return;
-      }
-
-      const response = await fetch(`${NODE_API_URL}/change-request`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authService.getAuthHeader()
-        },
-        body: JSON.stringify({
-          project_id: Number(projectId),
-          description: formData.description.trim(),
-          impact_hours: Number(formData.impactHours),
-          created_by: currentUser.id
-        })
+      const data = await createChangeRequest({
+        project_id: Number(projectId),
+        description: formData.description.trim(),
+        impact_hours: Number(formData.impactHours),
+        category: formData.category,
+        severity: formData.severity,
+        comment: formData.comment.trim(),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to create change request');
-      }
 
       setNewPrediction(data.new_prediction ?? null);
       setApiMessage(data.message || 'Change request created successfully');
       setShowSuccess(true);
+      await loadChangeRequests();
+      if (data.crId) {
+        await loadCrDetails(data.crId);
+      }
     } catch (error) {
       setSubmitError(error.message || 'Submission failed. Please try again.');
       setShowSuccess(false);
@@ -115,6 +175,33 @@ const ChangeRequest = () => {
       setLoading(false);
     }
   };
+
+  const handleWorkflowAction = async (action, comment) => {
+    if (!selectedCr) return;
+    setWorkflowLoading(true);
+    try {
+      const result = await transitionChangeRequest(selectedCr.crId, action, comment);
+      setWorkflowHistory(result.workflowHistory || []);
+      setSelectedCr((current) => ({
+        ...current,
+        workflowStatus: result.transition.toStatus,
+        status: result.transition.toStatus,
+        latestComment: result.transition.latestComment,
+      }));
+      await loadChangeRequests();
+      setSubmitError('');
+    } catch (error) {
+      setSubmitError(error.message || 'Workflow transition failed');
+    } finally {
+      setWorkflowLoading(false);
+    }
+  };
+
+  const role = authService.getUserRole();
+  const normalizedRole = String(role || '').toUpperCase();
+  const selectedStatus = String(selectedCr?.workflowStatus || selectedCr?.status || '').toUpperCase();
+  const isAccountManager = normalizedRole === 'ACCOUNT_MANAGER';
+  const showCreateForm = !selectedCr && !isAccountManager;
 
   return (
     <div className="fade-in">
@@ -124,21 +211,12 @@ const ChangeRequest = () => {
             <CButton
               color="secondary"
               variant="outline"
-              onClick={() => navigate('/projects')}
+              onClick={() => navigate(selectedCr ? '/crs' : '/projects')}
               className="me-3 smaller-button"
             >
-              ← Back to Projects
+              {selectedCr ? 'Back to CRs' : 'Back to Projects'}
             </CButton>
-            <h1 className="page-title" style={{
-              background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              fontWeight: '700',
-              margin: 0
-            }}>
-              Change Request
-            </h1>
+            <h1 className="page-title mb-0">{selectedCr ? `Change Request #${selectedCr.crId}` : 'Change Request'}</h1>
           </div>
           <p className="text-muted">Project ID: {projectId}</p>
         </CCol>
@@ -148,7 +226,7 @@ const ChangeRequest = () => {
         <CRow className="mb-4">
           <CCol xs={12}>
             {showSuccess && (
-              <CAlert color="success" dismissible>
+              <CAlert color="success">
                 <strong>{apiMessage}</strong>
                 {newPrediction !== null && (
                   <div className="mt-2">
@@ -158,7 +236,7 @@ const ChangeRequest = () => {
               </CAlert>
             )}
             {submitError && (
-              <CAlert color="danger" dismissible>
+              <CAlert color="danger">
                 <strong>Error:</strong> {submitError}
               </CAlert>
             )}
@@ -168,132 +246,213 @@ const ChangeRequest = () => {
 
       <CRow>
         <CCol lg={8}>
-          <CCard>
-            <CCardHeader>
-              <strong>Create Change Request</strong>
-            </CCardHeader>
-            <CCardBody>
-              <CForm onSubmit={handleSubmit}>
-                <div className="mb-4">
-                  <label htmlFor="description" className="form-label">
-                    Description <span style={{ color: '#f5576c' }}>*</span>
-                  </label>
-                  <CFormTextarea
-                    id="description"
-                    name="description"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    rows={4}
-                    placeholder="Describe the change request in detail..."
-                    invalid={!!formErrors.description}
-                    disabled={loading}
-                  />
-                  {formErrors.description && (
-                    <CFormFeedback invalid className="d-block">
-                      {formErrors.description}
-                    </CFormFeedback>
-                  )}
-                </div>
+          {selectedCr && (
+            <CCard className="mb-4">
+              <CCardHeader className="d-flex justify-content-between align-items-center">
+                <strong>Change Request Details</strong>
+                <CBadge color={statusColors[selectedStatus] || 'secondary'}>{selectedStatus || 'DRAFT'}</CBadge>
+              </CCardHeader>
+              <CCardBody>
+                <CRow className="g-3">
+                  <CCol md={6}>
+                    <div className="text-muted small">CR Category</div>
+                    <div className="fw-semibold">{valueOrDash(selectedCr.category)}</div>
+                  </CCol>
+                  <CCol md={6}>
+                    <div className="text-muted small">Severity</div>
+                    <div className="fw-semibold">{valueOrDash(selectedCr.severity)}</div>
+                  </CCol>
+                  <CCol md={6}>
+                    <div className="text-muted small">Impact Hours</div>
+                    <div className="fw-semibold">{valueOrDash(selectedCr.impactHours)}</div>
+                  </CCol>
+                  <CCol md={6}>
+                    <div className="text-muted small">Latest Reviewer Comment</div>
+                    <div className="fw-semibold">{valueOrDash(selectedCr.latestComment)}</div>
+                  </CCol>
+                  <CCol xs={12}>
+                    <div className="text-muted small">Description</div>
+                    <div className="fw-semibold">{valueOrDash(selectedCr.description)}</div>
+                  </CCol>
+                </CRow>
 
-                <div className="mb-4">
-                  <label htmlFor="impactHours" className="form-label">
-                    Impact Hours <span style={{ color: '#f5576c' }}>*</span>
-                  </label>
-                  <CFormInput
-                    type="number"
-                    id="impactHours"
-                    name="impactHours"
-                    value={formData.impactHours}
-                    onChange={handleInputChange}
-                    placeholder="Estimated impact on project timeline (can be negative)"
-                    invalid={!!formErrors.impactHours}
-                    disabled={loading}
-                    step="1"
-                  />
-                  {formErrors.impactHours && (
-                    <CFormFeedback invalid className="d-block">
-                      {formErrors.impactHours}
-                    </CFormFeedback>
-                  )}
-                  <small className="text-muted">
-                    Positive values increase estimated time, negative values decrease it
-                  </small>
-                </div>
+                {normalizedRole === 'PM' && ['RETURNED', 'REJECTED', 'DRAFT'].includes(selectedStatus) && (
+                  <CAlert color="warning" className="mt-4 mb-0">
+                    Use the workflow panel to add your response comment and resubmit this change request.
+                  </CAlert>
+                )}
+              </CCardBody>
+            </CCard>
+          )}
 
-                <div className="d-flex gap-3">
-                  <CButton type="submit" color="primary" size="md" className="smaller-button" disabled={loading}>
-                    {loading ? (
-                      <>
-                        <CSpinner component="span" size="sm" className="me-2" aria-hidden="true" />
-                        Creating...
-                      </>
-                    ) : (
-                      <>
-                        <span style={{ marginRight: '0.5rem' }}>📝</span>
-                        Create Change Request
-                      </>
+          {showCreateForm && (
+            <CCard className="mb-4">
+              <CCardHeader>
+                <strong>Create Change Request</strong>
+              </CCardHeader>
+              <CCardBody>
+                <CForm onSubmit={handleSubmit}>
+                  <div className="mb-4">
+                    <label htmlFor="description" className="form-label">
+                      Description <span style={{ color: '#f5576c' }}>*</span>
+                    </label>
+                    <CFormTextarea
+                      id="description"
+                      name="description"
+                      value={formData.description}
+                      onChange={handleInputChange}
+                      rows={4}
+                      placeholder="Describe the change request in detail..."
+                      invalid={!!formErrors.description}
+                      disabled={loading}
+                    />
+                    {formErrors.description && (
+                      <CFormFeedback invalid className="d-block">
+                        {formErrors.description}
+                      </CFormFeedback>
                     )}
-                  </CButton>
-                  <CButton type="button" color="secondary" variant="outline" size="md" className="smaller-button" onClick={resetForm} disabled={loading}>
-                    <span style={{ marginRight: '0.5rem' }}>🔄</span>
-                    Reset Form
-                  </CButton>
-                </div>
-              </CForm>
-            </CCardBody>
-          </CCard>
+                  </div>
+
+                  <div className="mb-4">
+                    <label htmlFor="impactHours" className="form-label">
+                      Impact Hours <span style={{ color: '#f5576c' }}>*</span>
+                    </label>
+                    <CFormInput
+                      type="number"
+                      id="impactHours"
+                      name="impactHours"
+                      value={formData.impactHours}
+                      onChange={handleInputChange}
+                      placeholder="Estimated impact on project timeline"
+                      invalid={!!formErrors.impactHours}
+                      disabled={loading}
+                      step="1"
+                    />
+                    {formErrors.impactHours && (
+                      <CFormFeedback invalid className="d-block">
+                        {formErrors.impactHours}
+                      </CFormFeedback>
+                    )}
+                    <small className="text-muted">
+                      Positive values increase estimated time, negative values decrease it.
+                    </small>
+                  </div>
+
+                  <div className="mb-4">
+                    <label htmlFor="category" className="form-label">
+                      CR Category
+                    </label>
+                    <CFormSelect
+                      id="category"
+                      name="category"
+                      value={formData.category}
+                      onChange={handleInputChange}
+                      disabled={loading}
+                    >
+                      <option value="">Select category</option>
+                      <option value="Scope">Scope</option>
+                      <option value="Schedule">Schedule</option>
+                      <option value="Cost">Cost</option>
+                      <option value="Quality">Quality</option>
+                      <option value="Risk">Risk</option>
+                    </CFormSelect>
+                  </div>
+
+                  <div className="mb-4">
+                    <label htmlFor="severity" className="form-label">
+                      Severity
+                    </label>
+                    <CFormSelect
+                      id="severity"
+                      name="severity"
+                      value={formData.severity}
+                      onChange={handleInputChange}
+                      disabled={loading}
+                    >
+                      <option value="">Select severity</option>
+                      <option value="Low">Low</option>
+                      <option value="Medium">Medium</option>
+                      <option value="High">High</option>
+                      <option value="Critical">Critical</option>
+                    </CFormSelect>
+                  </div>
+
+                  <div className="mb-4">
+                    <label htmlFor="comment" className="form-label">
+                      PM submit comment <span style={{ color: '#f5576c' }}>*</span>
+                    </label>
+                    <CFormTextarea
+                      id="comment"
+                      name="comment"
+                      value={formData.comment}
+                      onChange={handleInputChange}
+                      rows={3}
+                      placeholder="Add context for Account Manager review"
+                      invalid={!!formErrors.comment}
+                      disabled={loading}
+                    />
+                    {formErrors.comment && (
+                      <CFormFeedback invalid className="d-block">
+                        {formErrors.comment}
+                      </CFormFeedback>
+                    )}
+                  </div>
+
+                  <div className="d-flex gap-3">
+                    <CButton type="submit" color="primary" size="md" className="smaller-button" disabled={loading}>
+                      {loading ? (
+                        <>
+                          <CSpinner component="span" size="sm" className="me-2" aria-hidden="true" />
+                          Creating...
+                        </>
+                      ) : (
+                        'Create and Submit'
+                      )}
+                    </CButton>
+                    <CButton type="button" color="secondary" variant="outline" size="md" className="smaller-button" onClick={resetForm} disabled={loading}>
+                      Reset Form
+                    </CButton>
+                  </div>
+                </CForm>
+              </CCardBody>
+            </CCard>
+          )}
         </CCol>
 
         <CCol lg={4}>
+          {selectedCr && (
+            <WorkflowPanel
+              status={selectedCr.workflowStatus}
+              history={workflowHistory}
+              onAction={handleWorkflowAction}
+              loading={workflowLoading}
+              title={`CR #${selectedCr.crId} Workflow`}
+            />
+          )}
+
           <CCard className="mb-4">
             <CCardHeader>
-              <strong>Change Request Info</strong>
+              <strong>Project Change Requests</strong>
             </CCardHeader>
             <CCardBody>
-              <div className="text-center">
-                <div style={{
-                  fontSize: '2.5rem',
-                  marginBottom: '1rem',
-                  background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text'
-                }}>
-                  📝
+              {changeRequests.length === 0 ? (
+                <p className="text-muted mb-0">No change requests yet.</p>
+              ) : (
+                <div className="d-grid gap-2">
+                  {changeRequests.map((cr) => (
+                    <CButton
+                      key={cr.crId}
+                      color={selectedCr?.crId === cr.crId ? 'primary' : 'secondary'}
+                      variant={selectedCr?.crId === cr.crId ? undefined : 'outline'}
+                      size="sm"
+                      className="text-start"
+                      onClick={() => loadCrDetails(cr.crId)}
+                    >
+                      #{cr.crId} {cr.workflowStatus} - {cr.description.slice(0, 40)}
+                    </CButton>
+                  ))}
                 </div>
-                <h5>Change Request Process</h5>
-                <p className="text-muted small">
-                  Submit change requests to update project predictions based on new requirements or scope changes.
-                </p>
-                <div className="mt-3 p-3 bg-light rounded">
-                  <strong>What happens next:</strong>
-                  <ul className="text-start mt-2 mb-0 small">
-                    <li>✅ Change request is recorded</li>
-                    <li>🤖 AI recalculates predictions</li>
-                    <li>📊 Updated timeline shown</li>
-                    <li>📧 Stakeholders notified</li>
-                  </ul>
-                </div>
-              </div>
-            </CCardBody>
-          </CCard>
-
-          <CCard>
-            <CCardHeader>
-              <strong>Guidelines</strong>
-            </CCardHeader>
-            <CCardBody>
-              <div className="d-grid gap-2">
-                <div className="p-2 border rounded">
-                  <strong>Description:</strong> Be specific about what changes are needed
-                </div>
-                <div className="p-2 border rounded">
-                  <strong>Impact Hours:</strong> Estimate the time impact (positive or negative)
-                </div>
-                <div className="p-2 border rounded">
-                  <strong>Review:</strong> Changes will be reviewed by project managers
-                </div>
-              </div>
+              )}
             </CCardBody>
           </CCard>
         </CCol>

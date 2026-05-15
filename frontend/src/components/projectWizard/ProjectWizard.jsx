@@ -28,7 +28,7 @@ const steps = [
   { key: 'review', label: 'Review & Submit' },
 ];
 
-const ProjectWizard = ({ loading }) => {
+const ProjectWizard = ({ loading, mode = 'create' }) => {
   const {
     state,
     setCurrentStep,
@@ -42,6 +42,7 @@ const ProjectWizard = ({ loading }) => {
   const [savingDraft, setSavingDraft] = useState(false);
   const [submissionMessage, setSubmissionMessage] = useState('');
   const [submissionError, setSubmissionError] = useState('');
+  const [submitComment, setSubmitComment] = useState('');
 
   const stepComponents = useMemo(
     () => [
@@ -59,9 +60,12 @@ const ProjectWizard = ({ loading }) => {
       <ReviewSubmitStep
         state={state}
         onEdit={(step) => setCurrentStep(step)}
+        submitComment={submitComment}
+        onSubmitCommentChange={setSubmitComment}
+        commentError={stepErrors.submitComment}
       />,
     ],
-    [state, stepErrors, updateSection, setTeamRows, setCurrentStep]
+    [state, stepErrors, updateSection, setTeamRows, setCurrentStep, submitComment]
   );
 
   const draftPayload = useMemo(
@@ -136,7 +140,7 @@ const ProjectWizard = ({ loading }) => {
         setDraftId(result.draftId);
       }
       setDraftSaved(true);
-      setSubmissionMessage('Draft saved successfully.');
+      setSubmissionMessage(mode === 'edit' ? 'Changes saved successfully.' : 'Draft saved successfully.');
       setSubmissionError('');
     } catch (error) {
       setSubmissionError(error.message || 'Unable to save draft');
@@ -169,6 +173,9 @@ const ProjectWizard = ({ loading }) => {
 
   const handleSubmit = async () => {
     const errors = validateStep();
+    if (!submitComment.trim()) {
+      errors.submitComment = 'PM submit comment is required';
+    }
     if (Object.keys(errors).length > 0) {
       setStepErrors(errors);
       return;
@@ -181,9 +188,10 @@ const ProjectWizard = ({ loading }) => {
       const payload = {
         draftId: state.draftId,
         projectData: draftPayload,
+        comment: submitComment.trim(),
       };
       await submitProject(payload);
-      setSubmissionMessage('Project submitted successfully.');
+      setSubmissionMessage(mode === 'edit' ? 'Project resubmitted successfully.' : 'Project submitted successfully.');
       setSubmissionError('');
     } catch (error) {
       setSubmissionError(error.message || 'Unable to submit project');
@@ -229,7 +237,7 @@ const ProjectWizard = ({ loading }) => {
           </CButton>
           <div className="wizard-action-group">
             <CButton color="outline" onClick={saveDraftData} disabled={savingDraft}>
-              {savingDraft ? 'Saving...' : 'Save Draft'}
+              {savingDraft ? 'Saving...' : mode === 'edit' ? 'Save Changes' : 'Save Draft'}
             </CButton>
             {currentStep < steps.length - 1 ? (
               <CButton color="primary" onClick={handleNext}>
@@ -237,7 +245,7 @@ const ProjectWizard = ({ loading }) => {
               </CButton>
             ) : (
               <CButton color="success" onClick={handleSubmit} disabled={savingDraft}>
-                {savingDraft ? 'Submitting...' : 'Submit Project'}
+                {savingDraft ? 'Submitting...' : mode === 'edit' ? 'Resubmit Project' : 'Submit Project'}
               </CButton>
             )}
           </div>

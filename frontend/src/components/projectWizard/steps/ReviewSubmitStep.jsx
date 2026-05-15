@@ -1,5 +1,5 @@
 import React from 'react';
-import { CRow, CCol, CTable, CTableBody, CTableDataCell, CTableRow, CButton } from '@coreui/react';
+import { CRow, CCol, CTable, CTableBody, CTableDataCell, CTableRow, CButton, CFormFeedback, CFormTextarea } from '@coreui/react';
 
 const sectionSummary = [
   { key: 'basicInfo', label: 'Basic Information' },
@@ -10,7 +10,7 @@ const sectionSummary = [
   { key: 'risks', label: 'Risks & Dependencies' },
 ];
 
-const ReviewSubmitStep = ({ state, onEdit }) => {
+const ReviewSubmitStep = ({ state, onEdit, submitComment, onSubmitCommentChange, commentError }) => {
   const getStatus = (section) => {
     const value = state[section];
     if (!value) return 'Missing';
@@ -104,6 +104,25 @@ const ReviewSubmitStep = ({ state, onEdit }) => {
             <p><strong>Stability index:</strong> {state.risks.requirement_stability_index || '—'}</p>
           </CCol>
         </CRow>
+      </div>
+
+      <div className="mt-4">
+        <label htmlFor="pmSubmitComment" className="form-label">
+          PM submit comment <span style={{ color: '#f5576c' }}>*</span>
+        </label>
+        <CFormTextarea
+          id="pmSubmitComment"
+          rows={4}
+          value={submitComment}
+          onChange={(event) => onSubmitCommentChange(event.target.value)}
+          placeholder="Add context for Account Manager review"
+          invalid={!!commentError}
+        />
+        {commentError && (
+          <CFormFeedback invalid className="d-block">
+            {commentError}
+          </CFormFeedback>
+        )}
       </div>
     </div>
   );

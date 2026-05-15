@@ -144,7 +144,7 @@ CREATE TABLE projects (
         FOREIGN KEY (created_by) REFERENCES users(id)
 );
 
-CREATE TABLE change_requests (
+CREATE TABLE change_request (
     id INT AUTO_INCREMENT PRIMARY KEY,
     project_id INT NOT NULL,
     description TEXT NOT NULL,

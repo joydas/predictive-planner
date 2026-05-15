@@ -1,5 +1,8 @@
 const axios = require('axios');
+const { pool } = require('../config/db.config');
 const projectRepository = require('../repositories/project.repository');
+const projectPublishingService = require('./projectPublishing.service');
+const workflowService = require('../workflow/workflow.service');
 
 const ML_API_URL = process.env.ML_API_URL || 'http://127.0.0.1:8000';
 
@@ -104,6 +107,13 @@ async function createDraft(ownerId, draftData) {
 }
 
 async function updateDraft(draftId, ownerId, draftData) {
+  const draft = await projectRepository.getDraftById(draftId, ownerId);
+  const status = String(draft?.workflowStatus || draft?.status || '').toUpperCase();
+  if (draft && !['DRAFT', 'RETURNED'].includes(status)) {
+    const error = new Error('Only draft or returned projects can be edited');
+    error.status = 400;
+    throw error;
+  }
   return projectRepository.updateDraft(draftId, ownerId, draftData);
 }
 
@@ -115,11 +125,28 @@ async function listProjects() {
   return projectRepository.findProjects();
 }
 
+async function listProjectsForPm(user, query) {
+  return projectRepository.findProjectsForPm({
+    userId: user.userId,
+    role: user.role,
+    page: query.page,
+    pageSize: query.pageSize,
+    search: String(query.search || '').trim(),
+    status: String(query.status || '').trim().toUpperCase(),
+    industry: String(query.industry || '').trim(),
+    deliveryModel: String(query.deliveryModel || query.delivery_model || '').trim(),
+    createdFrom: String(query.createdFrom || query.created_from || '').trim(),
+    createdTo: String(query.createdTo || query.created_to || '').trim(),
+    sortBy: query.sortBy,
+    sortOrder: query.sortOrder,
+  });
+}
+
 async function createProject(ownerId, projectPayload) {
   return submitProject(ownerId, projectPayload, null);
 }
 
-async function submitProject(ownerId, projectData, draftId = null) {
+async function submitProject(ownerId, projectData, draftId = null, comment = '') {
   const payload = normalizeProjectPayload(projectData);
   const technologyScore = normalizeNumber(payload.technology.integration_count, 0);
   const avgExperience = calculateAverageExperience(payload.teamComposition.rows);
@@ -147,12 +174,25 @@ async function submitProject(ownerId, projectData, draftId = null) {
 
   let projectId;
   if (draftId) {
-    await projectRepository.updateDraft(draftId, ownerId, finalPayload, 'SUBMITTED');
+    const updated = await projectRepository.updateDraft(draftId, ownerId, finalPayload, 'DRAFT');
+    if (!updated) {
+      const error = new Error('Draft not found, not owned by user, or already approved');
+      error.status = 404;
+      throw error;
+    }
     projectId = draftId;
   } else {
-    const created = await projectRepository.createDraft(ownerId, finalPayload, 'SUBMITTED');
+    const created = await projectRepository.createDraft(ownerId, finalPayload, 'DRAFT');
     projectId = created.draftId;
   }
+
+  await workflowService.transitionWorkflow({
+    entityType: 'PROJECT',
+    entityId: projectId,
+    user: { userId: ownerId, role: 'PM' },
+    actionType: 'SUBMIT',
+    comment,
+  });
 
   return {
     projectId,
@@ -161,11 +201,100 @@ async function submitProject(ownerId, projectData, draftId = null) {
   };
 }
 
+async function getProject(projectId) {
+  const approvedProject = await projectRepository.getProjectById(projectId);
+  if (approvedProject) {
+    return approvedProject;
+  }
+  return projectRepository.getDraftProjectById(projectId);
+}
+
+async function getDraftProject(draftId) {
+  return projectRepository.getDraftProjectById(draftId);
+}
+
+async function getWorkflowHistory(projectId) {
+  return workflowService.getWorkflowHistory('PROJECT', projectId);
+}
+
+async function transitionProject(projectId, user, actionType, comment) {
+  if (String(actionType || '').toUpperCase() !== 'APPROVE') {
+    return workflowService.transitionWorkflow({
+      entityType: 'PROJECT',
+      entityId: projectId,
+      user,
+      actionType,
+      comment,
+    });
+  }
+
+  await projectRepository.ensureDraftTable();
+  await projectRepository.ensureApprovedProjectTables();
+  await workflowService.ensureWorkflowSchema('PROJECT');
+
+  const connection = await pool.promise().getConnection();
+  try {
+    await connection.beginTransaction();
+    const transition = await workflowService.transitionWorkflowInTransaction(connection, {
+      entityType: 'PROJECT',
+      entityId: projectId,
+      user,
+      actionType,
+      comment,
+    });
+    const published = await projectPublishingService.publishApprovedDraft(connection, projectId, user.userId);
+    await connection.commit();
+
+    return {
+      ...transition,
+      publishedProjectId: published.projectId,
+    };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+async function listApprovedProjectsForPm(user, query) {
+  return projectRepository.findProjectsForPm({
+    userId: user.userId,
+    role: user.role,
+    page: query.page,
+    pageSize: query.pageSize,
+    search: String(query.search || '').trim(),
+    status: 'APPROVED',
+    industry: String(query.industry || '').trim(),
+    deliveryModel: String(query.deliveryModel || query.delivery_model || '').trim(),
+    createdFrom: String(query.createdFrom || query.created_from || '').trim(),
+    createdTo: String(query.createdTo || query.created_to || '').trim(),
+    sortBy: query.sortBy,
+    sortOrder: query.sortOrder,
+  });
+}
+
+async function transitionProjectLegacy(projectId, user, actionType, comment) {
+  return workflowService.transitionWorkflow({
+    entityType: 'PROJECT',
+    entityId: projectId,
+    user,
+    actionType,
+    comment,
+  });
+}
+
 module.exports = {
   createDraft,
   updateDraft,
   getDraft,
   listProjects,
+  listProjectsForPm,
+  listApprovedProjectsForPm,
+  getProject,
+  getDraftProject,
+  getWorkflowHistory,
   createProject,
   submitProject,
+  transitionProject,
 };

@@ -6,6 +6,8 @@ const authRoutes = require("./src/routes/auth.routes");
 const authController = require("./src/controllers/auth.controller");
 const projectRoutes = require("./src/routes/project.routes");
 const projectController = require("./src/controllers/project.controller");
+const crRoutes = require("./src/routes/cr.routes");
+const crController = require("./src/controllers/cr.controller");
 const projectRepository = require("./src/repositories/project.repository");
 const { authenticateToken } = require("./src/middleware/auth.middleware");
 const { pool: db, DB_CONFIG } = require("./src/config/db.config");
@@ -103,6 +105,9 @@ app.get("/", (req, res) => {
 // Auth routes are mounted under /api/auth to clearly separate authentication from business APIs
 app.use('/api/auth', authRoutes);
 app.use('/api/project', projectRoutes);
+app.use('/api/cr', crRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/api/crs', crRoutes);
 
 // Legacy route alias for compatibility with older clients
 app.post('/login', authController.login);
@@ -111,57 +116,7 @@ app.get('/projects', projectController.listProjects);
 
 
 //CHANGE REQUEST
-app.post("/change-request", authenticateToken, async (req, res) => {
-  try {
-    const { project_id, description, impact_hours } = req.body;
-    const created_by = req.user.userId;
-
-    const insertCR = `
-      INSERT INTO change_requests (project_id, description, impact_hours, status, created_by)
-      VALUES (?, ?, ?, 'OPEN', ?)
-    `;
-
-    await db.promise().query(insertCR, [project_id, description, impact_hours, created_by]);
-
-    const countQuery = `
-      SELECT COUNT(*) AS cr_count FROM change_requests WHERE project_id = ?
-    `;
-    const [countRows] = await db.promise().query(countQuery, [project_id]);
-    const change_count = countRows[0].cr_count;
-
-    const project = await projectRepository.getSubmittedProjectById(project_id);
-    if (!project) {
-      return res.status(404).json({ message: 'Project not found' });
-    }
-
-    const mlResponse = await axios.post(`${ML_API_URL}/predict`, {
-      team_size: project.team_size,
-      complexity: project.complexity,
-      change_count,
-      avg_experience: project.avg_experience,
-      technology_score: project.technology_score,
-    });
-
-    const new_prediction = mlResponse.data.predicted_hours;
-    const updatedDraftData = {
-      ...project.draftData,
-      predicted_hours: new_prediction,
-    };
-
-    const updateResult = await projectRepository.updateDraft(project_id, req.user.userId, updatedDraftData, 'SUBMITTED');
-    if (!updateResult) {
-      return res.status(500).json({ message: 'Failed to update project prediction' });
-    }
-
-    res.json({
-      message: 'Change Request added & prediction updated',
-      new_prediction,
-    });
-  } catch (error) {
-    console.error('Error processing CR:', error);
-    res.status(500).send('Error processing CR');
-  }
-});
+app.post("/change-request", authenticateToken, crController.createChangeRequest);
 
 //PROJECT PROGRESS
 app.post("/progress", authenticateToken, (req, res) => {

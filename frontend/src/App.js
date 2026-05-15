@@ -2,8 +2,12 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import DefaultLayout from './layouts/DefaultLayout';
 import Dashboard from './pages/Dashboard';
-import Projects from './pages/Projects';
+import ProjectDetails from './pages/ProjectDetails';
 import CreateProjectPage from './pages/project/CreateProjectPage';
+import ProjectListPage from './pages/project/ProjectListPage';
+import CRListPage from './pages/cr/CRListPage';
+import CreateCRPage from './pages/cr/CreateCRPage';
+import CRDetailsPage from './pages/cr/CRDetailsPage';
 import ProjectProgress from './pages/ProjectProgress';
 import ChangeRequest from './pages/ChangeRequest';
 import TeamRecommendation from './pages/TeamRecommendation';
@@ -37,7 +41,14 @@ function App() {
         >
           <Route index element={<Dashboard />} />
           <Route path="dashboard" element={<Dashboard />} />
-          <Route path="projects" element={<Projects />} />
+          <Route path="projects" element={<ProjectListPage />} />
+          <Route path="projects/create" element={<CreateProjectPage />} />
+          <Route path="projects/edit/:draftId" element={<CreateProjectPage />} />
+          <Route path="projects/view/:projectId" element={<ProjectDetails />} />
+          <Route path="projects/:projectId" element={<ProjectDetails />} />
+          <Route path="crs" element={<CRListPage />} />
+          <Route path="crs/create" element={<CreateCRPage />} />
+          <Route path="crs/:crId" element={<CRDetailsPage />} />
           <Route path="create-project" element={<CreateProjectPage />} />
           <Route path="progress/:projectId" element={<ProjectProgress />} />
           <Route path="change-request/:projectId" element={<ChangeRequest />} />

@@ -1,40 +1,57 @@
 import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { ProjectWizardProvider } from '../../context/projectWizard.context';
 import { getDraft } from '../../services/projectService';
 import ProjectWizard from '../../components/projectWizard/ProjectWizard';
 import '../../styles/projectWizard.css';
 
+const parseDraftData = (draftData) => {
+  if (!draftData) return {};
+  if (typeof draftData === 'object') return draftData;
+  if (typeof draftData === 'string') {
+    try {
+      return JSON.parse(draftData);
+    } catch {
+      return {};
+    }
+  }
+  return {};
+};
+
 const CreateProjectPage = () => {
+  const { draftId: routeDraftId } = useParams();
   const [searchParams] = useSearchParams();
   const [initialDraft, setInitialDraft] = useState(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
-    const draftId = searchParams.get('draftId');
+    const draftId = routeDraftId || searchParams.get('draftId');
     if (!draftId) return;
 
     setLoading(true);
     getDraft(draftId)
       .then((result) => {
-        setInitialDraft({ draftId: result.draft.draftId, ...result.draft.draftData });
+        setInitialDraft({ draftId: result.draft.draftId, ...parseDraftData(result.draft.draftData) });
       })
       .catch((error) => {
         setLoadError(error.message || 'Unable to load draft');
       })
       .finally(() => setLoading(false));
-  }, [searchParams]);
+  }, [routeDraftId, searchParams]);
+
+  const mode = routeDraftId || searchParams.get('draftId') ? 'edit' : 'create';
+  const title = mode === 'edit' ? 'Edit Project' : 'Create Project';
 
   return (
     <div className="project-wizard-page">
       <div className="project-wizard-header">
-        <h1>Create Project Wizard</h1>
-        <p>Build new project metadata in a structured multi-step flow.</p>
+        <h1>{title}</h1>
+        <p>{mode === 'edit' ? 'Update returned project draft details before resubmission.' : 'Build new project metadata in a structured multi-step flow.'}</p>
       </div>
       {loadError && <div className="alert alert-danger">{loadError}</div>}
       <ProjectWizardProvider initialDraft={initialDraft}>
-        <ProjectWizard loading={loading} />
+        <ProjectWizard loading={loading} mode={mode} />
       </ProjectWizardProvider>
     </div>
   );

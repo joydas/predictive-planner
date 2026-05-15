@@ -4,9 +4,16 @@ const { authenticateToken } = require('../middleware/auth.middleware');
 
 const router = express.Router();
 
+router.get('/', authenticateToken, projectController.listMyProjects);
 router.post('/draft', authenticateToken, projectController.createDraft);
 router.put('/:id/draft', authenticateToken, projectController.updateDraft);
 router.get('/:id/draft', authenticateToken, projectController.getDraft);
 router.post('/submit', authenticateToken, projectController.submitProject);
+router.get('/:id', authenticateToken, projectController.getProject);
+router.get('/:id/workflow-history', authenticateToken, projectController.getWorkflowHistory);
+router.post('/:id/submit', authenticateToken, projectController.submitExistingProject);
+router.post('/:id/approve', authenticateToken, projectController.approveProject);
+router.post('/:id/return', authenticateToken, projectController.returnProject);
+router.post('/:id/reject', authenticateToken, projectController.rejectProject);
 
 module.exports = router;
