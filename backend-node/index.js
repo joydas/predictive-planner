@@ -1,9 +1,11 @@
-const fs = require("fs");
-const path = require("path");
+require('dotenv').config();
 const express = require("express");
-const mysql = require("mysql2");
 const cors = require("cors");
 const axios = require("axios");
+const authRoutes = require("./src/routes/auth.routes");
+const authController = require("./src/controllers/auth.controller");
+const { authenticateToken } = require("./src/middleware/auth.middleware");
+const { pool: db, DB_CONFIG } = require("./src/config/db.config");
 
 const DEFAULT_PORT = 3001;
 const DEFAULT_ML_API_URL = "http://127.0.0.1:8000";
@@ -11,85 +13,13 @@ const DEFAULT_CORS_ALLOWED_ORIGINS = [
   "http://localhost:3000",
   "http://127.0.0.1:3000"
 ];
-const DEFAULT_DB_CONFIG = {
-  host: "localhost",
-  port: 3306,
-  user: "root",
-  password: "",
-  database: "predictive_planner",
-  connectionLimit: 10,
-  queueLimit: 0
-};
-
-const loadLocalEnv = () => {
-  const envPath = path.join(__dirname, ".env");
-
-  if (!fs.existsSync(envPath)) {
-    return;
-  }
-
-  const envContent = fs.readFileSync(envPath, "utf8");
-
-  for (const line of envContent.split(/\r?\n/)) {
-    const trimmedLine = line.trim();
-
-    if (!trimmedLine || trimmedLine.startsWith("#")) {
-      continue;
-    }
-
-    const separatorIndex = trimmedLine.indexOf("=");
-
-    if (separatorIndex === -1) {
-      continue;
-    }
-
-    const key = trimmedLine.slice(0, separatorIndex).trim();
-
-    if (!key || process.env[key] !== undefined) {
-      continue;
-    }
-
-    let value = trimmedLine.slice(separatorIndex + 1).trim();
-
-    if (
-      (value.startsWith("\"") && value.endsWith("\"")) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-
-    process.env[key] = value;
-  }
-};
 
 const normalizeUrl = (url) => url.replace(/\/+$/, "");
-const getFirstEnv = (...keys) => {
-  for (const key of keys) {
-    const value = process.env[key];
-
-    if (value !== undefined && value !== "") {
-      return value;
-    }
-  }
-
-  return undefined;
-};
-const parseEnvNumber = (value, fallback) => {
-  if (value === undefined || value === "") {
-    return fallback;
-  }
-
-  const parsed = Number(value);
-
-  return Number.isFinite(parsed) ? parsed : fallback;
-};
 const parseAllowedOrigins = (value) =>
   value
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
-
-loadLocalEnv();
 
 const PORT = Number(process.env.PORT || DEFAULT_PORT);
 const ML_API_URL = normalizeUrl(process.env.ML_API_URL || DEFAULT_ML_API_URL);
@@ -97,31 +27,6 @@ const allowedOrigins = parseAllowedOrigins(
   process.env.CORS_ALLOWED_ORIGINS || DEFAULT_CORS_ALLOWED_ORIGINS.join(",")
 );
 const allowAllOrigins = allowedOrigins.includes("*");
-const DB_CONFIG = {
-  host: getFirstEnv("DB_HOST", "MYSQL_HOST") || DEFAULT_DB_CONFIG.host,
-  port: parseEnvNumber(
-    getFirstEnv("DB_PORT", "MYSQL_PORT"),
-    DEFAULT_DB_CONFIG.port
-  ),
-  user:
-    getFirstEnv("DB_USER", "DB_USERNAME", "MYSQL_USER") ||
-    DEFAULT_DB_CONFIG.user,
-  password:
-    getFirstEnv("DB_PASSWORD", "MYSQL_PASSWORD") ||
-    DEFAULT_DB_CONFIG.password,
-  database:
-    getFirstEnv("DB_NAME", "MYSQL_DATABASE") ||
-    DEFAULT_DB_CONFIG.database,
-  waitForConnections: true,
-  connectionLimit: parseEnvNumber(
-    process.env.DB_CONNECTION_LIMIT,
-    DEFAULT_DB_CONFIG.connectionLimit
-  ),
-  queueLimit: parseEnvNumber(
-    process.env.DB_QUEUE_LIMIT,
-    DEFAULT_DB_CONFIG.queueLimit
-  )
-};
 const dbLabel = `${DB_CONFIG.host}:${DB_CONFIG.port}/${DB_CONFIG.database}`;
 
 const corsOptions = {
@@ -136,12 +41,11 @@ const corsOptions = {
 
 const app = express();
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cors(corsOptions));
 app.use(express.static("public"));
 
-// DB connection pool
-const db = mysql.createPool(DB_CONFIG);
-
+// DB connection pool is provided by src/config/db.config.js
 let dbConnected = false;
 
 const sampleProjects = [
@@ -193,50 +97,27 @@ app.get("/", (req, res) => {
   res.send("Backend is running 🚀");
 });
 
-//actual routes (later to shift to different file)
+// Auth routes are mounted under /api/auth to clearly separate authentication from business APIs
+app.use('/api/auth', authRoutes);
 
-//LOGIN
-app.post("/login", (req, res) => {
-  const { email, password } = req.body;
-
-  const query = "SELECT * FROM users WHERE email = ? AND password = ?";
-
-  db.query(query, [email, password], (err, results) => {
-    if (err) return res.status(500).send(err);
-
-    if (results.length === 0) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-
-    const user = results[0];
-
-    res.json({
-      message: "Login successful",
-      user: {
-        id: user.id,
-        name: user.name,
-        role: user.role
-      }
-    });
-  });
-});
+// Legacy route alias for compatibility with older clients
+app.post('/login', authController.login);
 
 //CREATE PROJECT
-app.post("/projects", async (req, res) => {
+app.post("/projects", authenticateToken, async (req, res) => {
   try {
     const {
-    name,
-    business_unit,
-    technology,
-    complexity,
-    team_size,
-    estimated_hours,
-    created_by,
-    avg_experience,
-    technology_score
+      name,
+      business_unit,
+      technology,
+      complexity,
+      team_size,
+      estimated_hours,
+      avg_experience,
+      technology_score
     } = req.body;
 
-    
+    const created_by = req.user.userId;
 
     // Step 1: Call ML API
     const mlResponse = await axios.post(`${ML_API_URL}/predict`, {
@@ -311,11 +192,10 @@ app.get("/projects", (req, res) => {
 
 
 //CHANGE REQUEST
-app.post("/change-request", async (req, res) => {
+app.post("/change-request", authenticateToken, async (req, res) => {
   try {
-    const { project_id, description, impact_hours, created_by } = req.body;
-
-           
+    const { project_id, description, impact_hours } = req.body;
+    const created_by = req.user.userId;
 
     // Step 1: Insert CR
     const insertCR = `
@@ -378,7 +258,7 @@ app.post("/change-request", async (req, res) => {
 });
 
 //PROJECT PROGRESS
-app.post("/progress", (req, res) => {
+app.post("/progress", authenticateToken, (req, res) => {
   const { project_id, date, effort_spent, tasks_completed } = req.body;
 
   const query = `

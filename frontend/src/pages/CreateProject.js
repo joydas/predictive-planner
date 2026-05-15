@@ -86,7 +86,8 @@ const CreateProject = () => {
       const response = await fetch(`${NODE_API_URL}/projects`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...authService.getAuthHeader()
         },
         body: JSON.stringify({
           name: formData.name,

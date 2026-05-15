@@ -95,7 +95,8 @@ const ProjectProgress = () => {
       const response = await fetch(`${NODE_API_URL}/progress`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...authService.getAuthHeader()
         },
         body: JSON.stringify({
           project_id: Number(projectId),

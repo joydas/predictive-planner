@@ -12,7 +12,7 @@ class AuthService {
    */
   async login(email, password) {
     try {
-      const response = await fetch(`${API_BASE_URL}/login`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -26,7 +26,11 @@ class AuthService {
         throw new Error(data.message || 'Login failed');
       }
 
-      // Store user in localStorage
+      // Store JWT and user in localStorage for authenticated requests
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+      }
+
       if (data.user) {
         localStorage.setItem('user', JSON.stringify(data.user));
       }
@@ -38,10 +42,11 @@ class AuthService {
   }
 
   /**
-   * Logout user and clear localStorage
+   * Logout user and clear authentication state from localStorage
    */
   logout() {
     localStorage.removeItem('user');
+    localStorage.removeItem('token');
   }
 
   /**
@@ -51,6 +56,23 @@ class AuthService {
   getCurrentUser() {
     const user = localStorage.getItem('user');
     return user ? JSON.parse(user) : null;
+  }
+
+  /**
+   * Get stored JWT token
+   * @returns {string|null} - JWT token or null
+   */
+  getToken() {
+    return localStorage.getItem('token');
+  }
+
+  /**
+   * Build Authorization header for authenticated requests
+   * @returns {object} - Header object for fetch/axios
+   */
+  getAuthHeader() {
+    const token = this.getToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
   /**
