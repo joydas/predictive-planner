@@ -4,6 +4,9 @@ const cors = require("cors");
 const axios = require("axios");
 const authRoutes = require("./src/routes/auth.routes");
 const authController = require("./src/controllers/auth.controller");
+const projectRoutes = require("./src/routes/project.routes");
+const projectController = require("./src/controllers/project.controller");
+const projectRepository = require("./src/repositories/project.repository");
 const { authenticateToken } = require("./src/middleware/auth.middleware");
 const { pool: db, DB_CONFIG } = require("./src/config/db.config");
 
@@ -99,96 +102,12 @@ app.get("/", (req, res) => {
 
 // Auth routes are mounted under /api/auth to clearly separate authentication from business APIs
 app.use('/api/auth', authRoutes);
+app.use('/api/project', projectRoutes);
 
 // Legacy route alias for compatibility with older clients
 app.post('/login', authController.login);
-
-//CREATE PROJECT
-app.post("/projects", authenticateToken, async (req, res) => {
-  try {
-    const {
-      name,
-      business_unit,
-      technology,
-      complexity,
-      team_size,
-      estimated_hours,
-      avg_experience,
-      technology_score
-    } = req.body;
-
-    const created_by = req.user.userId;
-
-    // Step 1: Call ML API
-    const mlResponse = await axios.post(`${ML_API_URL}/predict`, {
-      team_size,
-      complexity,
-      change_count:0,
-      avg_experience,
-      technology_score
-    });
-
-    const predicted_hours = mlResponse.data.predicted_hours;
-    const explanation = mlResponse.data.explanation;
-
-    // Step 2: Store in DB
-    const query = `
-      INSERT INTO projects 
-      (name, business_unit, technology, complexity, team_size, estimated_hours, predicted_hours,
-      avg_experience,technology_score, created_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?,?,?)
-    `;
-
-    db.query(
-      query,
-      [
-        name,
-        business_unit,
-        technology,
-        complexity,
-        team_size,
-        estimated_hours,
-        predicted_hours,
-        avg_experience,
-        technology_score,
-        created_by
-      ],
-      (err, result) => {
-        if (err) return res.status(500).send(err);
-
-        res.json({
-          message: "Project created with prediction",
-          projectId: result.insertId,
-          predicted_hours,
-          explanation
-        });
-      }
-    );
-
-  } catch (error) {
-    console.error(error.message);
-    res.status(500).send("ML service error");
-  }
-});
-
-//GET LIST OF PROJECTS
-app.get("/projects", (req, res) => {
-  if (!dbConnected) {
-    console.warn("DB unavailable - returning sample project data");
-    return res.json(sampleProjects);
-  }
-
-  const query = "SELECT *,(predicted_hours - estimated_hours) AS variance FROM projects";
-
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error("Project query failed:", err);
-      return res.status(500).send(err);
-    }
-
-    res.json(results);
-  });
-});
+app.post('/projects', authenticateToken, projectController.createProject);
+app.get('/projects', projectController.listProjects);
 
 
 //CHANGE REQUEST
@@ -197,63 +116,50 @@ app.post("/change-request", authenticateToken, async (req, res) => {
     const { project_id, description, impact_hours } = req.body;
     const created_by = req.user.userId;
 
-    // Step 1: Insert CR
     const insertCR = `
       INSERT INTO change_requests (project_id, description, impact_hours, status, created_by)
       VALUES (?, ?, ?, 'OPEN', ?)
     `;
 
-    db.query(insertCR, [project_id, description, impact_hours, created_by], async (err) => {
-      if (err) return res.status(500).send(err);
+    await db.promise().query(insertCR, [project_id, description, impact_hours, created_by]);
 
-      // Step 2: Count total CRs for this project
-      const countQuery = `
-        SELECT COUNT(*) AS cr_count FROM change_requests WHERE project_id = ?
-     `;
+    const countQuery = `
+      SELECT COUNT(*) AS cr_count FROM change_requests WHERE project_id = ?
+    `;
+    const [countRows] = await db.promise().query(countQuery, [project_id]);
+    const change_count = countRows[0].cr_count;
 
-      db.query(countQuery, [project_id], async (err, result) => {
-        if (err) return res.status(500).send(err);
+    const project = await projectRepository.getSubmittedProjectById(project_id);
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
 
-        const change_count = result[0].cr_count;
-
-        // Step 3: Get project data
-        const projQuery = "SELECT * FROM projects WHERE id = ?";
-        db.query(projQuery, [project_id], async (err, projRes) => {
-          if (err) return res.status(500).send(err);
-
-          const project = projRes[0];
-
-           // Step 4: Call ML with updated change_count
-          const mlResponse = await axios.post(`${ML_API_URL}/predict`, {
-            team_size: project.team_size,
-            complexity: project.complexity,
-            change_count,
-            avg_experience: project.avg_experience,
-            technology_score: project.technology_score
-        });
-
-          const new_prediction = mlResponse.data.predicted_hours;
-
-
-          // Step 5: Update project prediction
-          const updateQuery = `
-            UPDATE projects SET predicted_hours = ? WHERE id = ?
-          `;
-
-          db.query(updateQuery, [new_prediction, project_id], (err) => {
-            if (err) return res.status(500).send(err);
-
-            res.json({
-              message: "Change Request added & prediction updated",
-              new_prediction
-            });
-          });
-        });
-      });
+    const mlResponse = await axios.post(`${ML_API_URL}/predict`, {
+      team_size: project.team_size,
+      complexity: project.complexity,
+      change_count,
+      avg_experience: project.avg_experience,
+      technology_score: project.technology_score,
     });
 
+    const new_prediction = mlResponse.data.predicted_hours;
+    const updatedDraftData = {
+      ...project.draftData,
+      predicted_hours: new_prediction,
+    };
+
+    const updateResult = await projectRepository.updateDraft(project_id, req.user.userId, updatedDraftData, 'SUBMITTED');
+    if (!updateResult) {
+      return res.status(500).json({ message: 'Failed to update project prediction' });
+    }
+
+    res.json({
+      message: 'Change Request added & prediction updated',
+      new_prediction,
+    });
   } catch (error) {
-    res.status(500).send("Error processing CR");
+    console.error('Error processing CR:', error);
+    res.status(500).send('Error processing CR');
   }
 });
 
@@ -291,62 +197,47 @@ app.get("/project-delay/:id", async (req, res) => {
 });
 
 // GET TEAM RECOMMENDATION
-app.get("/recommend-team/:projectId", (req, res) => {
+app.get("/recommend-team/:projectId", async (req, res) => {
   const projectId = req.params.projectId;
 
-  // Step 1: Get project details
-  const projectQuery = "SELECT * FROM projects WHERE id = ?";
+  try {
+    const project = await projectRepository.getSubmittedProjectById(projectId);
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
 
-  db.query(projectQuery, [projectId], (err, projectRes) => {
-    
-    if (err) return res.status(500).send(err);
-
-    const project = projectRes[0];
-
-    // Step 2: Get all resources
     const resourceQuery = "SELECT * FROM resources";
-
     db.query(resourceQuery, (err, resources) => {
       if (err) return res.status(500).send(err);
 
-        //res.json({"debug": project.predicted_hours});
-
-      // Step 3: Define required roles
       const requiredRoles = {
-        Developer: Math.ceil(project.predicted_hours / 160),
+        Developer: Math.ceil((project.predicted_hours || 0) / 160),
         QA: 1,
         BA: 1,
         PM: 1,
         UX: project.complexity > 3 ? 1 : 0,
-        UI: project.complexity > 3 ? 1 : 0
+        UI: project.complexity > 3 ? 1 : 0,
       };
 
       const team = [];
 
-      // Step 4: Allocate resources role-wise
-      Object.keys(requiredRoles).forEach(role => {
-        let candidates = resources.filter(r => r.role === role);
+      Object.keys(requiredRoles).forEach((role) => {
+        let candidates = resources.filter((r) => r.role === role);
 
-        // Developers must match project technology
         if (role === "Developer") {
           candidates = candidates.filter(
-            r => r.technology && r.technology.toLowerCase() === project.technology.toLowerCase()
+            (r) => r.technology && r.technology.toLowerCase() === (project.technology || '').toLowerCase()
           );
         }
 
-        // Sort by experience + availability
-        candidates.sort((a, b) =>
-          (b.experience_years + b.availability / 100) -
-          (a.experience_years + a.availability / 100)
+        candidates.sort(
+          (a, b) => (b.experience_years + b.availability / 100) - (a.experience_years + a.availability / 100)
         );
 
-        // Pick required number
         const selected = candidates.slice(0, requiredRoles[role]);
-
         team.push(...selected);
       });
 
-      // Step 5: Calculate total team size
       const totalTeamSize = team.length;
 
       res.json({
@@ -355,10 +246,13 @@ app.get("/recommend-team/:projectId", (req, res) => {
         predicted_hours: project.predicted_hours,
         team_composition: requiredRoles,
         recommended_team_size: totalTeamSize,
-        team
+        team,
       });
     });
-  });
+  } catch (error) {
+    console.error('Team recommendation failed:', error);
+    res.status(500).json({ message: 'Unable to generate team recommendation' });
+  }
 });
 
 app.listen(PORT, () => {

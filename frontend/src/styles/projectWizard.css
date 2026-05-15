@@ -1,0 +1,111 @@
+.project-wizard-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.project-wizard-header {
+  margin-bottom: 24px;
+}
+
+.project-wizard-header h1 {
+  margin-bottom: 8px;
+}
+
+.project-wizard-card {
+  border-radius: 16px;
+  box-shadow: 0 18px 50px rgba(22, 38, 79, 0.08);
+}
+
+.project-wizard-tabs {
+  margin-bottom: 24px;
+  overflow-x: auto;
+}
+
+.project-wizard-tab {
+  text-transform: none;
+  width: auto;
+  padding: 12px 18px;
+  min-width: 160px;
+}
+
+.project-wizard-tab.active {
+  font-weight: 700;
+}
+
+.project-wizard-step-container {
+  min-height: 420px;
+}
+
+.project-wizard-footer {
+  background: #f8f9fa;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.wizard-actions {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.wizard-action-group {
+  display: flex;
+  gap: 12px;
+}
+
+.wizard-step-panel {
+  padding: 12px 0;
+}
+
+.form-error {
+  margin-top: 6px;
+  color: #d32f2f;
+  font-size: 0.9rem;
+}
+
+.team-composition-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.team-composition-row {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.team-composition-header {
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.review-summary-grid p {
+  margin-bottom: 8px;
+}
+
+.review-list {
+  list-style: disc;
+  padding-left: 20px;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 992px) {
+  .team-composition-row {
+    grid-template-columns: 1fr;
+  }
+  .project-wizard-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .wizard-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

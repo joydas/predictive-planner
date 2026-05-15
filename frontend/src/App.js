@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import DefaultLayout from './layouts/DefaultLayout';
 import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
-import CreateProject from './pages/CreateProject';
+import CreateProjectPage from './pages/project/CreateProjectPage';
 import ProjectProgress from './pages/ProjectProgress';
 import ChangeRequest from './pages/ChangeRequest';
 import TeamRecommendation from './pages/TeamRecommendation';
@@ -38,7 +38,7 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="projects" element={<Projects />} />
-          <Route path="create-project" element={<CreateProject />} />
+          <Route path="create-project" element={<CreateProjectPage />} />
           <Route path="progress/:projectId" element={<ProjectProgress />} />
           <Route path="change-request/:projectId" element={<ChangeRequest />} />
           <Route path="team-recommendation/:projectId" element={<TeamRecommendation />} />
