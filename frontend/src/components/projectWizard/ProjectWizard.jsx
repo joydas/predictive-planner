@@ -44,6 +44,18 @@ const ProjectWizard = ({ loading, mode = 'create' }) => {
   const [submissionError, setSubmissionError] = useState('');
   const [submitComment, setSubmitComment] = useState('');
 
+  const draftPayload = useMemo(
+    () => ({
+      basicInfo: state.basicInfo,
+      deliveryDetails: state.deliveryDetails,
+      teamComposition: state.teamComposition,
+      technology: state.technology,
+      financial: state.financial,
+      risks: state.risks,
+    }),
+    [state]
+  );
+
   const stepComponents = useMemo(
     () => [
       <BasicInfoStep data={state.basicInfo} updateSection={(payload) => updateSection('basicInfo', payload)} errors={stepErrors} />, 
@@ -66,19 +78,7 @@ const ProjectWizard = ({ loading, mode = 'create' }) => {
         commentError={stepErrors.submitComment}
       />,
     ],
-    [state, stepErrors, updateSection, setTeamRows, setCurrentStep, submitComment]
-  );
-
-  const draftPayload = useMemo(
-    () => ({
-      basicInfo: state.basicInfo,
-      deliveryDetails: state.deliveryDetails,
-      teamComposition: state.teamComposition,
-      technology: state.technology,
-      financial: state.financial,
-      risks: state.risks,
-    }),
-    [state]
+    [state, draftPayload, stepErrors, updateSection, setTeamRows, setCurrentStep, submitComment]
   );
 
   const validateStep = () => {
