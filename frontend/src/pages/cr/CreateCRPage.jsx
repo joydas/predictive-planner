@@ -3,7 +3,7 @@ import { CAlert } from '@coreui/react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import CRWizard from '../../components/crWizard/CRWizard';
 import { getChangeRequest } from '../../services/crService';
-import { listProjects } from '../../services/projectService';
+import { listProjectsAvailableForCr } from '../../services/projectService';
 import '../../styles/projectWizard.css';
 
 const CreateCRPage = () => {
@@ -21,12 +21,12 @@ const CreateCRPage = () => {
     setLoading(true);
 
     Promise.all([
-      listProjects({ page: 1, pageSize: 100, sortBy: 'updatedAt', sortOrder: 'DESC' }),
+      listProjectsAvailableForCr(),
       crId ? getChangeRequest(crId) : Promise.resolve(null),
     ])
       .then(([projectResult, crResult]) => {
         if (!active) return;
-        setProjects((projectResult.items || []).filter((project) => project.currentStatus === 'APPROVED' && project.recordType === 'APPROVED_PROJECT'));
+        setProjects(projectResult.items || []);
         setInitialCr(crResult?.changeRequest || null);
         setLoadError('');
       })

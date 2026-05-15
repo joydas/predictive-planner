@@ -1,21 +1,5 @@
-import pandas as pd
-from sklearn.ensemble import GradientBoostingRegressor
-import joblib
+from run_training_pipeline import run_training_pipeline
 
-# Load data
-df = pd.read_csv("project_data.csv")
 
-# Features (inputs)
-X = df[['team_size', 'complexity', 'change_count', 'avg_experience', 'technology_score']]
-
-# Target (output)
-y = df['actual_hours']
-
-# Train model
-model = GradientBoostingRegressor()
-model.fit(X, y)
-
-# Save model
-joblib.dump(model, "model.pkl")
-
-print("Model trained and saved!")
+if __name__ == "__main__":
+    run_training_pipeline()

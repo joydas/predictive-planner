@@ -51,8 +51,25 @@ export async function submitProject(payload) {
   return handleResponse(response);
 }
 
+export async function getMlRecommendation(projectData) {
+  const response = await fetch(`${API_BASE_URL}/ml-recommendation`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ projectData }),
+  });
+  return handleResponse(response);
+}
+
 export async function getProject(projectId) {
   const response = await fetch(`${API_BASE_URL}/${projectId}`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+  return handleResponse(response);
+}
+
+export async function listProjectsAvailableForCr() {
+  const response = await fetch(`${API_BASE_URL}/available-for-cr`, {
     method: 'GET',
     headers: getHeaders(),
   });

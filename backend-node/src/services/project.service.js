@@ -1,10 +1,8 @@
-const axios = require('axios');
 const { pool } = require('../config/db.config');
 const projectRepository = require('../repositories/project.repository');
 const projectPublishingService = require('./projectPublishing.service');
 const workflowService = require('../workflow/workflow.service');
-
-const ML_API_URL = process.env.ML_API_URL || 'http://127.0.0.1:8000';
+const mlPredictionService = require('./mlPrediction.service');
 
 function normalizeNumber(value, fallback = 0) {
   const parsed = Number(value);
@@ -91,15 +89,15 @@ function buildLegacyProjectRecord(rawPayload, ownerId) {
 }
 
 async function predictProjectHours(projectPayload) {
-  const response = await axios.post(`${ML_API_URL}/predict`, {
+  const response = await mlPredictionService.getProjectRecommendations({
     team_size: projectPayload.team_size,
     complexity: projectPayload.complexity,
     change_count: 0,
     avg_experience: projectPayload.avg_experience,
     technology_score: projectPayload.technology_score,
-  });
+  }, projectPayload.created_by);
 
-  return response.data.predicted_hours || 0;
+  return response.effort?.predictedHours || 0;
 }
 
 async function createDraft(ownerId, draftData) {
@@ -158,6 +156,7 @@ async function submitProject(ownerId, projectData, draftId = null, comment = '')
       complexity: normalizeNumber(payload.technology.complexity, 1),
       avg_experience: normalizeNumber(avgExperience, 0),
       technology_score: technologyScore,
+      created_by: ownerId,
     }),
     _legacy: {
       name: payload.basicInfo.project_name || 'Untitled Project',
@@ -274,6 +273,43 @@ async function listApprovedProjectsForPm(user, query) {
   });
 }
 
+async function listProjectsAvailableForCr(user) {
+  await projectRepository.ensureDraftTable();
+  await projectRepository.ensureApprovedProjectTables();
+
+  const accessibleApprovedDrafts = await projectRepository.findProjectsForPm({
+    userId: user.userId,
+    role: user.role,
+    page: 1,
+    pageSize: 100,
+    status: 'APPROVED',
+    sortBy: 'updatedAt',
+    sortOrder: 'DESC',
+  });
+
+  const unpublishedApprovedDrafts = (accessibleApprovedDrafts.items || []).filter(
+    (project) => project.recordType !== 'APPROVED_PROJECT' && !project.publishedProjectId,
+  );
+
+  for (const draft of unpublishedApprovedDrafts) {
+    const connection = await pool.promise().getConnection();
+    try {
+      await connection.beginTransaction();
+      await projectPublishingService.publishApprovedDraft(connection, draft.draftId || draft.projectId, null);
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      if (error.status !== 409) {
+        throw error;
+      }
+    } finally {
+      connection.release();
+    }
+  }
+
+  return projectRepository.findApprovedProjectsAvailableForCr(user);
+}
+
 async function transitionProjectLegacy(projectId, user, actionType, comment) {
   return workflowService.transitionWorkflow({
     entityType: 'PROJECT',
@@ -291,6 +327,7 @@ module.exports = {
   listProjects,
   listProjectsForPm,
   listApprovedProjectsForPm,
+  listProjectsAvailableForCr,
   getProject,
   getDraftProject,
   getWorkflowHistory,

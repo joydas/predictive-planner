@@ -446,6 +446,47 @@ async function findProjectsForPm(filters) {
   };
 }
 
+async function findApprovedProjectsAvailableForCr(user) {
+  await ensureApprovedProjectTables();
+  const role = String(user.role || '').toUpperCase();
+  const params = [];
+  const where = [];
+
+  if (role === 'PM') {
+    where.push('(ap.owner_id = ? OR pd.submitted_by_user_id = ?)');
+    params.push(user.userId, user.userId);
+  } else if (role === 'ACCOUNT_MANAGER') {
+    where.push('ap.approved_by_user_id = ?');
+    params.push(user.userId);
+  } else {
+    return [];
+  }
+
+  const [rows] = await db.promise().query(
+    `
+      SELECT ap.project_id AS projectId,
+             COALESCE(ap.project_code, CONCAT('PRJ-', LPAD(ap.project_id, 6, '0'))) AS projectCode,
+             ap.project_name AS projectName,
+             ap.client_name AS clientName,
+             ap.industry,
+             ap.delivery_model AS deliveryModel,
+             'APPROVED' AS currentStatus,
+             'APPROVED_PROJECT' AS recordType,
+             1 AS canCreateCr
+      FROM project ap
+      INNER JOIN project_drafts pd ON pd.draft_id = ap.source_draft_id
+      WHERE ${where.join(' AND ')}
+      ORDER BY ap.updated_at DESC, ap.project_id DESC
+    `,
+    params,
+  );
+
+  return rows.map((row) => ({
+    ...row,
+    canCreateCr: Boolean(row.canCreateCr),
+  }));
+}
+
 async function insertProject(projectRecord) {
   throw new Error('Legacy project insert is no longer available. Use draft submission instead.');
 }
@@ -639,6 +680,7 @@ module.exports = {
   getDraftById,
   markDraftSubmitted,
   findProjects,
+  findApprovedProjectsAvailableForCr,
   findProjectsForPm,
   getSubmittedProjectById,
   getProjectById,

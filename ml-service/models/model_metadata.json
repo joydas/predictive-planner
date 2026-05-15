@@ -1,0 +1,25 @@
+{
+  "training_timestamp": "2026-05-15T17:31:09.202793+00:00",
+  "dataset_version": "project_training_dataset_v1",
+  "feature_version": "project_features_v1",
+  "dataset_path": "C:\\OurWorkspace\\Dipanjan\\AI\\predictive-planner\\ml-service\\datasets\\project_training_dataset.csv",
+  "row_count": 121,
+  "evaluation_metrics": {
+    "effort": {
+      "rmse": 48.72180371975252,
+      "mae": 30.46559139784944,
+      "r2": 0.9968064439675022
+    },
+    "staffing": {
+      "mae_per_role": {
+        "PM": 0.002956989247311828
+      }
+    },
+    "schedule_risk": {
+      "accuracy": 1.0,
+      "precision": 0.0,
+      "recall": 0.0
+    }
+  },
+  "warnings": []
+}

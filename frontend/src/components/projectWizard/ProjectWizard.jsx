@@ -50,6 +50,7 @@ const ProjectWizard = ({ loading, mode = 'create' }) => {
       <DeliveryDetailsStep data={state.deliveryDetails} updateSection={(payload) => updateSection('deliveryDetails', payload)} errors={stepErrors} />,
       <TeamCompositionStep
         data={state.teamComposition}
+        projectData={draftPayload}
         updateSection={(payload) => updateSection('teamComposition', payload)}
         setTeamRows={setTeamRows}
         errors={stepErrors}

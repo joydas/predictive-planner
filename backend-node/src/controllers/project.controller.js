@@ -1,4 +1,5 @@
 const projectService = require('../services/project.service');
+const mlPredictionService = require('../services/mlPrediction.service');
 
 async function createDraft(req, res) {
   try {
@@ -102,6 +103,16 @@ async function listMyProjects(req, res) {
   }
 }
 
+async function listProjectsAvailableForCr(req, res) {
+  try {
+    const projects = await projectService.listProjectsAvailableForCr(req.user);
+    return res.json({ items: projects });
+  } catch (error) {
+    console.error('CR project availability list failed:', error);
+    return res.status(error.status || 500).json({ message: error.message || 'Failed to retrieve available projects' });
+  }
+}
+
 async function getProject(req, res) {
   try {
     const projectId = Number(req.params.id);
@@ -150,6 +161,21 @@ async function getWorkflowHistory(req, res) {
   }
 }
 
+async function getMlRecommendation(req, res) {
+  try {
+    const recommendation = await mlPredictionService.getProjectRecommendations(
+      req.body.projectData || req.body,
+      req.user.userId,
+    );
+    return res.json(recommendation);
+  } catch (error) {
+    console.error('ML recommendation failed:', error.response?.data || error.message || error);
+    return res.status(error.response?.status || 500).json({
+      message: error.response?.data?.detail || 'Unable to generate ML recommendation',
+    });
+  }
+}
+
 function projectTransition(actionType) {
   return async (req, res) => {
     try {
@@ -175,9 +201,11 @@ module.exports = {
   submitProject,
   listProjects,
   listMyProjects,
+  listProjectsAvailableForCr,
   createProject,
   getProject,
   getWorkflowHistory,
+  getMlRecommendation,
   submitExistingProject: projectTransition('SUBMIT'),
   approveProject: projectTransition('APPROVE'),
   returnProject: projectTransition('RETURN'),

@@ -1,17 +1,20 @@
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-import joblib
-import numpy as np
-from timeseries import predict_final_effort
 import uvicorn
 
-app = FastAPI()
+from inference.predictors import predict_effort, predict_risk, predict_staffing
+from timeseries import predict_final_effort
+
+
+app = FastAPI(title="Predictive Planner ML Service")
 
 DEFAULT_CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
 ]
 
 
@@ -32,43 +35,50 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-model = joblib.load("model.pkl")
 
 @app.get("/")
 def home():
-    return {"message": "ML Service Running 🚀"}
+    return {"message": "Predictive Planner ML service running"}
+
+
+@app.post("/predict/effort")
+def effort_prediction(data: dict):
+    try:
+        return predict_effort(data)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post("/predict/staffing")
+def staffing_prediction(data: dict):
+    try:
+        return predict_staffing(data)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post("/predict/risk")
+def risk_prediction(data: dict):
+    try:
+        return predict_risk(data)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
 
 @app.post("/predict")
-def predict(data: dict):
-    features = np.array([[
-        data["team_size"],
-        data["complexity"],
-        data["change_count"],
-        data["avg_experience"],
-        data["technology_score"]
-    ]])
-
-    prediction = model.predict(features)
-    explanation = []
-
-    if data["change_count"] > 10:
-        explanation.append("High scope creep")
-
-    if data["complexity"] > 3:
-        explanation.append("High complexity")
-
-    if data["avg_experience"] < 3:
-        explanation.append("Low team experience")
-
+def legacy_predict(data: dict):
+    result = predict_effort(data)
     return {
-        "predicted_hours": float(prediction[0]),
-        "explanation": explanation
+        "predicted_hours": result["predictedHours"],
+        "explanation": result["explanation"],
     }
+
 
 @app.post("/predict-delay")
 def predict_delay(data: dict):
     result = predict_final_effort(data["progress"])
     return {"predicted_final_effort": result}
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))

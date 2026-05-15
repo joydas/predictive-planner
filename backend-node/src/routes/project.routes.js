@@ -5,6 +5,8 @@ const { authenticateToken } = require('../middleware/auth.middleware');
 const router = express.Router();
 
 router.get('/', authenticateToken, projectController.listMyProjects);
+router.get('/available-for-cr', authenticateToken, projectController.listProjectsAvailableForCr);
+router.post('/ml-recommendation', authenticateToken, projectController.getMlRecommendation);
 router.post('/draft', authenticateToken, projectController.createDraft);
 router.put('/:id/draft', authenticateToken, projectController.updateDraft);
 router.get('/:id/draft', authenticateToken, projectController.getDraft);

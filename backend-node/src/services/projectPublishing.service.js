@@ -21,7 +21,11 @@ async function publishApprovedDraft(connection, draftId, approvedByUserId) {
     throw error;
   }
 
-  const projectId = await projectRepository.insertApprovedProject(connection, draft, approvedByUserId);
+  const projectId = await projectRepository.insertApprovedProject(
+    connection,
+    draft,
+    approvedByUserId || draft.approvedByUserId || draft.ownerId,
+  );
   await projectRepository.insertProjectTeamSnapshots(
     connection,
     projectId,
