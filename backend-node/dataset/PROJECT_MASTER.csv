@@ -1,0 +1,121 @@
+Project_ID,Project_Name,Client_Name,Industry,Delivery_Model,Project_Type,Technology_Stack,Start_Date,Actual_End_Date,Planned_Effort_Hours,Actual_Effort_Hours,Budget_USD,Team_Size,CR_Count,Schedule_Variance_Percent,Cost_Variance_Percent
+PRJ0001,Nova_1,Davila-Henson,Retail,Agile,Enhancement,SAP,2025-04-08,2025-10-29,3819,4945,2387433,11,29,-3.41,0.56
+PRJ0002,Vertex_2,Mcdaniel-Rose,Manufacturing,Waterfall,Support,NodeJS,2024-07-28,2025-07-24,7575,7559,1775207,29,16,44.87,2.26
+PRJ0003,Nova_3,Fitzgerald-Smith,Manufacturing,Waterfall,Migration,React,2023-11-29,2025-02-08,6580,6574,869604,23,31,7.49,32.08
+PRJ0004,Phoenix_4,Lee LLC,BFSI,Waterfall,Enhancement,Python,2024-06-01,2025-07-03,17982,18695,2355002,19,34,8.26,32.46
+PRJ0005,Helix_5,Alexander-Smith,Energy,Hybrid,Migration,Java,2025-02-21,2026-11-05,20643,26053,1908992,10,23,26.16,22.21
+PRJ0006,Titan_6,"Pollard, Bean and Johnson",BFSI,Hybrid,Greenfield,.NET,2023-12-28,2025-08-05,23537,23385,1239655,27,22,39.65,0.06
+PRJ0007,Vertex_7,Nichols Ltd,Telecom,Waterfall,Support,SAP,2024-07-08,2026-03-24,24314,24606,1225732,26,17,36.54,0.29
+PRJ0008,Phoenix_8,"Ross, Alvarado and Mccoy",Manufacturing,Waterfall,Migration,NodeJS,2022-08-26,2023-10-01,5791,8375,1695421,34,30,9.87,19.36
+PRJ0009,Orion_9,Dean-Schmidt,Manufacturing,Hybrid,Greenfield,React,2025-05-11,2026-01-13,19330,27247,2123749,36,17,17.84,2.5
+PRJ0010,Orion_10,"Williams, Villarreal and Carroll",Energy,Hybrid,Support,Java,2023-01-14,2024-05-25,24293,21819,2146600,40,4,25.87,5.92
+PRJ0011,Nova_11,Smith-Mclean,Healthcare,Waterfall,Greenfield,SAP,2024-04-22,2026-01-15,19442,27181,1520674,13,31,43.14,2.35
+PRJ0012,Phoenix_12,"Jones, Castillo and Anthony",Telecom,Hybrid,Support,Python,2024-01-03,2025-08-05,16160,17869,438859,26,11,-1.72,7.45
+PRJ0013,Vertex_13,Sanders Inc,Manufacturing,Hybrid,Enhancement,NodeJS,2023-04-14,2024-02-29,17061,23153,1221757,7,13,8.66,25.97
+PRJ0014,Nova_14,"Jones, Morton and Wilson",Manufacturing,Hybrid,Greenfield,Python,2024-01-17,2024-08-26,15458,18078,1765437,8,29,-4.06,32.0
+PRJ0015,Phoenix_15,Chavez Group,Manufacturing,Hybrid,Migration,Python,2023-10-16,2024-04-28,14253,20516,1139112,34,30,21.2,20.17
+PRJ0016,Nova_16,Holland and Sons,Energy,Waterfall,Enhancement,React,2023-03-06,2023-12-06,23471,31343,1627982,21,30,25.53,25.59
+PRJ0017,Vertex_17,Smith-Turner,Healthcare,Hybrid,Migration,SAP,2022-11-12,2024-01-16,7371,6461,2048769,36,13,35.57,-0.6
+PRJ0018,Phoenix_18,Martinez PLC,Manufacturing,Hybrid,Greenfield,Java,2023-06-17,2024-08-07,24883,26337,760624,17,25,20.44,1.61
+PRJ0019,Nova_19,Perez Ltd,Telecom,Agile,Greenfield,React,2025-01-20,2026-09-29,21404,19557,1139847,15,8,-2.47,32.92
+PRJ0020,Helix_20,Taylor-Young,BFSI,Agile,Enhancement,React,2023-09-10,2024-05-08,10936,9502,1415721,32,11,15.65,4.75
+PRJ0021,Phoenix_21,Kennedy-Marshall,Healthcare,Agile,Support,SAP,2024-08-07,2026-02-27,11940,11530,1179047,17,2,31.83,27.05
+PRJ0022,Helix_22,Fields Ltd,Manufacturing,Waterfall,Support,.NET,2024-02-17,2024-06-09,12776,14408,1138140,35,24,2.76,4.16
+PRJ0023,Vertex_23,Thomas-Townsend,Energy,Waterfall,Greenfield,Java,2024-10-14,2025-12-07,12275,13237,1608458,38,33,18.3,27.51
+PRJ0024,Phoenix_24,"Ramos, Lee and Howard",Manufacturing,Hybrid,Support,Python,2022-07-15,2024-02-19,24603,28114,170154,39,19,21.79,7.89
+PRJ0025,Orion_25,Everett Ltd,BFSI,Hybrid,Greenfield,React,2022-06-18,2024-06-05,22516,24497,2157740,20,24,22.65,11.27
+PRJ0026,Vertex_26,"Patel, Martin and Wright",Telecom,Hybrid,Support,NodeJS,2023-03-06,2024-08-10,15353,13731,2224887,32,4,34.54,10.66
+PRJ0027,Nova_27,Morris and Sons,Healthcare,Hybrid,Migration,NodeJS,2024-10-09,2025-05-07,10817,11176,1729333,32,10,23.74,13.08
+PRJ0028,Helix_28,"Li, Chen and West",Manufacturing,Hybrid,Support,.NET,2025-03-20,2026-01-18,22265,28131,683993,19,15,35.27,18.66
+PRJ0029,Phoenix_29,"Valdez, Case and Carney",Telecom,Agile,Migration,SAP,2024-06-23,2025-01-26,8176,9114,1366115,16,19,-0.33,10.7
+PRJ0030,Nova_30,"Dyer, White and Levy",Telecom,Waterfall,Enhancement,.NET,2023-12-21,2025-04-25,12684,15699,2195401,10,35,39.44,-2.54
+PRJ0031,Vertex_31,King Group,Retail,Waterfall,Migration,Java,2023-05-07,2024-08-07,4816,5537,531614,13,16,32.04,-2.9
+PRJ0032,Titan_32,"Ballard, Gonzales and Allen",Healthcare,Agile,Enhancement,.NET,2024-11-17,2026-02-16,9803,10990,1375970,8,15,36.8,9.46
+PRJ0033,Vertex_33,Martinez-Figueroa,Telecom,Agile,Enhancement,Java,2022-05-24,2023-06-20,19347,21227,1706482,14,28,4.97,30.62
+PRJ0034,Nova_34,"Day, Espinoza and Moreno",BFSI,Hybrid,Greenfield,Python,2024-03-27,2024-07-17,7840,9423,1666953,31,8,11.83,9.26
+PRJ0035,Phoenix_35,Moore-Alvarez,Retail,Agile,Greenfield,Python,2025-01-21,2026-12-26,18739,18173,2086299,13,21,34.24,14.9
+PRJ0036,Phoenix_36,Hughes-Schneider,Manufacturing,Agile,Enhancement,Java,2024-07-14,2026-02-20,19924,27302,2225653,31,10,34.03,16.92
+PRJ0037,Nova_37,Robinson Ltd,Energy,Waterfall,Enhancement,.NET,2024-01-13,2025-01-01,21318,27878,1590166,20,21,16.02,30.7
+PRJ0038,Vertex_38,Hunt Group,Retail,Waterfall,Migration,Java,2024-10-06,2025-04-30,6482,7445,1818642,24,12,-3.03,15.86
+PRJ0039,Vertex_39,"Chen, Mcgee and Moody",BFSI,Agile,Greenfield,NodeJS,2023-10-22,2025-03-08,16511,14389,2458593,19,31,42.52,10.81
+PRJ0040,Helix_40,Roman and Sons,Retail,Waterfall,Support,Java,2024-08-26,2025-12-22,16718,24035,1333853,34,10,1.91,19.9
+PRJ0041,Phoenix_41,"Ward, Palmer and Gonzalez",Healthcare,Waterfall,Migration,Python,2023-05-12,2024-01-21,22136,30052,744678,26,5,33.68,20.76
+PRJ0042,Phoenix_42,Nguyen-Rowe,Healthcare,Hybrid,Greenfield,NodeJS,2025-03-19,2025-08-30,14721,20709,462829,24,30,14.07,28.24
+PRJ0043,Vertex_43,Newton Inc,Energy,Waterfall,Migration,NodeJS,2023-12-01,2025-01-19,18920,21197,2477591,29,22,42.93,3.41
+PRJ0044,Phoenix_44,Baker PLC,Manufacturing,Waterfall,Support,.NET,2023-08-02,2025-06-23,24408,33901,2265820,31,24,35.86,10.11
+PRJ0045,Helix_45,"Delgado, Carter and Hodge",Manufacturing,Waterfall,Greenfield,NodeJS,2023-01-02,2024-04-06,6492,6121,1876545,29,19,44.59,12.1
+PRJ0046,Orion_46,Murphy and Sons,Manufacturing,Hybrid,Enhancement,SAP,2022-09-12,2023-08-03,13345,14645,1204568,21,20,-0.35,22.6
+PRJ0047,Orion_47,"Savage, Herrera and Huang",Telecom,Hybrid,Enhancement,React,2024-06-20,2024-12-28,8352,7400,1503651,22,25,13.02,18.18
+PRJ0048,Vertex_48,"Martinez, Johnson and Lynch",Telecom,Waterfall,Migration,.NET,2025-03-12,2026-06-27,9179,10069,1734617,30,16,8.15,13.05
+PRJ0049,Phoenix_49,Frederick Inc,Retail,Agile,Support,Python,2024-07-06,2026-02-02,22536,21251,1519445,9,5,12.78,2.85
+PRJ0050,Titan_50,Carr and Sons,Healthcare,Waterfall,Greenfield,Java,2024-04-26,2025-01-02,20494,29697,1829493,33,22,25.42,18.4
+PRJ0051,Nova_51,Reese Ltd,Telecom,Waterfall,Support,.NET,2024-01-30,2025-12-29,21849,25188,654441,27,7,18.79,25.32
+PRJ0052,Helix_52,Durham-Young,Manufacturing,Waterfall,Enhancement,React,2023-11-03,2024-04-02,12306,11941,134956,10,26,28.02,22.19
+PRJ0053,Helix_53,Calderon Inc,Energy,Waterfall,Migration,.NET,2022-07-13,2023-08-17,17516,22724,547831,14,13,-3.69,34.47
+PRJ0054,Nova_54,Myers Group,Telecom,Hybrid,Support,Python,2024-06-29,2025-10-25,19766,24060,816743,27,11,3.11,2.5
+PRJ0055,Vertex_55,Miller-Reese,Healthcare,Agile,Support,NodeJS,2024-09-09,2025-08-30,20216,24159,2187677,37,13,39.18,5.84
+PRJ0056,Helix_56,Woodward PLC,Manufacturing,Agile,Greenfield,React,2023-04-22,2023-07-25,13190,18590,293524,12,35,33.31,25.33
+PRJ0057,Nova_57,Thomas LLC,Energy,Hybrid,Support,React,2024-06-12,2026-01-16,15576,13856,2479056,27,17,3.65,22.44
+PRJ0058,Titan_58,Sims-Carter,Manufacturing,Waterfall,Support,React,2024-09-20,2026-08-29,16949,20744,1590266,20,13,16.24,-2.72
+PRJ0059,Titan_59,Miller Ltd,Healthcare,Waterfall,Migration,React,2025-01-22,2025-06-14,8491,9581,1736074,36,18,2.26,30.07
+PRJ0060,Titan_60,Wood-Gardner,Energy,Agile,Support,Java,2023-03-08,2023-09-27,9037,9055,1890898,26,18,3.1,-0.19
+PRJ0061,Nova_61,Scott-Hunter,BFSI,Agile,Enhancement,Java,2025-01-14,2025-05-30,10952,13917,508073,35,12,36.77,-0.57
+PRJ0062,Phoenix_62,"Turner, Alexander and Johnson",Manufacturing,Agile,Support,NodeJS,2022-07-28,2023-06-27,8719,10605,469187,25,24,15.94,18.19
+PRJ0063,Helix_63,Peters-Brown,Manufacturing,Agile,Migration,Python,2022-08-13,2023-09-09,22779,21505,1826778,39,33,38.11,5.22
+PRJ0064,Vertex_64,Nelson-Friedman,BFSI,Waterfall,Greenfield,.NET,2024-12-16,2025-07-07,15548,16626,2443737,10,15,1.92,9.73
+PRJ0065,Titan_65,Stephenson-Griffin,Telecom,Agile,Support,Java,2023-07-16,2024-08-17,6980,9787,754534,6,34,11.56,23.81
+PRJ0066,Helix_66,Davis-Becker,Retail,Agile,Enhancement,Java,2024-05-06,2025-02-03,19118,26651,2168002,10,25,24.05,18.49
+PRJ0067,Vertex_67,"Ballard, Santiago and Hester",Retail,Hybrid,Migration,Java,2022-11-30,2023-06-09,21944,28701,820470,40,2,43.68,0.75
+PRJ0068,Orion_68,Kim and Sons,Telecom,Hybrid,Support,React,2022-12-22,2023-12-26,24097,34119,2245027,23,11,33.4,1.11
+PRJ0069,Titan_69,Mason-Lee,Healthcare,Hybrid,Enhancement,React,2023-08-28,2023-12-18,13371,14395,519668,19,23,19.84,27.84
+PRJ0070,Orion_70,Bender-Wise,Telecom,Waterfall,Support,React,2022-07-24,2023-05-06,3907,3896,255204,18,12,8.64,-1.89
+PRJ0071,Titan_71,"Noble, Bolton and Santos",Telecom,Agile,Support,Java,2022-07-09,2023-02-08,20527,28125,1362016,11,17,9.87,29.66
+PRJ0072,Nova_72,Jones Inc,Telecom,Waterfall,Enhancement,Python,2022-12-25,2023-05-24,4707,4941,1163914,38,26,10.13,12.0
+PRJ0073,Vertex_73,Smith-Rose,Retail,Waterfall,Enhancement,.NET,2024-10-17,2026-09-04,3135,3654,2189228,12,23,-3.7,22.89
+PRJ0074,Titan_74,Carrillo-Terry,BFSI,Waterfall,Greenfield,NodeJS,2023-01-22,2024-08-21,11797,14012,881633,33,29,-0.35,16.51
+PRJ0075,Phoenix_75,Kaiser Inc,Telecom,Agile,Enhancement,.NET,2023-02-01,2023-08-18,17214,20151,2101185,35,27,38.44,33.7
+PRJ0076,Vertex_76,Morgan Group,BFSI,Waterfall,Greenfield,NodeJS,2025-04-24,2026-12-04,10599,13551,366382,23,28,39.46,1.44
+PRJ0077,Titan_77,Swanson Ltd,Healthcare,Waterfall,Migration,Python,2025-05-09,2025-08-13,11038,14911,1215750,29,28,13.03,22.27
+PRJ0078,Nova_78,Nelson PLC,Energy,Hybrid,Migration,Java,2025-05-09,2025-08-12,17848,18800,1354942,24,10,30.72,16.75
+PRJ0079,Nova_79,Martin Ltd,Manufacturing,Hybrid,Enhancement,NodeJS,2024-09-08,2025-04-12,24099,28572,2288394,18,32,20.13,-2.29
+PRJ0080,Nova_80,"Cole, Good and Nelson",Manufacturing,Hybrid,Migration,Java,2024-04-05,2026-01-22,22207,27871,2483394,32,30,-0.8,21.16
+PRJ0081,Helix_81,Holder LLC,BFSI,Hybrid,Greenfield,SAP,2022-10-20,2024-07-06,11989,11570,2449296,35,2,41.89,21.36
+PRJ0082,Phoenix_82,Johnson-Medina,Telecom,Hybrid,Greenfield,NodeJS,2025-02-02,2026-04-15,24329,34365,907325,12,8,-4.39,24.11
+PRJ0083,Orion_83,"Barnes, Montoya and Baker",Energy,Waterfall,Migration,React,2024-06-21,2025-04-25,10832,12331,872777,6,25,-4.51,10.6
+PRJ0084,Vertex_84,Holloway-Gonzales,Energy,Agile,Migration,.NET,2022-12-16,2023-12-15,22044,24040,951445,34,17,14.79,8.63
+PRJ0085,Titan_85,Norris-Lowery,Energy,Hybrid,Greenfield,Java,2022-10-22,2023-09-07,16734,18498,197474,8,10,2.68,33.2
+PRJ0086,Orion_86,Miller-Nixon,Energy,Waterfall,Greenfield,SAP,2023-08-29,2025-07-08,4280,5531,1347590,31,13,15.75,3.82
+PRJ0087,Helix_87,Garcia Inc,Energy,Agile,Migration,Python,2024-04-02,2024-07-15,14046,18854,804151,16,4,15.78,1.09
+PRJ0088,Vertex_88,"Ramsey, Rosales and Robinson",Telecom,Hybrid,Greenfield,.NET,2024-01-09,2024-05-16,10800,15163,1266546,26,4,21.04,34.15
+PRJ0089,Nova_89,"Jones, Vance and Marshall",BFSI,Agile,Greenfield,React,2022-08-06,2024-02-27,9413,8874,1796827,32,27,43.52,11.18
+PRJ0090,Titan_90,Lee-Beck,Energy,Waterfall,Enhancement,.NET,2022-08-14,2023-08-14,9865,13890,2162436,6,8,-1.51,23.46
+PRJ0091,Phoenix_91,Anderson Ltd,Telecom,Hybrid,Enhancement,.NET,2024-04-23,2025-01-12,24618,31263,1469443,30,19,6.02,6.79
+PRJ0092,Titan_92,Hernandez LLC,Energy,Agile,Enhancement,Python,2022-11-12,2023-07-11,15338,21783,1591426,36,13,42.25,1.46
+PRJ0093,Orion_93,Wright-Yang,Healthcare,Agile,Support,Python,2023-01-29,2025-01-04,21090,20660,2406232,22,18,14.09,31.34
+PRJ0094,Orion_94,"Carroll, Conner and Long",Telecom,Hybrid,Migration,Java,2024-03-20,2025-06-15,18357,21135,464662,25,28,33.53,29.12
+PRJ0095,Helix_95,Mullins-Ford,Retail,Waterfall,Greenfield,Python,2024-04-17,2024-11-02,3168,3357,525041,33,33,4.88,17.11
+PRJ0096,Phoenix_96,"Hawkins, Franco and Bender",Retail,Agile,Enhancement,Python,2024-07-07,2025-09-29,16699,16668,1449054,19,20,18.6,31.52
+PRJ0097,Titan_97,"Andersen, Parrish and Cohen",Telecom,Hybrid,Greenfield,.NET,2024-05-26,2026-01-27,15587,18509,872030,6,12,23.59,19.5
+PRJ0098,Nova_98,Sheppard-Coleman,Manufacturing,Hybrid,Support,.NET,2022-06-27,2023-12-21,10229,10684,1970894,20,29,13.43,31.28
+PRJ0099,Phoenix_99,"Reed, Cameron and Richardson",BFSI,Agile,Greenfield,Python,2023-07-15,2024-07-12,23561,27711,2245564,32,11,-4.94,5.52
+PRJ0100,Titan_100,"Johnson, Cuevas and Herrera",Telecom,Hybrid,Support,NodeJS,2024-07-07,2025-11-03,14554,15159,1498654,14,17,14.16,17.87
+PRJ0101,Helix_101,"Roberson, Glover and Ellis",Energy,Agile,Greenfield,Python,2022-07-27,2023-12-20,14053,15688,753838,9,4,25.21,3.6
+PRJ0102,Vertex_102,Barton LLC,Telecom,Agile,Enhancement,Java,2022-09-23,2023-03-19,21681,25776,490954,25,2,44.03,25.56
+PRJ0103,Orion_103,Jones PLC,Energy,Agile,Enhancement,SAP,2025-04-25,2025-10-17,16539,19078,1126836,6,11,37.65,8.05
+PRJ0104,Phoenix_104,"Warren, Sanders and Johnson",BFSI,Agile,Migration,React,2024-02-01,2025-08-04,23936,34268,2390451,16,26,5.81,4.97
+PRJ0105,Helix_105,Huerta Inc,Energy,Hybrid,Support,Python,2023-09-26,2024-12-18,18202,19981,1671369,20,34,9.18,30.43
+PRJ0106,Nova_106,Garcia-Mclaughlin,Manufacturing,Agile,Enhancement,NodeJS,2023-05-22,2025-02-04,11339,15942,2246412,15,15,38.34,1.36
+PRJ0107,Titan_107,Martin PLC,BFSI,Waterfall,Greenfield,Java,2023-09-23,2024-12-01,24128,20744,1430389,28,27,-1.01,26.44
+PRJ0108,Orion_108,Jones-Clark,BFSI,Agile,Support,SAP,2024-12-09,2026-02-13,4741,5285,1872464,18,20,4.47,3.71
+PRJ0109,Nova_109,Hamilton-Walker,BFSI,Agile,Greenfield,SAP,2024-11-08,2026-07-28,19487,18520,1507932,34,33,31.74,34.61
+PRJ0110,Orion_110,Hardy-Taylor,Manufacturing,Agile,Migration,Java,2024-10-27,2025-07-21,21478,23872,669128,32,14,10.05,0.25
+PRJ0111,Vertex_111,"Rodriguez, Mosley and Bean",Energy,Waterfall,Migration,.NET,2022-07-19,2022-12-10,9719,11271,749175,25,21,30.96,32.59
+PRJ0112,Titan_112,Stewart PLC,Energy,Waterfall,Greenfield,Python,2023-08-24,2024-01-04,14623,20876,764019,28,34,37.79,16.12
+PRJ0113,Phoenix_113,Jackson-Medina,Manufacturing,Agile,Migration,NodeJS,2023-09-01,2025-02-09,23495,25272,1350854,12,9,19.94,-1.04
+PRJ0114,Titan_114,"Ross, Fowler and Marks",Energy,Hybrid,Enhancement,NodeJS,2022-07-05,2023-04-21,20504,24909,2122381,9,26,33.28,23.43
+PRJ0115,Vertex_115,Hopkins-Ward,Telecom,Waterfall,Enhancement,React,2024-07-04,2025-08-05,5768,5109,1713394,34,4,6.22,11.41
+PRJ0116,Vertex_116,Rodriguez PLC,BFSI,Waterfall,Greenfield,Python,2023-02-28,2024-12-18,10138,11102,1947337,17,18,33.3,7.49
+PRJ0117,Vertex_117,"Walsh, Daniels and Stevens",Healthcare,Agile,Greenfield,.NET,2023-02-10,2024-08-04,13385,13539,1618191,20,31,10.74,33.95
+PRJ0118,Vertex_118,"Johnson, Calderon and Lynch",Manufacturing,Waterfall,Enhancement,Java,2023-03-11,2024-01-10,17107,19869,1294499,16,9,9.39,15.49
+PRJ0119,Nova_119,Johnson-Lewis,Healthcare,Agile,Greenfield,SAP,2023-08-25,2024-11-14,18867,22041,2134488,37,27,24.89,17.65
+PRJ0120,Titan_120,"Howell, Smith and Smith",Energy,Waterfall,Migration,SAP,2023-02-09,2024-02-12,7051,9432,1232456,11,6,-1.31,24.44

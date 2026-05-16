@@ -21,7 +21,10 @@ import {
   cilFolderOpen,
   cilMenu,
   cilPlus,
+  cilReload,
+  cilChart,
   cilSpeedometer,
+  cilPeople,
   cilX,
 } from '@coreui/icons';
 import CIcon from '@coreui/icons-react';
@@ -34,8 +37,12 @@ const SIDEBAR_STORAGE_KEY = 'layout.sidebarCollapsed';
 
 const navigationItems = [
   { icon: cilSpeedometer, label: 'Dashboard', to: '/dashboard' },
-  { icon: cilFolderOpen, label: 'Projects', to: '/projects' },
-  { icon: cilPlus, label: 'Create Project', to: '/create-project' },
+  { icon: cilChart, label: 'Analytics', to: '/analytics' },
+  { icon: cilPeople, label: 'Resources', to: '/resources' },
+  { icon: cilFolderOpen, label: 'My Projects', to: '/projects' },
+  { icon: cilReload, label: 'My CRs', to: '/crs' },
+  { icon: cilPlus, label: 'Create CR', to: '/crs/create' },
+  { icon: cilPlus, label: 'Create Project', to: '/projects/create' },
 ];
 
 const getStoredSidebarCollapsed = () => {
@@ -66,6 +73,7 @@ const DefaultLayout = () => {
   const [mobileSidebarVisible, setMobileSidebarVisible] = useState(false);
 
   const currentUser = authService.getCurrentUser();
+  const isAccountManager = String(currentUser?.role || '').toUpperCase() === 'ACCOUNT_MANAGER';
   const isSidebarCollapsed = isDesktop && collapsed;
   const sidebarWidth = collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_EXPANDED_WIDTH;
   const sidebarClassName = `app-sidebar border-end${isSidebarCollapsed ? ' collapsed' : ''}`;
@@ -192,23 +200,25 @@ const DefaultLayout = () => {
         </CSidebarHeader>
 
         <CSidebarNav>
-          {navigationItems.map(({ icon, label, to }) => (
-            <CNavItem key={to}>
-              <CTooltip content={isSidebarCollapsed ? label : ''} placement="right">
-                <CNavLink
-                  as={NavLink}
-                  aria-label={isSidebarCollapsed ? label : undefined}
-                  className="app-sidebar-link"
-                  to={to}
-                >
-                  <CIcon className="nav-icon app-sidebar-icon" icon={icon} />
-                  <span aria-hidden={isSidebarCollapsed} className="app-sidebar-label">
-                    {label}
-                  </span>
-                </CNavLink>
-              </CTooltip>
-            </CNavItem>
-          ))}
+          {navigationItems
+            .filter(({ to }) => isAccountManager ? !['/crs/create', '/projects/create'].includes(to) : true)
+            .map(({ icon, label, to }) => (
+              <CNavItem key={to}>
+                <CTooltip content={isSidebarCollapsed ? label : ''} placement="right">
+                  <CNavLink
+                    as={NavLink}
+                    aria-label={isSidebarCollapsed ? label : undefined}
+                    className="app-sidebar-link"
+                    to={to}
+                  >
+                    <CIcon className="nav-icon app-sidebar-icon" icon={icon} />
+                    <span aria-hidden={isSidebarCollapsed} className="app-sidebar-label">
+                      {label}
+                    </span>
+                  </CNavLink>
+                </CTooltip>
+              </CNavItem>
+            ))}
         </CSidebarNav>
 
         {isDesktop && (

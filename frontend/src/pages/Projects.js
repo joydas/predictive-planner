@@ -51,7 +51,21 @@ const Projects = () => {
     navigate(`/team-recommendation/${projectId}`);
   };
 
-  const excludedColumns = ['created_by', 'id', 'start_date', 'end_date', 'actual_hours','variance'];
+  const excludedColumns = [
+    'created_by',
+    'id',
+    'projectId',
+    'ownerId',
+    'draftData',
+    'status',
+    'submittedByUserId',
+    'approvedByUserId',
+    'latestComment',
+    'start_date',
+    'end_date',
+    'actual_hours',
+    'variance',
+  ];
   const displayedColumns = projects.length
     ? Object.keys(projects[0]).filter((key) => !excludedColumns.includes(key))
     : [];
@@ -198,6 +212,7 @@ const Projects = () => {
                           {displayedColumns.map((column) => (
                             <CTableHeaderCell key={column}>{formatHeader(column)}</CTableHeaderCell>
                           ))}
+                          <CTableHeaderCell>Status</CTableHeaderCell>
                           <CTableHeaderCell>Variance</CTableHeaderCell>
                           <CTableHeaderCell>Risk Level</CTableHeaderCell>
                           <CTableHeaderCell className="text-center">Actions</CTableHeaderCell>
@@ -217,6 +232,19 @@ const Projects = () => {
                                   : project[column]}
                               </CTableDataCell>
                             ))}
+                            <CTableDataCell>
+                              <CBadge color={
+                                project.workflowStatus === 'APPROVED'
+                                  ? 'success'
+                                  : project.workflowStatus === 'RETURNED'
+                                  ? 'warning'
+                                  : project.workflowStatus === 'REJECTED'
+                                  ? 'danger'
+                                  : 'info'
+                              }>
+                                {project.workflowStatus || 'SUBMITTED'}
+                              </CBadge>
+                            </CTableDataCell>
                             <CTableDataCell>
                               <span className={`fw-bold ${project.variance >= 0 ? 'text-danger' : 'text-success'}`}>
                                 {formatVariance(project.variance)}
@@ -238,6 +266,17 @@ const Projects = () => {
                                     onClick={() => handleProgress(project.id)}
                                   >
                                     <CIcon icon={cilChart} size="sm" />
+                                  </CButton>
+                                </CTooltip>
+                                <CTooltip content="Details">
+                                  <CButton
+                                    color="primary"
+                                    variant="outline"
+                                    size="sm"
+                                    className="action-btn"
+                                    onClick={() => navigate(`/projects/${project.id}`)}
+                                  >
+                                    View
                                   </CButton>
                                 </CTooltip>
                                 <CTooltip content="Change Request">

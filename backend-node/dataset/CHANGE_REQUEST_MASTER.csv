@@ -1,0 +1,792 @@
+CR_ID,Project_ID,CR_Category,Severity,Estimated_Effort_Hours,Actual_Effort_Hours,Schedule_Impact_Days,Resource_Impact_FTE,Root_Cause,Environment_Found
+PRJ0001_CR01,PRJ0001,Scope,Critical,162,494,40,4.3,Missed Dependency,UAT
+PRJ0001_CR02,PRJ0001,Compliance,Medium,363,303,44,4.7,Requirement Gap,PROD
+PRJ0001_CR03,PRJ0001,Defect,Medium,103,503,24,1.7,Compliance Change,DEV
+PRJ0001_CR04,PRJ0001,Compliance,Low,137,62,20,2.3,Requirement Gap,DEV
+PRJ0001_CR05,PRJ0001,Compliance,Medium,355,541,25,4.5,Production Defect,DEV
+PRJ0002_CR01,PRJ0002,Scope,High,270,49,7,4.7,Client Scope Change,DEV
+PRJ0002_CR02,PRJ0002,Scope,Medium,469,610,5,0.9,Production Defect,DEV
+PRJ0002_CR03,PRJ0002,Defect,Medium,357,516,35,1.2,Compliance Change,PROD
+PRJ0002_CR04,PRJ0002,Enhancement,Medium,495,582,44,1.4,Client Scope Change,UAT
+PRJ0002_CR05,PRJ0002,Compliance,Critical,480,559,28,1.0,Missed Dependency,DEV
+PRJ0002_CR06,PRJ0002,Compliance,Low,321,597,14,3.1,Requirement Gap,DEV
+PRJ0002_CR07,PRJ0002,Scope,Medium,54,62,21,0.8,Missed Dependency,UAT
+PRJ0002_CR08,PRJ0002,Enhancement,Medium,296,165,36,3.1,Missed Dependency,UAT
+PRJ0002_CR09,PRJ0002,Enhancement,Medium,68,129,42,2.4,Production Defect,UAT
+PRJ0002_CR10,PRJ0002,Enhancement,Low,364,699,41,0.9,Production Defect,PROD
+PRJ0003_CR01,PRJ0003,Defect,Low,324,99,43,4.4,Production Defect,DEV
+PRJ0003_CR02,PRJ0003,Defect,Low,337,113,26,3.5,Compliance Change,PROD
+PRJ0003_CR03,PRJ0003,Compliance,High,124,351,15,1.7,Missed Dependency,PROD
+PRJ0004_CR01,PRJ0004,Enhancement,Low,77,107,44,4.6,Compliance Change,DEV
+PRJ0004_CR02,PRJ0004,Compliance,Medium,240,160,2,1.9,Requirement Gap,UAT
+PRJ0004_CR03,PRJ0004,Defect,Medium,361,135,22,4.0,Production Defect,PROD
+PRJ0004_CR04,PRJ0004,Defect,Medium,462,196,11,4.5,Requirement Gap,DEV
+PRJ0004_CR05,PRJ0004,Compliance,Critical,430,284,17,1.2,Requirement Gap,UAT
+PRJ0004_CR06,PRJ0004,Scope,Critical,133,234,29,2.1,Missed Dependency,DEV
+PRJ0004_CR07,PRJ0004,Scope,Medium,224,366,17,4.4,Client Scope Change,UAT
+PRJ0004_CR08,PRJ0004,Enhancement,High,500,58,7,4.4,Client Scope Change,DEV
+PRJ0004_CR09,PRJ0004,Compliance,Low,75,640,27,2.1,Client Scope Change,UAT
+PRJ0004_CR10,PRJ0004,Scope,Critical,480,620,12,1.6,Production Defect,DEV
+PRJ0005_CR01,PRJ0005,Defect,Medium,95,55,2,1.6,Production Defect,PROD
+PRJ0005_CR02,PRJ0005,Scope,Critical,232,674,36,1.4,Production Defect,UAT
+PRJ0005_CR03,PRJ0005,Enhancement,Medium,95,35,6,4.0,Missed Dependency,DEV
+PRJ0005_CR04,PRJ0005,Enhancement,Low,305,285,7,2.6,Production Defect,PROD
+PRJ0005_CR05,PRJ0005,Compliance,Critical,333,546,27,4.2,Compliance Change,UAT
+PRJ0005_CR06,PRJ0005,Defect,Critical,250,295,15,4.3,Client Scope Change,PROD
+PRJ0006_CR01,PRJ0006,Scope,Critical,323,607,42,0.6,Production Defect,DEV
+PRJ0006_CR02,PRJ0006,Enhancement,Medium,45,296,24,2.0,Production Defect,UAT
+PRJ0006_CR03,PRJ0006,Compliance,Critical,162,461,16,4.3,Production Defect,DEV
+PRJ0006_CR04,PRJ0006,Scope,High,134,695,4,4.0,Requirement Gap,DEV
+PRJ0006_CR05,PRJ0006,Defect,Medium,449,50,39,1.2,Missed Dependency,UAT
+PRJ0006_CR06,PRJ0006,Scope,Medium,258,292,23,1.3,Compliance Change,PROD
+PRJ0006_CR07,PRJ0006,Scope,Medium,179,140,37,0.6,Client Scope Change,PROD
+PRJ0006_CR08,PRJ0006,Enhancement,Critical,386,233,4,3.2,Missed Dependency,DEV
+PRJ0006_CR09,PRJ0006,Compliance,Low,427,609,2,2.1,Production Defect,PROD
+PRJ0006_CR10,PRJ0006,Compliance,Low,279,693,21,0.6,Production Defect,UAT
+PRJ0006_CR11,PRJ0006,Scope,Critical,205,680,29,3.7,Production Defect,DEV
+PRJ0007_CR01,PRJ0007,Compliance,Critical,158,343,16,1.5,Missed Dependency,UAT
+PRJ0007_CR02,PRJ0007,Scope,Medium,118,251,30,1.7,Compliance Change,PROD
+PRJ0007_CR03,PRJ0007,Compliance,Low,446,228,18,1.5,Missed Dependency,UAT
+PRJ0007_CR04,PRJ0007,Scope,Medium,160,76,3,3.0,Missed Dependency,PROD
+PRJ0007_CR05,PRJ0007,Enhancement,Low,466,42,36,1.8,Production Defect,UAT
+PRJ0007_CR06,PRJ0007,Compliance,Medium,46,288,30,1.0,Requirement Gap,UAT
+PRJ0007_CR07,PRJ0007,Enhancement,Low,315,674,43,0.7,Missed Dependency,PROD
+PRJ0008_CR01,PRJ0008,Compliance,Critical,83,509,44,1.9,Production Defect,UAT
+PRJ0008_CR02,PRJ0008,Enhancement,Critical,61,642,2,4.5,Client Scope Change,PROD
+PRJ0008_CR03,PRJ0008,Compliance,Low,66,264,43,4.3,Compliance Change,PROD
+PRJ0008_CR04,PRJ0008,Scope,High,315,71,11,2.6,Production Defect,UAT
+PRJ0008_CR05,PRJ0008,Defect,Critical,345,533,5,2.6,Production Defect,UAT
+PRJ0008_CR06,PRJ0008,Compliance,Low,459,194,21,2.4,Production Defect,UAT
+PRJ0008_CR07,PRJ0008,Enhancement,Low,252,120,20,1.6,Requirement Gap,UAT
+PRJ0008_CR08,PRJ0008,Scope,Critical,231,85,12,2.8,Compliance Change,UAT
+PRJ0008_CR09,PRJ0008,Enhancement,Low,124,303,35,1.1,Client Scope Change,UAT
+PRJ0008_CR10,PRJ0008,Enhancement,Low,34,675,38,4.1,Missed Dependency,UAT
+PRJ0008_CR11,PRJ0008,Scope,Critical,67,260,7,2.6,Requirement Gap,PROD
+PRJ0009_CR01,PRJ0009,Defect,High,465,132,28,0.9,Production Defect,DEV
+PRJ0009_CR02,PRJ0009,Defect,Critical,465,700,9,0.8,Client Scope Change,UAT
+PRJ0010_CR01,PRJ0010,Enhancement,High,121,423,30,1.0,Production Defect,PROD
+PRJ0010_CR02,PRJ0010,Compliance,High,378,332,1,4.9,Production Defect,UAT
+PRJ0010_CR03,PRJ0010,Scope,Low,486,650,31,4.2,Client Scope Change,DEV
+PRJ0010_CR04,PRJ0010,Compliance,Medium,345,224,39,1.6,Missed Dependency,PROD
+PRJ0010_CR05,PRJ0010,Scope,Low,178,481,2,3.1,Missed Dependency,DEV
+PRJ0010_CR06,PRJ0010,Compliance,High,402,455,11,1.4,Compliance Change,UAT
+PRJ0011_CR01,PRJ0011,Enhancement,Medium,473,454,41,0.9,Production Defect,PROD
+PRJ0011_CR02,PRJ0011,Enhancement,High,36,409,13,2.5,Missed Dependency,UAT
+PRJ0011_CR03,PRJ0011,Scope,High,298,690,22,0.8,Client Scope Change,DEV
+PRJ0011_CR04,PRJ0011,Scope,Critical,66,247,41,3.4,Requirement Gap,DEV
+PRJ0011_CR05,PRJ0011,Compliance,Medium,84,608,13,0.8,Compliance Change,DEV
+PRJ0011_CR06,PRJ0011,Defect,Medium,188,181,38,0.5,Missed Dependency,DEV
+PRJ0011_CR07,PRJ0011,Compliance,Medium,76,56,8,0.6,Missed Dependency,PROD
+PRJ0011_CR08,PRJ0011,Compliance,Low,109,301,3,1.1,Production Defect,PROD
+PRJ0011_CR09,PRJ0011,Scope,Low,263,489,23,2.8,Requirement Gap,UAT
+PRJ0011_CR10,PRJ0011,Defect,Low,392,563,19,2.6,Requirement Gap,DEV
+PRJ0012_CR01,PRJ0012,Enhancement,High,467,463,3,4.9,Compliance Change,UAT
+PRJ0012_CR02,PRJ0012,Compliance,Low,315,549,13,1.2,Production Defect,DEV
+PRJ0012_CR03,PRJ0012,Scope,High,452,599,23,1.0,Client Scope Change,PROD
+PRJ0013_CR01,PRJ0013,Defect,Critical,326,86,0,1.4,Missed Dependency,DEV
+PRJ0013_CR02,PRJ0013,Compliance,High,187,152,0,2.7,Production Defect,DEV
+PRJ0014_CR01,PRJ0014,Defect,Medium,328,186,41,0.8,Production Defect,UAT
+PRJ0014_CR02,PRJ0014,Enhancement,High,462,672,20,1.2,Requirement Gap,UAT
+PRJ0014_CR03,PRJ0014,Enhancement,High,427,311,37,0.8,Compliance Change,DEV
+PRJ0014_CR04,PRJ0014,Compliance,Critical,251,68,3,2.2,Client Scope Change,DEV
+PRJ0014_CR05,PRJ0014,Scope,Critical,256,624,35,4.8,Requirement Gap,UAT
+PRJ0014_CR06,PRJ0014,Defect,High,329,517,32,1.2,Requirement Gap,UAT
+PRJ0015_CR01,PRJ0015,Enhancement,High,29,401,19,1.3,Missed Dependency,UAT
+PRJ0015_CR02,PRJ0015,Enhancement,Medium,135,170,9,0.8,Requirement Gap,PROD
+PRJ0015_CR03,PRJ0015,Scope,High,468,662,8,3.2,Missed Dependency,DEV
+PRJ0016_CR01,PRJ0016,Compliance,Medium,217,113,23,1.5,Client Scope Change,DEV
+PRJ0016_CR02,PRJ0016,Compliance,Medium,90,69,18,4.6,Production Defect,PROD
+PRJ0016_CR03,PRJ0016,Defect,Critical,249,660,0,4.6,Requirement Gap,UAT
+PRJ0016_CR04,PRJ0016,Defect,Medium,300,653,33,2.4,Client Scope Change,DEV
+PRJ0016_CR05,PRJ0016,Compliance,Low,44,274,26,3.4,Compliance Change,UAT
+PRJ0016_CR06,PRJ0016,Scope,Low,448,541,38,2.9,Compliance Change,PROD
+PRJ0016_CR07,PRJ0016,Defect,Medium,169,469,0,3.3,Missed Dependency,PROD
+PRJ0016_CR08,PRJ0016,Enhancement,Medium,360,117,33,4.9,Requirement Gap,PROD
+PRJ0016_CR09,PRJ0016,Scope,Critical,467,511,2,3.4,Client Scope Change,UAT
+PRJ0016_CR10,PRJ0016,Scope,High,423,99,22,1.6,Requirement Gap,PROD
+PRJ0017_CR01,PRJ0017,Compliance,High,72,111,20,3.5,Client Scope Change,UAT
+PRJ0017_CR02,PRJ0017,Enhancement,Medium,373,484,22,2.5,Client Scope Change,PROD
+PRJ0017_CR03,PRJ0017,Enhancement,High,347,88,4,3.5,Production Defect,UAT
+PRJ0017_CR04,PRJ0017,Defect,Low,93,652,43,4.0,Requirement Gap,DEV
+PRJ0017_CR05,PRJ0017,Scope,Medium,418,690,23,2.1,Compliance Change,DEV
+PRJ0017_CR06,PRJ0017,Defect,Critical,209,410,28,3.9,Compliance Change,DEV
+PRJ0017_CR07,PRJ0017,Compliance,Critical,180,695,17,1.6,Requirement Gap,DEV
+PRJ0017_CR08,PRJ0017,Defect,Critical,285,426,35,1.0,Client Scope Change,PROD
+PRJ0017_CR09,PRJ0017,Enhancement,Medium,333,322,44,4.6,Production Defect,DEV
+PRJ0017_CR10,PRJ0017,Scope,Medium,456,105,28,1.3,Production Defect,DEV
+PRJ0018_CR01,PRJ0018,Compliance,Low,148,231,40,4.8,Client Scope Change,DEV
+PRJ0018_CR02,PRJ0018,Compliance,Low,277,686,10,3.2,Compliance Change,DEV
+PRJ0018_CR03,PRJ0018,Defect,High,451,607,2,4.2,Requirement Gap,DEV
+PRJ0018_CR04,PRJ0018,Scope,High,353,245,36,2.4,Requirement Gap,UAT
+PRJ0018_CR05,PRJ0018,Compliance,High,267,280,43,2.3,Production Defect,DEV
+PRJ0018_CR06,PRJ0018,Scope,Medium,245,455,30,2.6,Client Scope Change,PROD
+PRJ0018_CR07,PRJ0018,Defect,High,461,356,22,4.9,Missed Dependency,UAT
+PRJ0019_CR01,PRJ0019,Enhancement,High,442,668,43,3.2,Missed Dependency,DEV
+PRJ0019_CR02,PRJ0019,Enhancement,High,426,377,35,4.7,Missed Dependency,DEV
+PRJ0019_CR03,PRJ0019,Enhancement,Low,43,69,8,3.7,Production Defect,PROD
+PRJ0019_CR04,PRJ0019,Enhancement,Medium,330,557,8,2.0,Compliance Change,UAT
+PRJ0019_CR05,PRJ0019,Defect,Critical,335,336,37,2.0,Compliance Change,PROD
+PRJ0019_CR06,PRJ0019,Enhancement,High,263,47,23,2.0,Requirement Gap,UAT
+PRJ0019_CR07,PRJ0019,Compliance,Low,325,515,16,4.9,Compliance Change,PROD
+PRJ0019_CR08,PRJ0019,Defect,Low,318,521,10,2.9,Compliance Change,UAT
+PRJ0020_CR01,PRJ0020,Enhancement,Critical,439,383,9,1.8,Client Scope Change,PROD
+PRJ0020_CR02,PRJ0020,Scope,High,493,482,41,1.7,Production Defect,DEV
+PRJ0020_CR03,PRJ0020,Defect,High,497,605,44,1.7,Requirement Gap,PROD
+PRJ0020_CR04,PRJ0020,Defect,Medium,45,573,14,3.4,Requirement Gap,DEV
+PRJ0020_CR05,PRJ0020,Enhancement,High,387,513,6,3.6,Missed Dependency,DEV
+PRJ0020_CR06,PRJ0020,Defect,Critical,354,517,30,3.4,Client Scope Change,UAT
+PRJ0020_CR07,PRJ0020,Compliance,Low,484,121,41,3.1,Compliance Change,PROD
+PRJ0020_CR08,PRJ0020,Scope,Medium,233,210,2,5.0,Production Defect,UAT
+PRJ0020_CR09,PRJ0020,Defect,High,468,68,0,1.8,Compliance Change,DEV
+PRJ0020_CR10,PRJ0020,Compliance,High,252,686,34,2.9,Missed Dependency,PROD
+PRJ0021_CR01,PRJ0021,Defect,Medium,88,519,9,2.5,Compliance Change,UAT
+PRJ0021_CR02,PRJ0021,Enhancement,Critical,407,580,42,4.2,Missed Dependency,PROD
+PRJ0021_CR03,PRJ0021,Scope,Critical,290,400,4,4.6,Requirement Gap,DEV
+PRJ0021_CR04,PRJ0021,Defect,Medium,104,365,33,2.5,Missed Dependency,PROD
+PRJ0021_CR05,PRJ0021,Enhancement,Low,480,552,28,4.1,Production Defect,DEV
+PRJ0021_CR06,PRJ0021,Enhancement,Critical,308,89,35,2.6,Client Scope Change,PROD
+PRJ0021_CR07,PRJ0021,Scope,Critical,150,33,13,3.1,Requirement Gap,UAT
+PRJ0021_CR08,PRJ0021,Compliance,Low,297,91,4,4.9,Production Defect,DEV
+PRJ0021_CR09,PRJ0021,Compliance,Critical,112,168,41,4.9,Production Defect,UAT
+PRJ0021_CR10,PRJ0021,Enhancement,Critical,465,416,24,0.9,Compliance Change,DEV
+PRJ0021_CR11,PRJ0021,Compliance,Low,111,580,25,2.9,Missed Dependency,DEV
+PRJ0022_CR01,PRJ0022,Enhancement,Low,196,688,42,2.2,Compliance Change,UAT
+PRJ0022_CR02,PRJ0022,Enhancement,Critical,96,337,24,1.3,Compliance Change,UAT
+PRJ0022_CR03,PRJ0022,Defect,Medium,173,177,29,4.6,Compliance Change,UAT
+PRJ0022_CR04,PRJ0022,Enhancement,Medium,218,278,16,1.4,Requirement Gap,UAT
+PRJ0022_CR05,PRJ0022,Compliance,Low,294,225,3,1.7,Compliance Change,PROD
+PRJ0022_CR06,PRJ0022,Scope,Low,116,631,42,3.0,Production Defect,DEV
+PRJ0022_CR07,PRJ0022,Compliance,High,485,45,13,4.7,Requirement Gap,PROD
+PRJ0022_CR08,PRJ0022,Enhancement,Medium,376,648,45,1.4,Missed Dependency,PROD
+PRJ0023_CR01,PRJ0023,Scope,Low,411,36,26,1.1,Missed Dependency,DEV
+PRJ0023_CR02,PRJ0023,Defect,Low,131,547,29,2.2,Compliance Change,PROD
+PRJ0024_CR01,PRJ0024,Defect,Critical,158,77,4,3.6,Client Scope Change,PROD
+PRJ0024_CR02,PRJ0024,Scope,Medium,495,352,1,4.8,Compliance Change,DEV
+PRJ0024_CR03,PRJ0024,Enhancement,Low,173,196,36,1.6,Production Defect,PROD
+PRJ0024_CR04,PRJ0024,Compliance,Critical,406,173,44,3.8,Compliance Change,PROD
+PRJ0024_CR05,PRJ0024,Compliance,Low,70,477,14,4.3,Client Scope Change,PROD
+PRJ0025_CR01,PRJ0025,Defect,Medium,370,419,10,1.1,Client Scope Change,UAT
+PRJ0025_CR02,PRJ0025,Enhancement,Medium,52,201,27,1.7,Client Scope Change,UAT
+PRJ0025_CR03,PRJ0025,Scope,High,148,282,40,2.7,Compliance Change,DEV
+PRJ0025_CR04,PRJ0025,Enhancement,Low,89,341,0,4.8,Client Scope Change,PROD
+PRJ0025_CR05,PRJ0025,Enhancement,High,245,372,27,4.2,Compliance Change,DEV
+PRJ0025_CR06,PRJ0025,Compliance,High,328,235,30,1.9,Production Defect,UAT
+PRJ0025_CR07,PRJ0025,Compliance,Critical,314,278,20,2.2,Production Defect,UAT
+PRJ0025_CR08,PRJ0025,Scope,Medium,323,588,11,3.6,Compliance Change,DEV
+PRJ0025_CR09,PRJ0025,Enhancement,Medium,244,328,44,0.8,Production Defect,PROD
+PRJ0025_CR10,PRJ0025,Enhancement,Medium,344,340,15,1.6,Missed Dependency,PROD
+PRJ0026_CR01,PRJ0026,Scope,Critical,389,493,20,0.8,Requirement Gap,PROD
+PRJ0026_CR02,PRJ0026,Scope,Low,454,381,41,1.0,Missed Dependency,PROD
+PRJ0026_CR03,PRJ0026,Defect,Medium,302,193,21,3.0,Production Defect,DEV
+PRJ0026_CR04,PRJ0026,Enhancement,Medium,115,685,42,2.4,Requirement Gap,PROD
+PRJ0026_CR05,PRJ0026,Defect,Critical,323,469,24,0.5,Missed Dependency,DEV
+PRJ0026_CR06,PRJ0026,Compliance,Low,315,134,34,1.3,Client Scope Change,DEV
+PRJ0026_CR07,PRJ0026,Enhancement,Low,154,531,33,4.8,Client Scope Change,PROD
+PRJ0026_CR08,PRJ0026,Enhancement,Critical,320,146,22,2.1,Production Defect,PROD
+PRJ0026_CR09,PRJ0026,Defect,High,490,659,37,0.9,Missed Dependency,UAT
+PRJ0027_CR01,PRJ0027,Scope,High,416,586,23,2.9,Requirement Gap,PROD
+PRJ0027_CR02,PRJ0027,Enhancement,Medium,237,134,41,3.9,Client Scope Change,DEV
+PRJ0027_CR03,PRJ0027,Enhancement,High,198,119,28,4.4,Requirement Gap,DEV
+PRJ0028_CR01,PRJ0028,Enhancement,High,455,94,34,2.3,Production Defect,DEV
+PRJ0028_CR02,PRJ0028,Enhancement,High,185,320,21,3.0,Missed Dependency,PROD
+PRJ0028_CR03,PRJ0028,Enhancement,High,477,79,2,0.9,Production Defect,DEV
+PRJ0029_CR01,PRJ0029,Enhancement,High,389,248,40,3.9,Production Defect,PROD
+PRJ0029_CR02,PRJ0029,Enhancement,Medium,64,132,8,3.9,Compliance Change,PROD
+PRJ0029_CR03,PRJ0029,Enhancement,High,239,352,8,1.6,Requirement Gap,DEV
+PRJ0029_CR04,PRJ0029,Compliance,Low,454,338,13,2.8,Compliance Change,DEV
+PRJ0030_CR01,PRJ0030,Scope,Medium,64,474,7,2.5,Compliance Change,DEV
+PRJ0030_CR02,PRJ0030,Compliance,Medium,81,42,45,1.1,Requirement Gap,DEV
+PRJ0030_CR03,PRJ0030,Enhancement,High,287,559,16,1.3,Missed Dependency,PROD
+PRJ0030_CR04,PRJ0030,Compliance,Low,414,60,21,4.1,Client Scope Change,PROD
+PRJ0030_CR05,PRJ0030,Scope,High,384,620,40,0.8,Production Defect,PROD
+PRJ0031_CR01,PRJ0031,Compliance,Critical,415,230,34,3.9,Missed Dependency,DEV
+PRJ0031_CR02,PRJ0031,Scope,Critical,32,268,34,2.1,Requirement Gap,UAT
+PRJ0031_CR03,PRJ0031,Scope,Critical,454,344,6,1.4,Missed Dependency,UAT
+PRJ0031_CR04,PRJ0031,Enhancement,Low,92,316,5,0.7,Missed Dependency,PROD
+PRJ0031_CR05,PRJ0031,Enhancement,High,254,116,37,0.9,Missed Dependency,PROD
+PRJ0031_CR06,PRJ0031,Enhancement,Low,323,611,3,2.5,Missed Dependency,DEV
+PRJ0031_CR07,PRJ0031,Compliance,High,455,352,25,3.7,Client Scope Change,UAT
+PRJ0031_CR08,PRJ0031,Enhancement,High,139,106,12,1.1,Compliance Change,DEV
+PRJ0031_CR09,PRJ0031,Defect,Low,104,490,29,1.9,Requirement Gap,PROD
+PRJ0032_CR01,PRJ0032,Scope,Critical,45,202,36,2.4,Production Defect,UAT
+PRJ0032_CR02,PRJ0032,Scope,Critical,369,466,11,2.1,Missed Dependency,UAT
+PRJ0032_CR03,PRJ0032,Compliance,Critical,472,182,2,3.3,Compliance Change,DEV
+PRJ0033_CR01,PRJ0033,Defect,High,432,397,37,0.6,Client Scope Change,PROD
+PRJ0033_CR02,PRJ0033,Defect,Medium,448,534,34,1.9,Production Defect,DEV
+PRJ0033_CR03,PRJ0033,Scope,Low,139,646,14,0.6,Production Defect,DEV
+PRJ0033_CR04,PRJ0033,Compliance,Medium,432,163,21,3.7,Client Scope Change,DEV
+PRJ0034_CR01,PRJ0034,Scope,High,127,285,44,0.8,Client Scope Change,DEV
+PRJ0034_CR02,PRJ0034,Scope,Low,217,478,26,4.9,Production Defect,UAT
+PRJ0034_CR03,PRJ0034,Enhancement,High,299,414,6,4.2,Compliance Change,PROD
+PRJ0034_CR04,PRJ0034,Defect,Medium,251,105,2,1.8,Client Scope Change,UAT
+PRJ0034_CR05,PRJ0034,Scope,Low,195,204,24,1.2,Requirement Gap,PROD
+PRJ0034_CR06,PRJ0034,Scope,High,324,658,30,3.7,Production Defect,PROD
+PRJ0034_CR07,PRJ0034,Defect,Critical,100,84,6,2.0,Missed Dependency,UAT
+PRJ0034_CR08,PRJ0034,Compliance,High,172,273,6,0.7,Compliance Change,PROD
+PRJ0034_CR09,PRJ0034,Enhancement,Medium,47,399,0,2.4,Client Scope Change,PROD
+PRJ0035_CR01,PRJ0035,Defect,Low,407,489,11,4.8,Missed Dependency,DEV
+PRJ0035_CR02,PRJ0035,Defect,Medium,41,463,5,4.9,Production Defect,DEV
+PRJ0035_CR03,PRJ0035,Defect,High,183,98,5,2.2,Production Defect,PROD
+PRJ0035_CR04,PRJ0035,Compliance,High,286,499,0,4.0,Compliance Change,PROD
+PRJ0035_CR05,PRJ0035,Enhancement,Low,232,183,9,3.0,Compliance Change,DEV
+PRJ0035_CR06,PRJ0035,Scope,Low,422,322,34,4.5,Production Defect,UAT
+PRJ0035_CR07,PRJ0035,Enhancement,Critical,312,653,30,0.7,Client Scope Change,UAT
+PRJ0035_CR08,PRJ0035,Defect,Critical,39,435,21,3.6,Requirement Gap,PROD
+PRJ0035_CR09,PRJ0035,Enhancement,High,479,411,1,2.0,Client Scope Change,UAT
+PRJ0035_CR10,PRJ0035,Compliance,Critical,459,130,14,1.1,Production Defect,UAT
+PRJ0035_CR11,PRJ0035,Compliance,Critical,329,691,5,1.3,Missed Dependency,UAT
+PRJ0036_CR01,PRJ0036,Scope,Low,262,165,41,1.3,Requirement Gap,DEV
+PRJ0036_CR02,PRJ0036,Compliance,High,384,688,17,2.4,Production Defect,UAT
+PRJ0036_CR03,PRJ0036,Enhancement,High,131,507,19,3.5,Compliance Change,UAT
+PRJ0036_CR04,PRJ0036,Scope,Low,281,413,35,3.4,Compliance Change,UAT
+PRJ0036_CR05,PRJ0036,Compliance,Low,266,95,21,4.9,Client Scope Change,UAT
+PRJ0036_CR06,PRJ0036,Compliance,High,116,183,33,3.9,Requirement Gap,PROD
+PRJ0036_CR07,PRJ0036,Enhancement,High,368,173,1,3.4,Client Scope Change,UAT
+PRJ0036_CR08,PRJ0036,Enhancement,Critical,218,66,37,3.7,Compliance Change,DEV
+PRJ0036_CR09,PRJ0036,Compliance,Medium,371,577,40,4.0,Client Scope Change,PROD
+PRJ0036_CR10,PRJ0036,Compliance,Medium,450,601,11,1.8,Production Defect,DEV
+PRJ0037_CR01,PRJ0037,Enhancement,Critical,226,469,30,2.2,Requirement Gap,PROD
+PRJ0037_CR02,PRJ0037,Defect,High,27,359,33,1.4,Requirement Gap,PROD
+PRJ0037_CR03,PRJ0037,Defect,Medium,375,382,19,1.1,Production Defect,PROD
+PRJ0037_CR04,PRJ0037,Compliance,Medium,53,76,19,4.8,Production Defect,PROD
+PRJ0037_CR05,PRJ0037,Compliance,Critical,474,167,21,5.0,Production Defect,UAT
+PRJ0037_CR06,PRJ0037,Defect,Medium,484,443,1,1.5,Missed Dependency,DEV
+PRJ0037_CR07,PRJ0037,Scope,Medium,83,405,45,3.4,Requirement Gap,UAT
+PRJ0037_CR08,PRJ0037,Compliance,Low,324,79,42,1.0,Requirement Gap,DEV
+PRJ0037_CR09,PRJ0037,Scope,Critical,247,419,7,3.0,Production Defect,PROD
+PRJ0037_CR10,PRJ0037,Defect,Medium,375,675,0,1.9,Requirement Gap,PROD
+PRJ0037_CR11,PRJ0037,Compliance,Medium,234,137,32,3.7,Requirement Gap,UAT
+PRJ0038_CR01,PRJ0038,Compliance,Low,210,380,11,1.0,Production Defect,UAT
+PRJ0038_CR02,PRJ0038,Compliance,Critical,373,519,26,3.4,Missed Dependency,DEV
+PRJ0038_CR03,PRJ0038,Defect,Low,452,193,6,2.4,Compliance Change,UAT
+PRJ0038_CR04,PRJ0038,Enhancement,Medium,332,418,22,3.3,Missed Dependency,UAT
+PRJ0038_CR05,PRJ0038,Enhancement,Low,474,451,28,0.7,Client Scope Change,PROD
+PRJ0038_CR06,PRJ0038,Compliance,Low,380,567,36,3.8,Missed Dependency,PROD
+PRJ0038_CR07,PRJ0038,Compliance,Low,241,284,30,2.1,Production Defect,DEV
+PRJ0038_CR08,PRJ0038,Scope,Low,349,190,32,4.3,Production Defect,DEV
+PRJ0038_CR09,PRJ0038,Scope,Critical,184,276,21,4.9,Requirement Gap,PROD
+PRJ0038_CR10,PRJ0038,Defect,Critical,226,270,5,2.6,Compliance Change,UAT
+PRJ0038_CR11,PRJ0038,Scope,Critical,248,353,7,4.9,Requirement Gap,DEV
+PRJ0039_CR01,PRJ0039,Enhancement,Critical,357,633,32,1.1,Production Defect,DEV
+PRJ0039_CR02,PRJ0039,Scope,Critical,449,629,30,4.7,Missed Dependency,PROD
+PRJ0039_CR03,PRJ0039,Defect,Medium,73,426,42,3.2,Client Scope Change,PROD
+PRJ0040_CR01,PRJ0040,Defect,Low,373,332,13,3.9,Requirement Gap,UAT
+PRJ0040_CR02,PRJ0040,Enhancement,Low,335,605,14,3.8,Compliance Change,UAT
+PRJ0040_CR03,PRJ0040,Defect,High,374,78,24,2.2,Client Scope Change,PROD
+PRJ0040_CR04,PRJ0040,Scope,Low,400,287,12,3.3,Production Defect,DEV
+PRJ0040_CR05,PRJ0040,Compliance,Medium,417,228,18,2.5,Requirement Gap,DEV
+PRJ0040_CR06,PRJ0040,Defect,Low,213,71,27,1.8,Client Scope Change,DEV
+PRJ0041_CR01,PRJ0041,Compliance,High,32,559,23,2.8,Compliance Change,UAT
+PRJ0041_CR02,PRJ0041,Enhancement,Low,171,697,12,1.9,Requirement Gap,DEV
+PRJ0041_CR03,PRJ0041,Defect,Low,340,97,13,3.5,Missed Dependency,PROD
+PRJ0041_CR04,PRJ0041,Enhancement,Low,125,580,44,4.5,Production Defect,PROD
+PRJ0041_CR05,PRJ0041,Scope,Medium,32,500,45,2.0,Requirement Gap,DEV
+PRJ0041_CR06,PRJ0041,Scope,Medium,426,287,35,0.8,Missed Dependency,UAT
+PRJ0041_CR07,PRJ0041,Enhancement,Critical,250,675,25,2.4,Requirement Gap,UAT
+PRJ0041_CR08,PRJ0041,Scope,Low,348,663,4,3.9,Compliance Change,DEV
+PRJ0042_CR01,PRJ0042,Enhancement,Low,168,98,16,0.9,Compliance Change,UAT
+PRJ0042_CR02,PRJ0042,Compliance,High,85,270,6,1.8,Requirement Gap,DEV
+PRJ0043_CR01,PRJ0043,Enhancement,Medium,476,633,18,1.1,Compliance Change,PROD
+PRJ0043_CR02,PRJ0043,Scope,Critical,206,544,0,3.5,Compliance Change,PROD
+PRJ0043_CR03,PRJ0043,Defect,Medium,248,193,11,3.0,Compliance Change,PROD
+PRJ0043_CR04,PRJ0043,Defect,Critical,500,397,2,1.5,Production Defect,DEV
+PRJ0043_CR05,PRJ0043,Scope,High,209,269,2,3.5,Compliance Change,UAT
+PRJ0043_CR06,PRJ0043,Enhancement,Critical,489,495,2,0.7,Client Scope Change,DEV
+PRJ0043_CR07,PRJ0043,Compliance,High,316,587,36,1.3,Production Defect,UAT
+PRJ0044_CR01,PRJ0044,Scope,High,63,251,28,3.2,Production Defect,UAT
+PRJ0044_CR02,PRJ0044,Defect,Medium,445,450,38,1.1,Compliance Change,DEV
+PRJ0044_CR03,PRJ0044,Compliance,Medium,390,380,29,3.2,Requirement Gap,DEV
+PRJ0044_CR04,PRJ0044,Enhancement,Critical,87,141,1,1.4,Compliance Change,PROD
+PRJ0044_CR05,PRJ0044,Enhancement,Medium,330,128,11,2.6,Compliance Change,PROD
+PRJ0044_CR06,PRJ0044,Scope,Low,67,523,42,1.1,Compliance Change,PROD
+PRJ0044_CR07,PRJ0044,Scope,Critical,287,460,23,4.4,Compliance Change,UAT
+PRJ0044_CR08,PRJ0044,Defect,Critical,424,420,22,3.2,Compliance Change,DEV
+PRJ0044_CR09,PRJ0044,Enhancement,Medium,150,518,14,4.6,Requirement Gap,UAT
+PRJ0044_CR10,PRJ0044,Enhancement,High,116,35,45,3.8,Requirement Gap,PROD
+PRJ0044_CR11,PRJ0044,Scope,Low,212,700,13,3.6,Client Scope Change,UAT
+PRJ0045_CR01,PRJ0045,Scope,Critical,496,440,39,3.5,Client Scope Change,PROD
+PRJ0045_CR02,PRJ0045,Scope,Medium,347,536,28,0.5,Compliance Change,UAT
+PRJ0045_CR03,PRJ0045,Defect,Low,421,643,32,2.8,Missed Dependency,PROD
+PRJ0045_CR04,PRJ0045,Defect,Low,204,274,41,0.5,Missed Dependency,DEV
+PRJ0045_CR05,PRJ0045,Compliance,Critical,200,434,25,3.1,Compliance Change,DEV
+PRJ0045_CR06,PRJ0045,Scope,Low,301,321,35,4.6,Client Scope Change,UAT
+PRJ0045_CR07,PRJ0045,Compliance,Medium,330,229,29,4.7,Compliance Change,DEV
+PRJ0045_CR08,PRJ0045,Compliance,Medium,228,548,6,3.0,Compliance Change,UAT
+PRJ0045_CR09,PRJ0045,Compliance,Low,431,555,16,4.4,Compliance Change,UAT
+PRJ0045_CR10,PRJ0045,Enhancement,Critical,308,525,15,3.9,Production Defect,PROD
+PRJ0045_CR11,PRJ0045,Enhancement,Low,266,149,16,0.8,Missed Dependency,PROD
+PRJ0046_CR01,PRJ0046,Defect,High,223,257,36,1.1,Compliance Change,UAT
+PRJ0046_CR02,PRJ0046,Enhancement,Low,277,385,25,4.4,Missed Dependency,UAT
+PRJ0046_CR03,PRJ0046,Scope,Critical,181,38,0,3.5,Production Defect,PROD
+PRJ0046_CR04,PRJ0046,Scope,High,205,657,16,1.3,Client Scope Change,DEV
+PRJ0046_CR05,PRJ0046,Compliance,Critical,333,381,23,1.3,Production Defect,DEV
+PRJ0046_CR06,PRJ0046,Enhancement,High,206,440,17,2.5,Compliance Change,DEV
+PRJ0046_CR07,PRJ0046,Defect,Low,389,306,15,3.0,Production Defect,DEV
+PRJ0046_CR08,PRJ0046,Defect,Medium,262,39,11,2.4,Missed Dependency,PROD
+PRJ0046_CR09,PRJ0046,Compliance,Critical,173,286,35,4.4,Requirement Gap,UAT
+PRJ0047_CR01,PRJ0047,Enhancement,Critical,105,218,1,1.1,Missed Dependency,PROD
+PRJ0047_CR02,PRJ0047,Compliance,Low,127,200,25,1.0,Requirement Gap,UAT
+PRJ0047_CR03,PRJ0047,Scope,Low,414,436,33,3.9,Requirement Gap,DEV
+PRJ0047_CR04,PRJ0047,Compliance,Medium,63,700,24,1.9,Missed Dependency,PROD
+PRJ0047_CR05,PRJ0047,Compliance,Critical,340,159,8,2.9,Missed Dependency,DEV
+PRJ0047_CR06,PRJ0047,Scope,High,460,363,30,2.6,Compliance Change,UAT
+PRJ0047_CR07,PRJ0047,Enhancement,Medium,377,582,11,3.2,Production Defect,PROD
+PRJ0047_CR08,PRJ0047,Enhancement,High,485,385,30,2.9,Requirement Gap,UAT
+PRJ0047_CR09,PRJ0047,Compliance,High,231,296,9,1.9,Requirement Gap,PROD
+PRJ0047_CR10,PRJ0047,Defect,High,166,510,34,0.5,Production Defect,UAT
+PRJ0047_CR11,PRJ0047,Compliance,Low,412,470,18,3.2,Requirement Gap,PROD
+PRJ0048_CR01,PRJ0048,Scope,Medium,48,302,25,0.8,Production Defect,DEV
+PRJ0048_CR02,PRJ0048,Defect,High,438,420,0,1.0,Missed Dependency,UAT
+PRJ0048_CR03,PRJ0048,Enhancement,Medium,397,64,12,2.6,Requirement Gap,PROD
+PRJ0048_CR04,PRJ0048,Defect,Critical,219,349,20,1.2,Requirement Gap,PROD
+PRJ0048_CR05,PRJ0048,Scope,High,266,683,19,1.4,Requirement Gap,PROD
+PRJ0048_CR06,PRJ0048,Defect,Low,140,678,27,2.0,Missed Dependency,UAT
+PRJ0048_CR07,PRJ0048,Scope,Critical,424,278,0,4.9,Compliance Change,PROD
+PRJ0049_CR01,PRJ0049,Defect,High,389,94,42,4.9,Production Defect,DEV
+PRJ0049_CR02,PRJ0049,Enhancement,Medium,333,319,20,2.3,Client Scope Change,DEV
+PRJ0049_CR03,PRJ0049,Scope,Low,42,162,11,4.4,Missed Dependency,DEV
+PRJ0049_CR04,PRJ0049,Enhancement,Medium,70,62,36,3.4,Production Defect,PROD
+PRJ0049_CR05,PRJ0049,Enhancement,High,45,405,14,3.2,Requirement Gap,DEV
+PRJ0049_CR06,PRJ0049,Defect,Critical,495,111,29,4.1,Requirement Gap,UAT
+PRJ0049_CR07,PRJ0049,Enhancement,High,426,89,39,1.7,Requirement Gap,PROD
+PRJ0049_CR08,PRJ0049,Scope,High,59,251,33,0.9,Missed Dependency,PROD
+PRJ0049_CR09,PRJ0049,Enhancement,Medium,118,568,42,1.6,Missed Dependency,PROD
+PRJ0049_CR10,PRJ0049,Enhancement,Low,412,683,36,2.1,Production Defect,PROD
+PRJ0049_CR11,PRJ0049,Enhancement,Low,105,214,35,2.3,Client Scope Change,PROD
+PRJ0050_CR01,PRJ0050,Scope,High,425,524,11,2.7,Compliance Change,DEV
+PRJ0050_CR02,PRJ0050,Compliance,Low,394,620,24,0.9,Requirement Gap,UAT
+PRJ0050_CR03,PRJ0050,Compliance,Critical,233,153,14,3.9,Compliance Change,DEV
+PRJ0050_CR04,PRJ0050,Enhancement,Low,176,566,2,1.9,Compliance Change,DEV
+PRJ0050_CR05,PRJ0050,Compliance,Medium,98,81,43,3.8,Production Defect,UAT
+PRJ0051_CR01,PRJ0051,Scope,Low,398,85,15,4.8,Missed Dependency,UAT
+PRJ0051_CR02,PRJ0051,Scope,High,375,143,19,2.5,Requirement Gap,UAT
+PRJ0051_CR03,PRJ0051,Defect,Medium,124,589,33,3.9,Compliance Change,UAT
+PRJ0051_CR04,PRJ0051,Defect,Low,212,626,42,2.9,Client Scope Change,DEV
+PRJ0052_CR01,PRJ0052,Defect,Medium,194,432,42,1.1,Production Defect,PROD
+PRJ0052_CR02,PRJ0052,Defect,Critical,143,616,9,2.4,Client Scope Change,PROD
+PRJ0052_CR03,PRJ0052,Compliance,Critical,297,164,13,3.4,Compliance Change,PROD
+PRJ0052_CR04,PRJ0052,Defect,Medium,178,566,8,2.4,Missed Dependency,PROD
+PRJ0052_CR05,PRJ0052,Defect,High,54,600,34,4.8,Requirement Gap,DEV
+PRJ0052_CR06,PRJ0052,Compliance,Medium,392,60,20,4.5,Production Defect,UAT
+PRJ0053_CR01,PRJ0053,Enhancement,Low,331,419,20,2.3,Compliance Change,PROD
+PRJ0053_CR02,PRJ0053,Scope,Low,251,497,2,4.5,Missed Dependency,PROD
+PRJ0053_CR03,PRJ0053,Enhancement,Low,305,426,33,3.9,Requirement Gap,DEV
+PRJ0053_CR04,PRJ0053,Compliance,Critical,223,341,18,2.6,Production Defect,UAT
+PRJ0053_CR05,PRJ0053,Scope,Medium,257,691,28,0.9,Compliance Change,DEV
+PRJ0053_CR06,PRJ0053,Defect,Medium,221,453,20,2.5,Missed Dependency,UAT
+PRJ0053_CR07,PRJ0053,Defect,Critical,66,286,20,3.6,Missed Dependency,PROD
+PRJ0053_CR08,PRJ0053,Scope,Low,78,490,40,2.1,Compliance Change,PROD
+PRJ0054_CR01,PRJ0054,Compliance,Low,45,141,26,5.0,Missed Dependency,PROD
+PRJ0054_CR02,PRJ0054,Compliance,Medium,253,622,23,4.7,Requirement Gap,UAT
+PRJ0054_CR03,PRJ0054,Compliance,High,479,418,4,3.9,Compliance Change,DEV
+PRJ0054_CR04,PRJ0054,Compliance,Critical,88,154,44,4.4,Client Scope Change,PROD
+PRJ0054_CR05,PRJ0054,Enhancement,Medium,376,244,39,0.8,Compliance Change,PROD
+PRJ0054_CR06,PRJ0054,Scope,Critical,390,649,45,1.8,Compliance Change,UAT
+PRJ0055_CR01,PRJ0055,Defect,Critical,476,579,21,2.6,Production Defect,PROD
+PRJ0055_CR02,PRJ0055,Scope,High,309,353,35,2.9,Missed Dependency,PROD
+PRJ0055_CR03,PRJ0055,Compliance,High,53,182,17,4.3,Client Scope Change,UAT
+PRJ0055_CR04,PRJ0055,Defect,Critical,115,639,7,4.4,Client Scope Change,PROD
+PRJ0055_CR05,PRJ0055,Compliance,Low,159,453,5,2.7,Missed Dependency,UAT
+PRJ0055_CR06,PRJ0055,Enhancement,High,130,567,19,1.3,Client Scope Change,DEV
+PRJ0055_CR07,PRJ0055,Defect,Low,247,548,1,4.1,Compliance Change,DEV
+PRJ0055_CR08,PRJ0055,Defect,High,492,525,33,1.9,Client Scope Change,DEV
+PRJ0055_CR09,PRJ0055,Scope,Medium,125,67,29,2.2,Compliance Change,DEV
+PRJ0056_CR01,PRJ0056,Defect,Critical,335,394,19,2.0,Missed Dependency,PROD
+PRJ0056_CR02,PRJ0056,Scope,Critical,310,164,5,4.2,Production Defect,DEV
+PRJ0056_CR03,PRJ0056,Enhancement,High,370,689,45,3.9,Production Defect,DEV
+PRJ0056_CR04,PRJ0056,Defect,Medium,460,661,16,4.6,Production Defect,DEV
+PRJ0056_CR05,PRJ0056,Compliance,High,252,529,1,0.8,Requirement Gap,UAT
+PRJ0056_CR06,PRJ0056,Enhancement,Critical,453,204,18,4.0,Compliance Change,PROD
+PRJ0056_CR07,PRJ0056,Defect,Low,227,139,20,3.0,Requirement Gap,UAT
+PRJ0056_CR08,PRJ0056,Enhancement,Critical,322,453,15,3.3,Compliance Change,DEV
+PRJ0057_CR01,PRJ0057,Scope,Low,333,552,25,4.3,Client Scope Change,DEV
+PRJ0057_CR02,PRJ0057,Compliance,Low,20,603,22,1.0,Client Scope Change,DEV
+PRJ0057_CR03,PRJ0057,Defect,Critical,379,634,25,3.3,Production Defect,UAT
+PRJ0057_CR04,PRJ0057,Enhancement,Critical,299,246,42,1.3,Missed Dependency,DEV
+PRJ0057_CR05,PRJ0057,Enhancement,High,450,457,9,1.8,Missed Dependency,DEV
+PRJ0057_CR06,PRJ0057,Scope,Low,351,46,9,3.7,Production Defect,PROD
+PRJ0057_CR07,PRJ0057,Enhancement,Medium,63,170,41,4.1,Production Defect,PROD
+PRJ0058_CR01,PRJ0058,Compliance,High,168,201,2,3.6,Compliance Change,PROD
+PRJ0058_CR02,PRJ0058,Compliance,High,51,674,30,3.1,Compliance Change,DEV
+PRJ0058_CR03,PRJ0058,Compliance,Low,166,526,5,1.1,Requirement Gap,UAT
+PRJ0058_CR04,PRJ0058,Compliance,Medium,335,317,17,4.4,Requirement Gap,PROD
+PRJ0058_CR05,PRJ0058,Scope,Medium,485,635,9,3.5,Client Scope Change,DEV
+PRJ0058_CR06,PRJ0058,Compliance,Medium,268,215,33,4.4,Client Scope Change,DEV
+PRJ0058_CR07,PRJ0058,Defect,Medium,448,537,26,4.0,Missed Dependency,PROD
+PRJ0058_CR08,PRJ0058,Enhancement,Medium,127,621,22,0.7,Client Scope Change,DEV
+PRJ0059_CR01,PRJ0059,Scope,Low,500,638,42,4.5,Missed Dependency,PROD
+PRJ0059_CR02,PRJ0059,Scope,Low,64,649,8,2.2,Compliance Change,DEV
+PRJ0060_CR01,PRJ0060,Enhancement,Critical,243,443,4,2.9,Requirement Gap,UAT
+PRJ0060_CR02,PRJ0060,Enhancement,Low,310,578,22,2.0,Client Scope Change,UAT
+PRJ0060_CR03,PRJ0060,Scope,Low,207,577,21,0.9,Production Defect,UAT
+PRJ0060_CR04,PRJ0060,Defect,Medium,303,70,24,3.5,Client Scope Change,PROD
+PRJ0060_CR05,PRJ0060,Enhancement,Low,342,397,31,0.9,Production Defect,PROD
+PRJ0060_CR06,PRJ0060,Defect,Medium,38,227,1,3.7,Compliance Change,DEV
+PRJ0060_CR07,PRJ0060,Enhancement,Critical,52,583,41,1.9,Compliance Change,UAT
+PRJ0060_CR08,PRJ0060,Scope,Low,193,87,21,4.0,Requirement Gap,UAT
+PRJ0060_CR09,PRJ0060,Scope,Medium,433,699,42,2.9,Compliance Change,DEV
+PRJ0060_CR10,PRJ0060,Defect,Low,38,174,31,3.4,Production Defect,PROD
+PRJ0061_CR01,PRJ0061,Defect,Low,381,697,37,4.5,Production Defect,PROD
+PRJ0061_CR02,PRJ0061,Enhancement,Medium,125,176,40,1.7,Production Defect,UAT
+PRJ0062_CR01,PRJ0062,Scope,High,136,130,15,3.8,Missed Dependency,UAT
+PRJ0062_CR02,PRJ0062,Defect,Low,261,629,31,0.7,Production Defect,DEV
+PRJ0062_CR03,PRJ0062,Defect,Critical,111,426,23,1.1,Missed Dependency,PROD
+PRJ0062_CR04,PRJ0062,Compliance,High,123,373,8,0.6,Compliance Change,DEV
+PRJ0062_CR05,PRJ0062,Compliance,Medium,76,506,29,2.4,Client Scope Change,DEV
+PRJ0063_CR01,PRJ0063,Enhancement,Low,252,504,8,4.4,Production Defect,DEV
+PRJ0063_CR02,PRJ0063,Compliance,Critical,380,678,0,4.4,Requirement Gap,UAT
+PRJ0063_CR03,PRJ0063,Compliance,Low,171,466,17,3.6,Compliance Change,PROD
+PRJ0063_CR04,PRJ0063,Defect,Low,337,373,3,2.8,Client Scope Change,DEV
+PRJ0064_CR01,PRJ0064,Defect,Medium,286,672,1,1.8,Compliance Change,DEV
+PRJ0064_CR02,PRJ0064,Enhancement,High,235,484,41,0.6,Missed Dependency,DEV
+PRJ0064_CR03,PRJ0064,Scope,Medium,447,562,41,2.0,Compliance Change,UAT
+PRJ0064_CR04,PRJ0064,Compliance,Critical,323,572,35,2.5,Client Scope Change,PROD
+PRJ0064_CR05,PRJ0064,Defect,High,107,296,14,2.7,Client Scope Change,DEV
+PRJ0064_CR06,PRJ0064,Defect,High,165,496,10,3.3,Missed Dependency,PROD
+PRJ0064_CR07,PRJ0064,Compliance,Medium,109,187,10,1.6,Requirement Gap,UAT
+PRJ0064_CR08,PRJ0064,Defect,Critical,153,408,11,1.4,Requirement Gap,PROD
+PRJ0064_CR09,PRJ0064,Compliance,High,95,411,28,2.9,Missed Dependency,PROD
+PRJ0065_CR01,PRJ0065,Compliance,Critical,210,42,18,2.1,Client Scope Change,UAT
+PRJ0065_CR02,PRJ0065,Scope,Medium,392,484,26,4.1,Client Scope Change,DEV
+PRJ0065_CR03,PRJ0065,Enhancement,Critical,91,631,38,0.9,Missed Dependency,UAT
+PRJ0065_CR04,PRJ0065,Enhancement,High,53,634,24,0.9,Production Defect,PROD
+PRJ0065_CR05,PRJ0065,Compliance,Critical,109,599,29,3.7,Missed Dependency,DEV
+PRJ0065_CR06,PRJ0065,Defect,Critical,168,597,31,0.7,Client Scope Change,PROD
+PRJ0065_CR07,PRJ0065,Compliance,Critical,306,504,14,0.6,Requirement Gap,DEV
+PRJ0065_CR08,PRJ0065,Compliance,High,347,681,30,1.1,Client Scope Change,UAT
+PRJ0066_CR01,PRJ0066,Compliance,Medium,26,170,33,1.8,Production Defect,UAT
+PRJ0066_CR02,PRJ0066,Compliance,Medium,72,253,9,2.8,Missed Dependency,PROD
+PRJ0066_CR03,PRJ0066,Scope,Critical,255,108,7,4.2,Requirement Gap,UAT
+PRJ0066_CR04,PRJ0066,Compliance,High,373,401,8,4.2,Compliance Change,PROD
+PRJ0066_CR05,PRJ0066,Compliance,Medium,383,341,1,3.9,Requirement Gap,DEV
+PRJ0066_CR06,PRJ0066,Defect,Medium,372,262,19,1.1,Missed Dependency,DEV
+PRJ0066_CR07,PRJ0066,Enhancement,Low,59,49,30,3.9,Requirement Gap,DEV
+PRJ0066_CR08,PRJ0066,Scope,Low,426,555,37,0.8,Requirement Gap,UAT
+PRJ0066_CR09,PRJ0066,Scope,Low,174,40,6,4.0,Compliance Change,DEV
+PRJ0066_CR10,PRJ0066,Defect,Medium,363,389,1,0.9,Client Scope Change,PROD
+PRJ0066_CR11,PRJ0066,Compliance,High,102,542,39,1.6,Compliance Change,DEV
+PRJ0067_CR01,PRJ0067,Scope,Critical,364,137,25,2.5,Requirement Gap,DEV
+PRJ0067_CR02,PRJ0067,Defect,Critical,225,634,6,3.8,Missed Dependency,DEV
+PRJ0067_CR03,PRJ0067,Compliance,Medium,193,235,38,4.3,Production Defect,DEV
+PRJ0067_CR04,PRJ0067,Defect,Critical,391,541,17,3.9,Compliance Change,PROD
+PRJ0068_CR01,PRJ0068,Scope,Low,110,600,42,4.4,Client Scope Change,PROD
+PRJ0068_CR02,PRJ0068,Defect,Critical,240,167,19,3.7,Production Defect,DEV
+PRJ0068_CR03,PRJ0068,Enhancement,Critical,263,605,10,2.8,Production Defect,UAT
+PRJ0068_CR04,PRJ0068,Enhancement,Critical,335,391,18,1.9,Requirement Gap,PROD
+PRJ0068_CR05,PRJ0068,Scope,Medium,448,405,22,4.1,Compliance Change,DEV
+PRJ0068_CR06,PRJ0068,Compliance,Critical,69,468,22,5.0,Production Defect,UAT
+PRJ0068_CR07,PRJ0068,Scope,Medium,146,270,41,1.9,Requirement Gap,PROD
+PRJ0068_CR08,PRJ0068,Scope,High,78,375,10,0.6,Client Scope Change,DEV
+PRJ0068_CR09,PRJ0068,Enhancement,Critical,310,557,26,1.7,Production Defect,PROD
+PRJ0069_CR01,PRJ0069,Scope,Medium,315,541,13,3.5,Production Defect,UAT
+PRJ0069_CR02,PRJ0069,Enhancement,Low,287,235,23,2.6,Missed Dependency,DEV
+PRJ0069_CR03,PRJ0069,Compliance,Critical,230,356,4,3.4,Production Defect,UAT
+PRJ0069_CR04,PRJ0069,Compliance,Medium,151,645,15,2.3,Requirement Gap,DEV
+PRJ0070_CR01,PRJ0070,Defect,Low,109,249,17,2.5,Client Scope Change,PROD
+PRJ0070_CR02,PRJ0070,Scope,Critical,293,413,44,4.8,Client Scope Change,PROD
+PRJ0070_CR03,PRJ0070,Enhancement,Critical,369,282,17,4.5,Missed Dependency,UAT
+PRJ0070_CR04,PRJ0070,Enhancement,High,440,345,1,3.4,Compliance Change,DEV
+PRJ0070_CR05,PRJ0070,Scope,Medium,149,595,24,1.9,Client Scope Change,PROD
+PRJ0071_CR01,PRJ0071,Enhancement,High,251,519,8,1.7,Compliance Change,UAT
+PRJ0071_CR02,PRJ0071,Compliance,Medium,63,454,23,1.3,Production Defect,PROD
+PRJ0071_CR03,PRJ0071,Defect,Low,31,601,41,3.3,Missed Dependency,DEV
+PRJ0071_CR04,PRJ0071,Enhancement,Medium,154,202,3,2.3,Production Defect,PROD
+PRJ0071_CR05,PRJ0071,Compliance,Medium,65,406,10,4.8,Requirement Gap,DEV
+PRJ0071_CR06,PRJ0071,Enhancement,Critical,443,536,7,1.5,Missed Dependency,DEV
+PRJ0071_CR07,PRJ0071,Compliance,High,402,536,24,1.1,Missed Dependency,PROD
+PRJ0071_CR08,PRJ0071,Defect,High,392,223,26,1.3,Missed Dependency,DEV
+PRJ0071_CR09,PRJ0071,Compliance,High,140,662,28,4.6,Client Scope Change,PROD
+PRJ0071_CR10,PRJ0071,Enhancement,Low,25,510,8,4.4,Production Defect,PROD
+PRJ0071_CR11,PRJ0071,Defect,Critical,382,463,38,1.7,Requirement Gap,PROD
+PRJ0072_CR01,PRJ0072,Scope,Medium,113,66,30,1.7,Production Defect,UAT
+PRJ0072_CR02,PRJ0072,Scope,Critical,40,482,22,4.9,Compliance Change,UAT
+PRJ0072_CR03,PRJ0072,Enhancement,Critical,77,181,7,2.1,Missed Dependency,UAT
+PRJ0072_CR04,PRJ0072,Defect,Medium,403,550,17,3.0,Compliance Change,DEV
+PRJ0073_CR01,PRJ0073,Scope,Medium,103,427,25,1.8,Missed Dependency,DEV
+PRJ0073_CR02,PRJ0073,Compliance,Critical,430,472,19,4.6,Compliance Change,DEV
+PRJ0073_CR03,PRJ0073,Compliance,Low,446,406,32,1.4,Production Defect,UAT
+PRJ0074_CR01,PRJ0074,Scope,Critical,468,334,20,3.1,Production Defect,PROD
+PRJ0074_CR02,PRJ0074,Enhancement,High,194,221,13,1.3,Compliance Change,UAT
+PRJ0075_CR01,PRJ0075,Compliance,Low,72,675,45,2.4,Production Defect,UAT
+PRJ0075_CR02,PRJ0075,Compliance,Low,269,439,31,2.8,Compliance Change,PROD
+PRJ0076_CR01,PRJ0076,Enhancement,High,140,244,35,0.7,Requirement Gap,UAT
+PRJ0076_CR02,PRJ0076,Compliance,High,366,192,11,4.2,Compliance Change,DEV
+PRJ0076_CR03,PRJ0076,Scope,High,240,146,39,1.5,Compliance Change,DEV
+PRJ0076_CR04,PRJ0076,Enhancement,High,194,393,2,4.0,Compliance Change,UAT
+PRJ0076_CR05,PRJ0076,Defect,Low,381,81,28,4.1,Requirement Gap,DEV
+PRJ0076_CR06,PRJ0076,Scope,Low,279,137,10,3.3,Missed Dependency,UAT
+PRJ0076_CR07,PRJ0076,Defect,High,382,482,32,2.7,Requirement Gap,DEV
+PRJ0076_CR08,PRJ0076,Compliance,High,439,171,7,4.3,Production Defect,UAT
+PRJ0077_CR01,PRJ0077,Scope,High,480,570,39,4.6,Production Defect,UAT
+PRJ0077_CR02,PRJ0077,Defect,Critical,377,383,41,2.3,Missed Dependency,UAT
+PRJ0077_CR03,PRJ0077,Scope,Low,295,372,24,3.8,Missed Dependency,PROD
+PRJ0077_CR04,PRJ0077,Compliance,Medium,67,553,35,1.9,Client Scope Change,PROD
+PRJ0077_CR05,PRJ0077,Defect,Low,34,582,37,1.7,Client Scope Change,PROD
+PRJ0077_CR06,PRJ0077,Enhancement,Low,394,91,23,1.7,Compliance Change,UAT
+PRJ0077_CR07,PRJ0077,Scope,Low,407,696,7,2.5,Compliance Change,PROD
+PRJ0078_CR01,PRJ0078,Scope,Medium,253,514,2,3.9,Compliance Change,UAT
+PRJ0078_CR02,PRJ0078,Scope,Critical,76,153,23,3.1,Requirement Gap,PROD
+PRJ0078_CR03,PRJ0078,Defect,Low,210,342,23,1.9,Production Defect,DEV
+PRJ0078_CR04,PRJ0078,Defect,Medium,421,633,26,0.7,Client Scope Change,UAT
+PRJ0078_CR05,PRJ0078,Defect,Medium,439,530,0,1.1,Client Scope Change,DEV
+PRJ0078_CR06,PRJ0078,Scope,Critical,266,616,19,3.0,Client Scope Change,UAT
+PRJ0078_CR07,PRJ0078,Enhancement,Medium,410,171,32,3.4,Production Defect,PROD
+PRJ0078_CR08,PRJ0078,Enhancement,Medium,463,363,5,4.1,Compliance Change,UAT
+PRJ0078_CR09,PRJ0078,Enhancement,Medium,480,434,21,2.9,Production Defect,PROD
+PRJ0078_CR10,PRJ0078,Compliance,Low,463,199,45,0.6,Client Scope Change,PROD
+PRJ0079_CR01,PRJ0079,Scope,Medium,142,641,37,1.6,Compliance Change,PROD
+PRJ0079_CR02,PRJ0079,Enhancement,Low,157,92,20,2.6,Production Defect,DEV
+PRJ0079_CR03,PRJ0079,Enhancement,Low,228,678,14,4.6,Requirement Gap,UAT
+PRJ0080_CR01,PRJ0080,Compliance,High,345,297,45,2.5,Missed Dependency,PROD
+PRJ0080_CR02,PRJ0080,Compliance,High,127,500,38,2.0,Missed Dependency,PROD
+PRJ0080_CR03,PRJ0080,Scope,Critical,22,39,43,1.3,Compliance Change,PROD
+PRJ0080_CR04,PRJ0080,Enhancement,Critical,295,113,41,3.4,Compliance Change,DEV
+PRJ0080_CR05,PRJ0080,Enhancement,Low,200,415,38,2.1,Missed Dependency,PROD
+PRJ0080_CR06,PRJ0080,Scope,Low,256,409,12,2.5,Missed Dependency,PROD
+PRJ0080_CR07,PRJ0080,Scope,High,368,396,12,0.9,Compliance Change,PROD
+PRJ0080_CR08,PRJ0080,Compliance,Medium,139,535,23,0.7,Production Defect,PROD
+PRJ0080_CR09,PRJ0080,Defect,Low,120,683,25,1.0,Client Scope Change,PROD
+PRJ0080_CR10,PRJ0080,Enhancement,Medium,302,228,42,3.8,Compliance Change,PROD
+PRJ0080_CR11,PRJ0080,Defect,Low,321,161,4,1.1,Compliance Change,DEV
+PRJ0081_CR01,PRJ0081,Defect,Low,262,274,21,4.2,Client Scope Change,PROD
+PRJ0081_CR02,PRJ0081,Defect,Low,417,644,39,2.5,Requirement Gap,PROD
+PRJ0081_CR03,PRJ0081,Enhancement,Low,63,92,2,2.2,Requirement Gap,DEV
+PRJ0081_CR04,PRJ0081,Scope,Critical,48,338,39,3.3,Requirement Gap,DEV
+PRJ0081_CR05,PRJ0081,Scope,Low,170,420,25,0.9,Production Defect,DEV
+PRJ0081_CR06,PRJ0081,Scope,Critical,216,505,27,4.5,Compliance Change,DEV
+PRJ0082_CR01,PRJ0082,Compliance,Medium,361,517,44,3.6,Production Defect,PROD
+PRJ0082_CR02,PRJ0082,Compliance,High,335,336,26,2.0,Requirement Gap,UAT
+PRJ0082_CR03,PRJ0082,Scope,Critical,132,33,40,1.5,Missed Dependency,UAT
+PRJ0083_CR01,PRJ0083,Defect,Critical,375,413,20,3.2,Missed Dependency,DEV
+PRJ0083_CR02,PRJ0083,Defect,High,424,182,20,1.6,Client Scope Change,DEV
+PRJ0083_CR03,PRJ0083,Enhancement,Medium,392,113,30,4.1,Compliance Change,DEV
+PRJ0083_CR04,PRJ0083,Defect,Critical,404,690,32,2.2,Compliance Change,UAT
+PRJ0083_CR05,PRJ0083,Defect,High,384,412,33,3.6,Production Defect,UAT
+PRJ0084_CR01,PRJ0084,Compliance,High,401,311,12,3.7,Missed Dependency,PROD
+PRJ0084_CR02,PRJ0084,Compliance,Low,414,336,18,4.2,Production Defect,UAT
+PRJ0084_CR03,PRJ0084,Scope,Critical,354,554,9,4.4,Missed Dependency,DEV
+PRJ0084_CR04,PRJ0084,Defect,Critical,139,558,37,4.0,Production Defect,PROD
+PRJ0084_CR05,PRJ0084,Enhancement,High,425,117,20,4.3,Production Defect,PROD
+PRJ0084_CR06,PRJ0084,Enhancement,Medium,244,490,35,0.6,Missed Dependency,PROD
+PRJ0084_CR07,PRJ0084,Defect,High,397,39,31,4.1,Client Scope Change,UAT
+PRJ0085_CR01,PRJ0085,Enhancement,Critical,400,100,24,4.8,Missed Dependency,DEV
+PRJ0085_CR02,PRJ0085,Defect,High,241,516,10,3.2,Client Scope Change,PROD
+PRJ0085_CR03,PRJ0085,Defect,Critical,161,236,0,5.0,Production Defect,DEV
+PRJ0085_CR04,PRJ0085,Enhancement,Medium,289,366,36,4.5,Production Defect,UAT
+PRJ0086_CR01,PRJ0086,Scope,Low,148,147,45,4.6,Client Scope Change,PROD
+PRJ0086_CR02,PRJ0086,Enhancement,Critical,256,99,5,3.0,Missed Dependency,PROD
+PRJ0086_CR03,PRJ0086,Enhancement,Medium,261,315,10,1.3,Requirement Gap,PROD
+PRJ0086_CR04,PRJ0086,Scope,Medium,170,157,34,3.8,Missed Dependency,DEV
+PRJ0086_CR05,PRJ0086,Scope,High,98,481,22,1.3,Requirement Gap,PROD
+PRJ0086_CR06,PRJ0086,Defect,Critical,376,78,40,4.2,Requirement Gap,UAT
+PRJ0086_CR07,PRJ0086,Compliance,Critical,46,642,0,0.7,Production Defect,DEV
+PRJ0086_CR08,PRJ0086,Defect,High,485,274,12,0.9,Production Defect,DEV
+PRJ0087_CR01,PRJ0087,Compliance,Medium,345,355,42,2.7,Client Scope Change,DEV
+PRJ0087_CR02,PRJ0087,Enhancement,Critical,281,685,14,2.8,Requirement Gap,DEV
+PRJ0087_CR03,PRJ0087,Scope,Low,178,272,27,3.9,Compliance Change,DEV
+PRJ0087_CR04,PRJ0087,Scope,Medium,211,540,18,1.4,Production Defect,DEV
+PRJ0088_CR01,PRJ0088,Compliance,High,315,489,40,1.4,Production Defect,DEV
+PRJ0088_CR02,PRJ0088,Compliance,Critical,213,201,30,2.5,Compliance Change,PROD
+PRJ0088_CR03,PRJ0088,Enhancement,Medium,439,523,1,3.9,Production Defect,DEV
+PRJ0088_CR04,PRJ0088,Compliance,Medium,303,209,16,2.2,Client Scope Change,UAT
+PRJ0088_CR05,PRJ0088,Compliance,Critical,307,650,30,0.8,Missed Dependency,PROD
+PRJ0089_CR01,PRJ0089,Enhancement,Critical,381,630,5,2.8,Missed Dependency,UAT
+PRJ0089_CR02,PRJ0089,Defect,Critical,149,339,32,4.9,Production Defect,PROD
+PRJ0089_CR03,PRJ0089,Compliance,Critical,405,121,6,3.4,Client Scope Change,DEV
+PRJ0090_CR01,PRJ0090,Scope,Low,128,564,0,2.2,Compliance Change,UAT
+PRJ0090_CR02,PRJ0090,Enhancement,Critical,407,375,38,2.4,Client Scope Change,PROD
+PRJ0090_CR03,PRJ0090,Compliance,High,438,275,23,3.5,Production Defect,PROD
+PRJ0090_CR04,PRJ0090,Scope,High,467,368,6,0.5,Production Defect,PROD
+PRJ0090_CR05,PRJ0090,Defect,Low,328,155,33,1.8,Missed Dependency,UAT
+PRJ0090_CR06,PRJ0090,Enhancement,Critical,283,453,42,1.3,Client Scope Change,DEV
+PRJ0090_CR07,PRJ0090,Compliance,Low,433,363,43,2.5,Compliance Change,UAT
+PRJ0090_CR08,PRJ0090,Enhancement,Low,198,468,30,4.9,Requirement Gap,PROD
+PRJ0090_CR09,PRJ0090,Enhancement,High,330,229,45,1.1,Compliance Change,PROD
+PRJ0090_CR10,PRJ0090,Scope,Medium,274,119,19,4.2,Compliance Change,UAT
+PRJ0090_CR11,PRJ0090,Defect,Critical,79,523,42,2.9,Missed Dependency,DEV
+PRJ0091_CR01,PRJ0091,Defect,Critical,236,357,23,4.1,Missed Dependency,PROD
+PRJ0091_CR02,PRJ0091,Defect,Low,222,39,34,4.3,Client Scope Change,DEV
+PRJ0091_CR03,PRJ0091,Compliance,Medium,275,496,9,3.2,Missed Dependency,PROD
+PRJ0091_CR04,PRJ0091,Scope,High,178,544,44,1.1,Compliance Change,UAT
+PRJ0091_CR05,PRJ0091,Defect,Critical,169,415,3,4.9,Client Scope Change,DEV
+PRJ0091_CR06,PRJ0091,Defect,Medium,378,83,11,4.4,Production Defect,UAT
+PRJ0091_CR07,PRJ0091,Defect,Low,300,431,21,2.4,Production Defect,UAT
+PRJ0091_CR08,PRJ0091,Enhancement,Critical,56,570,18,1.8,Missed Dependency,PROD
+PRJ0091_CR09,PRJ0091,Enhancement,Low,87,361,37,4.4,Requirement Gap,PROD
+PRJ0091_CR10,PRJ0091,Compliance,Critical,355,197,36,1.1,Production Defect,UAT
+PRJ0091_CR11,PRJ0091,Defect,Medium,131,230,41,0.5,Compliance Change,DEV
+PRJ0092_CR01,PRJ0092,Enhancement,High,312,158,6,2.0,Compliance Change,DEV
+PRJ0092_CR02,PRJ0092,Enhancement,Low,221,599,34,4.0,Compliance Change,UAT
+PRJ0092_CR03,PRJ0092,Scope,Low,405,242,42,4.5,Missed Dependency,PROD
+PRJ0092_CR04,PRJ0092,Defect,Low,304,487,20,1.1,Missed Dependency,PROD
+PRJ0092_CR05,PRJ0092,Defect,Medium,64,605,16,4.3,Requirement Gap,DEV
+PRJ0092_CR06,PRJ0092,Scope,High,206,587,10,2.4,Requirement Gap,DEV
+PRJ0092_CR07,PRJ0092,Compliance,Low,285,330,42,2.9,Missed Dependency,PROD
+PRJ0092_CR08,PRJ0092,Enhancement,High,287,390,38,2.9,Missed Dependency,PROD
+PRJ0092_CR09,PRJ0092,Scope,Low,141,67,12,1.1,Missed Dependency,DEV
+PRJ0093_CR01,PRJ0093,Scope,Low,213,257,24,4.8,Requirement Gap,DEV
+PRJ0093_CR02,PRJ0093,Compliance,Critical,68,571,22,3.7,Client Scope Change,PROD
+PRJ0093_CR03,PRJ0093,Compliance,Low,479,79,10,1.9,Production Defect,DEV
+PRJ0093_CR04,PRJ0093,Compliance,Critical,264,636,8,1.7,Compliance Change,PROD
+PRJ0093_CR05,PRJ0093,Defect,Medium,93,417,36,3.8,Requirement Gap,PROD
+PRJ0093_CR06,PRJ0093,Compliance,Medium,367,653,26,3.7,Missed Dependency,UAT
+PRJ0094_CR01,PRJ0094,Defect,Low,207,166,32,2.1,Requirement Gap,UAT
+PRJ0094_CR02,PRJ0094,Enhancement,Critical,107,412,7,2.0,Missed Dependency,PROD
+PRJ0094_CR03,PRJ0094,Scope,High,173,524,18,1.7,Requirement Gap,PROD
+PRJ0094_CR04,PRJ0094,Enhancement,Medium,492,342,41,2.8,Requirement Gap,UAT
+PRJ0094_CR05,PRJ0094,Enhancement,Low,202,36,39,2.6,Client Scope Change,UAT
+PRJ0095_CR01,PRJ0095,Enhancement,Medium,186,439,32,3.8,Production Defect,DEV
+PRJ0095_CR02,PRJ0095,Scope,Low,425,51,8,1.2,Compliance Change,DEV
+PRJ0095_CR03,PRJ0095,Defect,Low,367,380,27,4.9,Requirement Gap,UAT
+PRJ0095_CR04,PRJ0095,Enhancement,High,164,527,5,3.9,Missed Dependency,PROD
+PRJ0095_CR05,PRJ0095,Defect,Medium,147,317,7,4.4,Missed Dependency,PROD
+PRJ0095_CR06,PRJ0095,Enhancement,Medium,262,135,44,3.8,Compliance Change,DEV
+PRJ0095_CR07,PRJ0095,Defect,Medium,137,153,8,2.3,Client Scope Change,DEV
+PRJ0095_CR08,PRJ0095,Defect,Critical,29,661,12,0.9,Requirement Gap,UAT
+PRJ0095_CR09,PRJ0095,Enhancement,High,378,678,14,1.5,Production Defect,UAT
+PRJ0095_CR10,PRJ0095,Scope,Critical,349,82,19,1.0,Client Scope Change,UAT
+PRJ0096_CR01,PRJ0096,Defect,Low,85,226,26,3.0,Client Scope Change,PROD
+PRJ0096_CR02,PRJ0096,Compliance,High,249,674,45,1.0,Production Defect,DEV
+PRJ0096_CR03,PRJ0096,Enhancement,Critical,288,545,1,1.3,Client Scope Change,PROD
+PRJ0096_CR04,PRJ0096,Defect,High,43,609,3,4.1,Missed Dependency,PROD
+PRJ0096_CR05,PRJ0096,Enhancement,Critical,370,575,32,4.9,Missed Dependency,UAT
+PRJ0097_CR01,PRJ0097,Compliance,Medium,394,316,11,1.7,Requirement Gap,PROD
+PRJ0097_CR02,PRJ0097,Scope,Critical,354,293,40,3.4,Compliance Change,DEV
+PRJ0098_CR01,PRJ0098,Scope,Low,297,376,45,0.9,Missed Dependency,UAT
+PRJ0098_CR02,PRJ0098,Enhancement,Medium,177,369,30,1.2,Requirement Gap,PROD
+PRJ0099_CR01,PRJ0099,Defect,Medium,183,181,24,2.5,Production Defect,DEV
+PRJ0099_CR02,PRJ0099,Scope,Critical,392,315,9,0.9,Missed Dependency,DEV
+PRJ0100_CR01,PRJ0100,Scope,Critical,448,638,10,0.6,Client Scope Change,DEV
+PRJ0100_CR02,PRJ0100,Scope,Medium,59,42,36,4.2,Production Defect,DEV
+PRJ0100_CR03,PRJ0100,Defect,Critical,400,173,33,3.6,Client Scope Change,UAT
+PRJ0101_CR01,PRJ0101,Defect,High,103,584,6,0.8,Compliance Change,DEV
+PRJ0101_CR02,PRJ0101,Compliance,Medium,302,236,40,4.7,Missed Dependency,UAT
+PRJ0102_CR01,PRJ0102,Compliance,High,339,471,2,4.5,Production Defect,DEV
+PRJ0102_CR02,PRJ0102,Defect,Low,98,610,40,5.0,Requirement Gap,DEV
+PRJ0102_CR03,PRJ0102,Defect,High,300,119,31,0.9,Client Scope Change,DEV
+PRJ0102_CR04,PRJ0102,Compliance,Medium,54,316,36,2.1,Requirement Gap,DEV
+PRJ0102_CR05,PRJ0102,Defect,Critical,152,514,16,3.9,Production Defect,PROD
+PRJ0102_CR06,PRJ0102,Defect,Low,311,529,2,2.1,Client Scope Change,UAT
+PRJ0102_CR07,PRJ0102,Enhancement,Medium,245,405,32,4.3,Client Scope Change,UAT
+PRJ0103_CR01,PRJ0103,Enhancement,Medium,47,246,1,4.8,Production Defect,UAT
+PRJ0103_CR02,PRJ0103,Compliance,Medium,62,175,4,1.7,Requirement Gap,UAT
+PRJ0103_CR03,PRJ0103,Enhancement,Critical,288,249,42,4.5,Missed Dependency,DEV
+PRJ0103_CR04,PRJ0103,Scope,Critical,195,334,10,1.4,Production Defect,UAT
+PRJ0103_CR05,PRJ0103,Enhancement,Medium,376,477,22,4.6,Compliance Change,UAT
+PRJ0103_CR06,PRJ0103,Scope,Medium,59,622,39,1.2,Client Scope Change,DEV
+PRJ0103_CR07,PRJ0103,Defect,Critical,498,181,31,4.4,Requirement Gap,PROD
+PRJ0103_CR08,PRJ0103,Enhancement,High,286,33,28,4.7,Missed Dependency,PROD
+PRJ0104_CR01,PRJ0104,Scope,Low,335,451,6,2.7,Compliance Change,PROD
+PRJ0104_CR02,PRJ0104,Scope,Critical,277,625,2,3.5,Production Defect,DEV
+PRJ0104_CR03,PRJ0104,Defect,Critical,302,420,7,1.4,Production Defect,DEV
+PRJ0105_CR01,PRJ0105,Enhancement,High,448,596,10,4.8,Missed Dependency,DEV
+PRJ0105_CR02,PRJ0105,Scope,Low,243,41,40,4.0,Missed Dependency,DEV
+PRJ0105_CR03,PRJ0105,Scope,Critical,32,163,29,3.4,Client Scope Change,DEV
+PRJ0105_CR04,PRJ0105,Defect,Medium,172,228,34,4.3,Production Defect,UAT
+PRJ0105_CR05,PRJ0105,Scope,High,62,177,40,0.6,Compliance Change,DEV
+PRJ0105_CR06,PRJ0105,Scope,Critical,494,640,7,1.0,Client Scope Change,UAT
+PRJ0105_CR07,PRJ0105,Defect,Low,59,536,23,4.6,Missed Dependency,UAT
+PRJ0105_CR08,PRJ0105,Scope,Critical,427,52,26,0.8,Requirement Gap,DEV
+PRJ0105_CR09,PRJ0105,Enhancement,Critical,475,351,40,4.6,Missed Dependency,DEV
+PRJ0105_CR10,PRJ0105,Compliance,Low,482,212,42,3.1,Compliance Change,DEV
+PRJ0105_CR11,PRJ0105,Scope,High,197,525,39,3.2,Requirement Gap,DEV
+PRJ0106_CR01,PRJ0106,Scope,Critical,239,234,36,2.1,Requirement Gap,UAT
+PRJ0106_CR02,PRJ0106,Defect,Low,281,289,37,2.3,Compliance Change,PROD
+PRJ0106_CR03,PRJ0106,Compliance,Critical,35,147,11,4.1,Production Defect,DEV
+PRJ0106_CR04,PRJ0106,Compliance,Medium,57,250,42,2.2,Missed Dependency,UAT
+PRJ0106_CR05,PRJ0106,Scope,Low,183,41,45,2.0,Production Defect,PROD
+PRJ0106_CR06,PRJ0106,Compliance,Medium,307,97,24,1.8,Missed Dependency,PROD
+PRJ0106_CR07,PRJ0106,Defect,Low,307,314,45,3.2,Requirement Gap,PROD
+PRJ0106_CR08,PRJ0106,Enhancement,Critical,182,357,12,1.4,Production Defect,UAT
+PRJ0106_CR09,PRJ0106,Scope,High,235,152,7,2.5,Compliance Change,UAT
+PRJ0106_CR10,PRJ0106,Enhancement,Medium,315,51,18,0.6,Compliance Change,DEV
+PRJ0106_CR11,PRJ0106,Enhancement,High,87,442,2,4.5,Compliance Change,DEV
+PRJ0107_CR01,PRJ0107,Enhancement,Low,84,356,9,3.9,Production Defect,PROD
+PRJ0107_CR02,PRJ0107,Enhancement,Low,287,570,15,3.1,Production Defect,UAT
+PRJ0107_CR03,PRJ0107,Compliance,Critical,135,124,16,3.9,Requirement Gap,UAT
+PRJ0107_CR04,PRJ0107,Defect,Medium,375,109,4,4.9,Requirement Gap,DEV
+PRJ0107_CR05,PRJ0107,Scope,Medium,259,424,12,2.7,Client Scope Change,DEV
+PRJ0107_CR06,PRJ0107,Compliance,High,382,494,41,1.2,Compliance Change,DEV
+PRJ0107_CR07,PRJ0107,Defect,Medium,489,402,24,4.9,Compliance Change,PROD
+PRJ0107_CR08,PRJ0107,Defect,Critical,116,100,17,2.4,Client Scope Change,PROD
+PRJ0107_CR09,PRJ0107,Scope,Medium,256,139,7,1.6,Production Defect,DEV
+PRJ0107_CR10,PRJ0107,Compliance,Low,263,573,28,2.1,Requirement Gap,PROD
+PRJ0107_CR11,PRJ0107,Scope,High,240,247,9,2.3,Production Defect,PROD
+PRJ0108_CR01,PRJ0108,Compliance,Low,105,221,21,4.5,Missed Dependency,DEV
+PRJ0108_CR02,PRJ0108,Enhancement,Critical,191,51,11,4.9,Requirement Gap,DEV
+PRJ0108_CR03,PRJ0108,Scope,High,262,627,0,2.7,Missed Dependency,UAT
+PRJ0108_CR04,PRJ0108,Scope,Low,439,47,36,3.6,Client Scope Change,DEV
+PRJ0109_CR01,PRJ0109,Defect,High,486,387,21,2.3,Production Defect,UAT
+PRJ0109_CR02,PRJ0109,Compliance,Medium,41,623,33,3.7,Compliance Change,DEV
+PRJ0109_CR03,PRJ0109,Enhancement,Critical,310,385,18,1.0,Requirement Gap,UAT
+PRJ0109_CR04,PRJ0109,Defect,Critical,368,183,33,4.9,Compliance Change,PROD
+PRJ0109_CR05,PRJ0109,Defect,High,269,325,4,4.1,Requirement Gap,UAT
+PRJ0109_CR06,PRJ0109,Scope,Medium,164,637,7,0.7,Client Scope Change,DEV
+PRJ0109_CR07,PRJ0109,Enhancement,High,358,30,3,1.6,Client Scope Change,UAT
+PRJ0109_CR08,PRJ0109,Defect,Low,385,307,9,5.0,Missed Dependency,UAT
+PRJ0109_CR09,PRJ0109,Scope,High,132,62,30,4.7,Missed Dependency,PROD
+PRJ0109_CR10,PRJ0109,Enhancement,Critical,224,130,16,4.6,Compliance Change,UAT
+PRJ0110_CR01,PRJ0110,Scope,Low,158,695,6,2.0,Requirement Gap,UAT
+PRJ0110_CR02,PRJ0110,Enhancement,High,462,92,7,3.8,Compliance Change,PROD
+PRJ0111_CR01,PRJ0111,Enhancement,High,361,311,25,2.2,Requirement Gap,UAT
+PRJ0111_CR02,PRJ0111,Enhancement,Critical,95,58,18,2.6,Compliance Change,UAT
+PRJ0111_CR03,PRJ0111,Scope,High,37,690,41,4.5,Compliance Change,UAT
+PRJ0112_CR01,PRJ0112,Enhancement,High,409,267,15,1.0,Missed Dependency,PROD
+PRJ0112_CR02,PRJ0112,Enhancement,Critical,492,95,3,3.3,Requirement Gap,DEV
+PRJ0112_CR03,PRJ0112,Scope,Critical,410,413,38,3.3,Requirement Gap,DEV
+PRJ0112_CR04,PRJ0112,Compliance,Low,377,490,24,1.1,Compliance Change,PROD
+PRJ0112_CR05,PRJ0112,Defect,Medium,149,532,28,3.6,Missed Dependency,DEV
+PRJ0112_CR06,PRJ0112,Defect,Critical,436,571,12,0.9,Requirement Gap,PROD
+PRJ0112_CR07,PRJ0112,Scope,Medium,37,173,0,2.1,Production Defect,PROD
+PRJ0112_CR08,PRJ0112,Scope,High,114,687,33,2.7,Missed Dependency,PROD
+PRJ0112_CR09,PRJ0112,Enhancement,High,202,663,35,4.3,Requirement Gap,UAT
+PRJ0113_CR01,PRJ0113,Scope,High,56,456,38,3.8,Requirement Gap,PROD
+PRJ0113_CR02,PRJ0113,Enhancement,Medium,158,72,6,0.7,Compliance Change,DEV
+PRJ0113_CR03,PRJ0113,Compliance,Critical,264,340,14,0.6,Requirement Gap,DEV
+PRJ0114_CR01,PRJ0114,Defect,Critical,381,395,14,2.5,Client Scope Change,UAT
+PRJ0114_CR02,PRJ0114,Compliance,Medium,289,303,20,3.6,Compliance Change,DEV
+PRJ0114_CR03,PRJ0114,Scope,High,481,450,45,4.8,Production Defect,UAT
+PRJ0114_CR04,PRJ0114,Scope,Medium,486,170,33,1.5,Compliance Change,DEV
+PRJ0114_CR05,PRJ0114,Scope,High,391,175,2,4.9,Production Defect,PROD
+PRJ0114_CR06,PRJ0114,Enhancement,Low,30,540,2,1.7,Compliance Change,UAT
+PRJ0115_CR01,PRJ0115,Scope,High,429,310,5,5.0,Compliance Change,UAT
+PRJ0115_CR02,PRJ0115,Compliance,Critical,39,660,17,2.1,Client Scope Change,PROD
+PRJ0115_CR03,PRJ0115,Scope,Low,177,612,42,1.9,Client Scope Change,DEV
+PRJ0115_CR04,PRJ0115,Enhancement,Critical,28,480,0,2.6,Client Scope Change,UAT
+PRJ0116_CR01,PRJ0116,Defect,Low,187,651,23,2.0,Production Defect,PROD
+PRJ0116_CR02,PRJ0116,Compliance,Critical,170,666,1,1.2,Requirement Gap,UAT
+PRJ0116_CR03,PRJ0116,Defect,Low,74,653,13,4.1,Compliance Change,PROD
+PRJ0116_CR04,PRJ0116,Compliance,Medium,213,626,2,3.5,Missed Dependency,UAT
+PRJ0116_CR05,PRJ0116,Scope,Low,498,259,36,2.8,Compliance Change,PROD
+PRJ0116_CR06,PRJ0116,Enhancement,Low,453,570,3,3.2,Compliance Change,PROD
+PRJ0117_CR01,PRJ0117,Scope,Medium,465,64,27,0.6,Missed Dependency,DEV
+PRJ0117_CR02,PRJ0117,Defect,Critical,482,462,22,1.1,Compliance Change,DEV
+PRJ0117_CR03,PRJ0117,Compliance,Low,192,374,37,3.2,Requirement Gap,PROD
+PRJ0117_CR04,PRJ0117,Scope,Low,398,393,28,4.6,Production Defect,PROD
+PRJ0117_CR05,PRJ0117,Enhancement,High,407,518,44,1.1,Missed Dependency,PROD
+PRJ0117_CR06,PRJ0117,Scope,Medium,478,37,37,3.2,Production Defect,UAT
+PRJ0117_CR07,PRJ0117,Compliance,Critical,110,550,37,1.8,Requirement Gap,DEV
+PRJ0117_CR08,PRJ0117,Compliance,Critical,194,79,36,2.8,Compliance Change,PROD
+PRJ0117_CR09,PRJ0117,Enhancement,High,185,423,20,3.9,Missed Dependency,DEV
+PRJ0118_CR01,PRJ0118,Scope,Medium,392,106,20,1.2,Client Scope Change,UAT
+PRJ0118_CR02,PRJ0118,Enhancement,Low,381,352,2,2.5,Compliance Change,UAT
+PRJ0118_CR03,PRJ0118,Defect,Low,344,672,0,1.6,Compliance Change,UAT
+PRJ0118_CR04,PRJ0118,Defect,Medium,155,511,9,2.7,Missed Dependency,PROD
+PRJ0118_CR05,PRJ0118,Enhancement,High,87,233,40,4.4,Compliance Change,PROD
+PRJ0118_CR06,PRJ0118,Defect,Low,242,98,31,3.0,Missed Dependency,PROD
+PRJ0118_CR07,PRJ0118,Defect,Low,234,299,39,2.2,Compliance Change,DEV
+PRJ0119_CR01,PRJ0119,Scope,High,249,449,14,3.1,Missed Dependency,PROD
+PRJ0119_CR02,PRJ0119,Defect,Low,334,655,21,1.1,Compliance Change,DEV
+PRJ0119_CR03,PRJ0119,Scope,Critical,66,371,22,4.0,Compliance Change,DEV
+PRJ0119_CR04,PRJ0119,Scope,Medium,205,578,12,4.9,Compliance Change,UAT
+PRJ0119_CR05,PRJ0119,Defect,High,430,195,23,2.0,Missed Dependency,PROD
+PRJ0119_CR06,PRJ0119,Defect,Low,38,50,33,1.0,Production Defect,UAT
+PRJ0119_CR07,PRJ0119,Scope,Medium,164,338,1,1.5,Missed Dependency,DEV
+PRJ0120_CR01,PRJ0120,Defect,Critical,209,518,36,1.0,Client Scope Change,UAT
+PRJ0120_CR02,PRJ0120,Defect,Low,68,604,10,1.4,Production Defect,PROD
+PRJ0120_CR03,PRJ0120,Defect,Low,92,442,39,4.3,Compliance Change,PROD
+PRJ0120_CR04,PRJ0120,Defect,Low,412,535,16,2.4,Client Scope Change,DEV
+PRJ0120_CR05,PRJ0120,Scope,High,372,608,38,2.3,Requirement Gap,UAT
+PRJ0120_CR06,PRJ0120,Defect,Critical,299,541,20,4.8,Missed Dependency,UAT
+PRJ0120_CR07,PRJ0120,Enhancement,Critical,283,598,5,4.6,Production Defect,PROD
+PRJ0120_CR08,PRJ0120,Scope,Critical,85,43,10,2.8,Requirement Gap,DEV
