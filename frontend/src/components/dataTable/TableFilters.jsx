@@ -1,5 +1,6 @@
 import React from 'react';
 import { CFormInput, CFormSelect } from '@coreui/react';
+import DateDisplayInput from '../projectWizard/DateDisplayInput';
 
 const TableFilters = ({ filters, onChange, config = [] }) => {
   const handleChange = (key, value) => {
@@ -26,6 +27,11 @@ const TableFilters = ({ filters, onChange, config = [] }) => {
                 </option>
               ))}
             </CFormSelect>
+          ) : filter.type === 'date' ? (
+            <DateDisplayInput
+              value={filters[filter.key] || ''}
+              onChange={(value) => handleChange(filter.key, value)}
+            />
           ) : (
             <CFormInput
               aria-label={filter.label}

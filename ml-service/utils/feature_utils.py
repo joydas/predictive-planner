@@ -14,13 +14,42 @@ TARGET_COLUMNS = {
     "delayed_flag",
 }
 
+ROLE_ALIASES = {
+    "PM": "Project Manager",
+    "PROJECT_MANAGER": "Project Manager",
+    "PROJECT MANAGER": "Project Manager",
+    "BA": "Business Analyst",
+    "BUSINESS_ANALYST": "Business Analyst",
+    "PYTHON SR DEV": "Python SSE",
+    "PYTHON SENIOR DEV": "Python SSE",
+    "SENIOR PYTHON ENGINEER": "Python SSE",
+    "PYTHON_SSE": "Python SSE",
+    "PYTHON DEV": "Python Developer",
+    "PYTHON_DEVELOPER": "Python Developer",
+    "REACT DEV": "React Developer",
+    "REACT_DEVELOPER": "React Developer",
+    "QA": "QA Lead",
+    "QA LEAD": "QA Lead",
+    "DEVOPS": "DevOps Engineer",
+    "DEVOPS_ENGINEER": "DevOps Engineer",
+    "ARCHITECT": "Solution Architect",
+    "SOLUTION_ARCHITECT": "Solution Architect",
+}
 
-def normalize_role(value: Any) -> str:
+
+def canonical_role_name(value: Any) -> str:
     if pd.isna(value):
         return "Unknown"
-    raw = str(value or "Unknown").strip()
+    raw = str(value or "").strip()
     if not raw or raw.lower() == "nan":
-        raw = "Unknown"
+        return "Unknown"
+    lookup = re.sub(r"[^A-Za-z0-9]+", "_", raw).strip("_").upper()
+    spaced = re.sub(r"[_]+", " ", lookup).strip()
+    return ROLE_ALIASES.get(lookup) or ROLE_ALIASES.get(spaced) or raw
+
+
+def normalize_role(value: Any) -> str:
+    raw = canonical_role_name(value)
     cleaned = re.sub(r"[^A-Za-z0-9]+", "_", raw).strip("_")
     return cleaned or "Unknown"
 

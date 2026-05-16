@@ -1,62 +1,7 @@
 const { pool } = require('../config/db.config');
-const { ensureWorkflowSchema } = require('../workflow/workflow.service');
-const projectRepository = require('./project.repository');
-
-async function columnExists(connection, tableName, columnName) {
-  const [rows] = await connection.query(`SHOW COLUMNS FROM ${tableName} LIKE ?`, [columnName]);
-  return rows.length > 0;
-}
-
-async function addColumnIfMissing(connection, tableName, columnName, columnDefinition) {
-  if (!(await columnExists(connection, tableName, columnName))) {
-    await connection.query(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`);
-  }
-}
 
 async function ensureCrSchema() {
-  const connection = pool.promise();
-  await projectRepository.ensureApprovedProjectTables(connection);
-
-  await connection.query(`
-    CREATE TABLE IF NOT EXISTS change_request (
-      cr_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-      project_id BIGINT UNSIGNED NOT NULL,
-      status VARCHAR(32) NOT NULL DEFAULT 'DRAFT',
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      PRIMARY KEY (cr_id),
-      INDEX idx_change_request_project_id (project_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
-
-  await ensureWorkflowSchema('CR');
-  await addColumnIfMissing(connection, 'change_request', 'cr_code', 'VARCHAR(32) NULL');
-  await addColumnIfMissing(connection, 'change_request', 'cr_title', 'VARCHAR(255) NULL');
-  await addColumnIfMissing(connection, 'change_request', 'cr_description', 'TEXT NULL');
-  await addColumnIfMissing(connection, 'change_request', 'cr_category', 'VARCHAR(100) NULL');
-  await addColumnIfMissing(connection, 'change_request', 'severity', 'VARCHAR(50) NULL');
-  await addColumnIfMissing(connection, 'change_request', 'priority', 'VARCHAR(50) NULL');
-  await addColumnIfMissing(connection, 'change_request', 'affected_module', 'VARCHAR(255) NULL');
-  await addColumnIfMissing(connection, 'change_request', 'schedule_impact_days', 'DECIMAL(10,2) NULL DEFAULT 0');
-  await addColumnIfMissing(connection, 'change_request', 'estimated_effort_hours', 'DECIMAL(12,2) NULL DEFAULT 0');
-  await addColumnIfMissing(connection, 'change_request', 'estimated_cost_impact', 'DECIMAL(14,2) NULL DEFAULT 0');
-  await addColumnIfMissing(connection, 'change_request', 'dependency_impact', 'TEXT NULL');
-  await addColumnIfMissing(connection, 'change_request', 'environments_affected', 'VARCHAR(255) NULL');
-  await addColumnIfMissing(connection, 'change_request', 'additional_pm_count', 'DECIMAL(10,2) NULL DEFAULT 0');
-  await addColumnIfMissing(connection, 'change_request', 'additional_dev_count', 'DECIMAL(10,2) NULL DEFAULT 0');
-  await addColumnIfMissing(connection, 'change_request', 'additional_qa_count', 'DECIMAL(10,2) NULL DEFAULT 0');
-  await addColumnIfMissing(connection, 'change_request', 'additional_devops_count', 'DECIMAL(10,2) NULL DEFAULT 0');
-  await addColumnIfMissing(connection, 'change_request', 'additional_architect_count', 'DECIMAL(10,2) NULL DEFAULT 0');
-  await addColumnIfMissing(connection, 'change_request', 'additional_budget', 'DECIMAL(14,2) NULL DEFAULT 0');
-  await addColumnIfMissing(connection, 'change_request', 'additional_licensing_cost', 'DECIMAL(14,2) NULL DEFAULT 0');
-  await addColumnIfMissing(connection, 'change_request', 'infrastructure_cost_impact', 'DECIMAL(14,2) NULL DEFAULT 0');
-  await addColumnIfMissing(connection, 'change_request', 'root_cause', 'TEXT NULL');
-
-  await connection.query(`
-    UPDATE change_request
-    SET cr_code = CONCAT('CR-', LPAD(cr_id, 6, '0'))
-    WHERE cr_code IS NULL OR cr_code = ''
-  `);
+  return true;
 }
 
 const CR_SELECT = `

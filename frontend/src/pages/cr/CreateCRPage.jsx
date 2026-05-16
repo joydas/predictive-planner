@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CAlert } from '@coreui/react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import authService from '../../services/authService';
 import CRWizard from '../../components/crWizard/CRWizard';
 import { getChangeRequest } from '../../services/crService';
 import { listProjectsAvailableForCr } from '../../services/projectService';
@@ -9,6 +10,7 @@ import '../../styles/projectWizard.css';
 const CreateCRPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const isAccountManager = String(authService.getUserRole() || '').toUpperCase() === 'ACCOUNT_MANAGER';
   const projectId = searchParams.get('projectId') || '';
   const crId = searchParams.get('crId');
   const [projects, setProjects] = useState([]);
@@ -40,7 +42,13 @@ const CreateCRPage = () => {
     return () => {
       active = false;
     };
-  }, [crId]);
+  }, [crId, isAccountManager, navigate]);
+
+  useEffect(() => {
+    if (isAccountManager) {
+      navigate('/crs', { replace: true });
+    }
+  }, [isAccountManager, navigate]);
 
   const effectiveProjectId = useMemo(() => initialCr?.projectId || projectId, [initialCr, projectId]);
   const effectiveProjects = useMemo(() => {
@@ -58,6 +66,10 @@ const CreateCRPage = () => {
       },
     ];
   }, [initialCr, projects]);
+
+  if (isAccountManager) {
+    return null;
+  }
 
   return (
     <div className="project-wizard-page">

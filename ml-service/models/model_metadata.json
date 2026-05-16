@@ -1,18 +1,54 @@
 {
-  "training_timestamp": "2026-05-15T17:31:09.202793+00:00",
+  "training_timestamp": "2026-05-16T15:34:42.350848+00:00",
   "dataset_version": "project_training_dataset_v1",
   "feature_version": "project_features_v1",
   "dataset_path": "C:\\OurWorkspace\\Dipanjan\\AI\\predictive-planner\\ml-service\\datasets\\project_training_dataset.csv",
-  "row_count": 121,
+  "row_count": 122,
   "evaluation_metrics": {
     "effort": {
-      "rmse": 48.72180371975252,
-      "mae": 30.46559139784944,
-      "r2": 0.9968064439675022
+      "rmse": 34.83785801117017,
+      "mae": 23.150806451612915,
+      "r2": 0.9981821485712763
     },
     "staffing": {
       "mae_per_role": {
-        "PM": 0.002956989247311828
+        "Automation_Tester": 0.7693548387096774,
+        "Business_Analyst": 0.7913978494623658,
+        "DevOps_Engineer": 0.0032258064516129024,
+        "Manual_Tester": 0.9032258064516128,
+        "Project_Manager": 0.49543010752688177,
+        "Python_Developer": 1.0900537634408605,
+        "Python_SSE": 1.1846774193548386,
+        "QA_Lead": 0.0008064516129032258,
+        "React_Developer": 0.9825268817204303,
+        "Solution_Architect": 0.49462365591397844,
+        "Angular_Developer": 0.0,
+        "BI_Developer": 0.0,
+        "Cloud_Engineer": 0.0,
+        "Data_Engineer": 0.0,
+        "Data_Scientist": 0.0,
+        "Delivery_Manager": 0.0,
+        "Enterprise_Architect": 0.0,
+        "Functional_Consultant": 0.0,
+        "Java_Architect": 0.0,
+        "Java_Developer": 0.0,
+        "Java_Lead": 0.0,
+        "Java_SSE": 0.0,
+        "L1_Support": 0.0,
+        "L2_Support": 0.0,
+        "L3_Support": 0.0,
+        "Performance_Tester": 0.0,
+        "Product_Owner": 0.0,
+        "Program_Manager": 0.0,
+        "Python_Architect": 0.0,
+        "Python_Lead": 0.0,
+        "React_Lead": 0.0,
+        "React_SSE": 0.0,
+        "SAP_Consultant": 0.0,
+        "SRE_Engineer": 0.0,
+        "Salesforce_Developer": 0.0,
+        "Scrum_Master": 0.0,
+        "Technical_Architect": 0.0
       }
     },
     "schedule_risk": {
@@ -21,5 +57,16 @@
       "recall": 0.0
     }
   },
-  "warnings": []
+  "warnings": [
+    {
+      "report": "staffing_diversity_validation",
+      "issue_count": 2,
+      "path": "C:\\OurWorkspace\\Dipanjan\\AI\\predictive-planner\\ml-service\\reports\\staffing_diversity_validation_report.csv"
+    }
+  ],
+  "reports": {
+    "staffing_distribution": "C:\\OurWorkspace\\Dipanjan\\AI\\predictive-planner\\ml-service\\reports\\staffing_distribution_report.csv",
+    "target_distribution": "C:\\OurWorkspace\\Dipanjan\\AI\\predictive-planner\\ml-service\\reports\\target_distribution_report.csv",
+    "staffing_diversity_validation": "C:\\OurWorkspace\\Dipanjan\\AI\\predictive-planner\\ml-service\\reports\\staffing_diversity_validation_report.csv"
+  }
 }

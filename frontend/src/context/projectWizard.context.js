@@ -10,33 +10,31 @@ const initialState = {
     industry: '',
     project_type: '',
     delivery_model: '',
+    business_criticality: '',
   },
   deliveryDetails: {
     start_date: '',
     planned_end_date: '',
     sprint_length: '',
     release_frequency: '',
+    milestone_count: '',
   },
   teamComposition: {
-    rows: [
-      {
-        role: 'PM',
-        count: 1,
-        avgExperience: '',
-        location: '',
-      },
-    ],
-    locations: '',
-    offshoreOnshoreRatio: '',
+    rows: [],
   },
   technology: {
     technology_stack: '',
     architecture_type: '',
     cloud_platform: '',
     integration_count: '',
+    external_dependencies: '',
     complexity: '',
   },
   financial: {
+    management_reserve_percent: '',
+    contingency_reserve_percent: '',
+    billing_model: '',
+    rateCards: [],
     budget: '',
     planned_effort: '',
     estimated_team_size: '',
@@ -46,10 +44,70 @@ const initialState = {
     compliance_requirements: '',
     criticality: '',
     requirement_stability_index: '',
+    expected_cr_volatility: '',
+    risk_level_indicators: '',
+  },
+  mlRecommendation: {
+    recommendation: null,
+    acceptedAt: '',
+    overrideReason: '',
+  },
+  masterData: {
+    roles: [],
+    skills: [],
+    rateCards: [],
   },
 };
 
 const ProjectWizardContext = createContext(null);
+
+function mergeWithInitialState(draft = {}) {
+  return {
+    ...initialState,
+    ...draft,
+    basicInfo: {
+      ...initialState.basicInfo,
+      ...(draft.basicInfo || {}),
+    },
+    deliveryDetails: {
+      ...initialState.deliveryDetails,
+      ...(draft.deliveryDetails || {}),
+    },
+    teamComposition: {
+      ...initialState.teamComposition,
+      ...(draft.teamComposition || {}),
+      rows: (draft.teamComposition?.rows || initialState.teamComposition.rows).map((row) => ({
+        role: 'Developer',
+        roleId: row.roleId || '',
+        locationType: row.locationType || 'ONSITE',
+        count: 1,
+        ...row,
+        allocationPercent: row.allocationPercent ?? row.allocation ?? 100,
+        startDate: row.startDate || '',
+        endDate: row.endDate || '',
+        ratePerDay: row.ratePerDay || '',
+      })),
+    },
+    technology: {
+      ...initialState.technology,
+      ...(draft.technology || {}),
+    },
+    financial: {
+      ...initialState.financial,
+      ...(draft.financial || {}),
+      rateCards: draft.financial?.rateCards || initialState.financial.rateCards,
+    },
+    risks: {
+      ...initialState.risks,
+      ...(draft.risks || {}),
+    },
+    mlRecommendation: {
+      ...initialState.mlRecommendation,
+      ...(draft.mlRecommendation || {}),
+    },
+    masterData: initialState.masterData,
+  };
+}
 
 function reducer(state, action) {
   switch (action.type) {
@@ -74,6 +132,26 @@ function reducer(state, action) {
           rows: action.payload,
         },
       };
+    case 'SET_RATE_CARDS':
+      return {
+        ...state,
+        financial: {
+          ...state.financial,
+          rateCards: action.payload,
+        },
+      };
+    case 'SET_MASTER_DATA':
+      return {
+        ...state,
+        masterData: {
+          ...state.masterData,
+          ...action.payload,
+        },
+        financial: {
+          ...state.financial,
+          rateCards: action.payload.rateCards || state.financial.rateCards,
+        },
+      };
     case 'SET_DRAFT_ID':
       return {
         ...state,
@@ -86,8 +164,7 @@ function reducer(state, action) {
       };
     case 'LOAD_DRAFT':
       return {
-        ...state,
-        ...action.payload,
+        ...mergeWithInitialState(action.payload),
         draftId: action.draftId || state.draftId,
         isDraftSaved: true,
       };
@@ -101,8 +178,7 @@ function reducer(state, action) {
 export function ProjectWizardProvider({ children, initialDraft }) {
   const initState = initialDraft
     ? {
-        ...initialState,
-        ...initialDraft,
+        ...mergeWithInitialState(initialDraft),
         draftId: initialDraft.draftId || null,
         isDraftSaved: true,
       }
@@ -122,6 +198,8 @@ export function ProjectWizardProvider({ children, initialDraft }) {
       setCurrentStep: (step) => dispatch({ type: 'SET_CURRENT_STEP', payload: step }),
       updateSection: (section, payload) => dispatch({ type: 'UPDATE_SECTION', section, payload }),
       setTeamRows: (rows) => dispatch({ type: 'SET_TEAM_ROWS', payload: rows }),
+      setRateCards: (rows) => dispatch({ type: 'SET_RATE_CARDS', payload: rows }),
+      setMasterData: (payload) => dispatch({ type: 'SET_MASTER_DATA', payload }),
       setDraftId: (draftId) => dispatch({ type: 'SET_DRAFT_ID', payload: draftId }),
       setDraftSaved: (saved) => dispatch({ type: 'SET_DRAFT_SAVED', payload: saved }),
       loadDraft: (draftId, draftData) => dispatch({ type: 'LOAD_DRAFT', draftId, payload: draftData }),

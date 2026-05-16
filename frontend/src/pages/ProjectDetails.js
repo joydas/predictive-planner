@@ -11,6 +11,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import WorkflowPanel from '../components/WorkflowPanel';
 import { getProject, transitionProject } from '../services/projectService';
 import authService from '../services/authService';
+import { formatDisplayDate } from '../utils/dateUtils';
+import { formatCurrency } from '../utils/resourcePlanning';
 import '../styles/projectWizard.css';
 
 const statusColors = {
@@ -101,6 +103,7 @@ const ProjectDetails = () => {
   const financial = draftData.financial || {};
   const risks = draftData.risks || {};
   const displayProjectName = basicInfo.project_name || project.name || 'Untitled Project';
+  const isAgile = String(basicInfo.delivery_model || '').toLowerCase() === 'agile';
 
   return (
     <div className="fade-in">
@@ -157,36 +160,48 @@ const ProjectDetails = () => {
                 <DetailItem label="Industry" value={basicInfo.industry} />
                 <DetailItem label="Project type" value={basicInfo.project_type} />
                 <DetailItem label="Delivery model" value={basicInfo.delivery_model} />
+                <DetailItem label="Business criticality" value={basicInfo.business_criticality} />
               </CCol>
               <CCol md={6}>
-                <h5>Delivery Details</h5>
-                <DetailItem label="Start" value={deliveryDetails.start_date} />
-                <DetailItem label="Planned end" value={deliveryDetails.planned_end_date} />
+                <h5>Delivery & Timeline</h5>
+                <DetailItem label="Start" value={formatDisplayDate(deliveryDetails.start_date)} />
+                <DetailItem label="Planned end" value={formatDisplayDate(deliveryDetails.planned_end_date)} />
                 <DetailItem label="Sprint length" value={deliveryDetails.sprint_length} />
                 <DetailItem label="Frequency" value={deliveryDetails.release_frequency} />
+                {!isAgile && <DetailItem label="Milestones" value={deliveryDetails.milestone_count} />}
               </CCol>
             </CRow>
             <CRow>
               <CCol md={12} className="mb-3">
-                <h5>Team Composition</h5>
+                <h5>Resource Loading</h5>
                 {Array.isArray(teamComposition.rows) && teamComposition.rows.length > 0 ? (
                   <div className="table-responsive">
                     <table className="table table-sm mb-3">
                       <thead>
                         <tr>
                           <th>Role</th>
+                          <th>Location Type</th>
                           <th>Count</th>
-                          <th>Avg Experience</th>
-                          <th>Location</th>
+                          <th>Allocation %</th>
+                          <th>Start</th>
+                          <th>End</th>
+                          <th>Rate / Day</th>
+                          <th>Effort</th>
+                          <th>Cost</th>
                         </tr>
                       </thead>
                       <tbody>
                         {teamComposition.rows.map((row, index) => (
                           <tr key={`${row.role}-${index}`}>
                             <td>{valueOrDash(row.role)}</td>
+                            <td>{valueOrDash(row.locationType)}</td>
                             <td>{valueOrDash(row.count)}</td>
-                            <td>{valueOrDash(row.avgExperience)}</td>
-                            <td>{valueOrDash(row.location)}</td>
+                            <td>{valueOrDash(row.allocationPercent)}</td>
+                            <td>{formatDisplayDate(row.startDate)}</td>
+                            <td>{formatDisplayDate(row.endDate)}</td>
+                            <td>{formatCurrency(row.ratePerDay || 0)}</td>
+                            <td>{valueOrDash(row.plannedEffort)}</td>
+                            <td>{formatCurrency(row.plannedCost || 0)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -195,8 +210,6 @@ const ProjectDetails = () => {
                 ) : (
                   <p>No roles configured</p>
                 )}
-                <DetailItem label="Locations" value={teamComposition.locations} />
-                <DetailItem label="Offshore/Onshore" value={teamComposition.offshoreOnshoreRatio} />
               </CCol>
             </CRow>
             <CRow>
@@ -206,13 +219,17 @@ const ProjectDetails = () => {
                 <DetailItem label="Architecture" value={technology.architecture_type} />
                 <DetailItem label="Cloud platform" value={technology.cloud_platform} />
                 <DetailItem label="Integrations" value={technology.integration_count} />
+                <DetailItem label="External dependencies" value={technology.external_dependencies} />
                 <DetailItem label="Complexity" value={technology.complexity || project.complexity} />
               </CCol>
               <CCol md={6}>
                 <h5>Financials</h5>
-                <DetailItem label="Budget" value={financial.budget} />
-                <DetailItem label="Planned effort" value={financial.planned_effort || project.estimated_hours} />
-                <DetailItem label="Estimated team size" value={financial.estimated_team_size || project.team_size} />
+                <DetailItem label="Billing model" value={financial.billing_model} />
+                <DetailItem label="Management reserve %" value={financial.management_reserve_percent} />
+                <DetailItem label="Contingency reserve %" value={financial.contingency_reserve_percent} />
+                <DetailItem label="Derived budget" value={formatCurrency(financial.budget || 0)} />
+                <DetailItem label="Derived effort" value={financial.planned_effort || project.estimated_hours} />
+                <DetailItem label="Derived team size" value={financial.estimated_team_size || project.team_size} />
                 <DetailItem label="Predicted hours" value={project.predicted_hours} />
               </CCol>
             </CRow>
@@ -223,6 +240,8 @@ const ProjectDetails = () => {
                 <DetailItem label="Compliance" value={risks.compliance_requirements} />
                 <DetailItem label="Criticality" value={risks.criticality} />
                 <DetailItem label="Stability index" value={risks.requirement_stability_index} />
+                <DetailItem label="Expected CR volatility" value={risks.expected_cr_volatility} />
+                <DetailItem label="Risk indicators" value={risks.risk_level_indicators} />
               </CCol>
             </CRow>
           </div>

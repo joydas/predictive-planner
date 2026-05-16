@@ -121,15 +121,10 @@ def predict_effort(payload: dict) -> dict:
 
 
 def predict_staffing(payload: dict) -> dict:
-    artifact = load_artifact("staffing_model.joblib")
-    frame = build_prediction_frame(payload, artifact["feature_columns"])
-    prediction = artifact["pipeline"].predict(frame)[0]
-    target_columns = artifact["target_columns"]
-    team = {
-        role.replace("target_staff_", ""): int(max(round(value), 0))
-        for role, value in zip(target_columns, prediction)
-    }
-    return {"recommendedTeam": team, "explanation": explain(payload)}
+    from inference.staffing_recommendation_service import build_staffing_recommendation
+
+    recommendation = build_staffing_recommendation(payload)
+    return {**recommendation, "explanation": explain(payload)}
 
 
 def predict_risk(payload: dict) -> dict:

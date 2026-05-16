@@ -1,109 +1,11 @@
 const { pool: db } = require('../config/db.config');
-const { ensureWorkflowSchema } = require('../workflow/workflow.service');
 
-async function columnExists(connection, tableName, columnName) {
-  const [rows] = await connection.query(`SHOW COLUMNS FROM ${tableName} LIKE ?`, [columnName]);
-  return rows.length > 0;
+async function ensureDraftTable() {
+  return true;
 }
 
-async function addColumnIfMissing(connection, tableName, columnName, columnDefinition) {
-  if (!(await columnExists(connection, tableName, columnName))) {
-    await connection.query(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`);
-  }
-}
-
-async function ensureDraftTable(connection = null) {
-  const activeConnection = connection || db.promise();
-  const createTableSql = `
-    CREATE TABLE IF NOT EXISTS project_drafts (
-      draft_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-      owner_id BIGINT UNSIGNED NOT NULL,
-      draft_data JSON NOT NULL,
-      status VARCHAR(32) NOT NULL DEFAULT 'DRAFT',
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      PRIMARY KEY (draft_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-  `;
-
-  await activeConnection.query(createTableSql);
-  await ensureWorkflowSchema('PROJECT', activeConnection);
-  await addColumnIfMissing(activeConnection, 'project_drafts', 'is_published', 'TINYINT(1) NOT NULL DEFAULT 0');
-  await addColumnIfMissing(activeConnection, 'project_drafts', 'published_project_id', 'BIGINT UNSIGNED NULL');
-  await addColumnIfMissing(activeConnection, 'project_drafts', 'published_at', 'TIMESTAMP NULL DEFAULT NULL');
-}
-
-async function ensureApprovedProjectTables(connection = null) {
-  const activeConnection = connection || db.promise();
-  await activeConnection.query(`
-    CREATE TABLE IF NOT EXISTS project (
-      project_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-      source_draft_id BIGINT UNSIGNED NOT NULL,
-      owner_id BIGINT UNSIGNED NOT NULL,
-      project_code VARCHAR(32) NULL,
-      project_name VARCHAR(255) NOT NULL,
-      client_name VARCHAR(255) NULL,
-      industry VARCHAR(100) NULL,
-      project_type VARCHAR(100) NULL,
-      delivery_model VARCHAR(100) NULL,
-      technology_stack VARCHAR(255) NULL,
-      complexity DECIMAL(10,2) NULL DEFAULT 0,
-      estimated_team_size DECIMAL(10,2) NULL DEFAULT 0,
-      planned_effort DECIMAL(12,2) NULL DEFAULT 0,
-      budget DECIMAL(14,2) NULL DEFAULT 0,
-      predicted_hours DECIMAL(12,2) NULL DEFAULT 0,
-      approved_data JSON NOT NULL,
-      approved_by_user_id BIGINT UNSIGNED NULL,
-      approved_at TIMESTAMP NULL DEFAULT NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      PRIMARY KEY (project_id),
-      UNIQUE KEY uq_project_source_draft (source_draft_id),
-      INDEX idx_project_owner_id (owner_id),
-      INDEX idx_project_approved_at (approved_at)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
-
-  await addColumnIfMissing(activeConnection, 'project', 'source_draft_id', 'BIGINT UNSIGNED NULL');
-  await addColumnIfMissing(activeConnection, 'project', 'owner_id', 'BIGINT UNSIGNED NULL');
-  await addColumnIfMissing(activeConnection, 'project', 'project_code', 'VARCHAR(32) NULL');
-  await addColumnIfMissing(activeConnection, 'project', 'project_name', 'VARCHAR(255) NULL');
-  await addColumnIfMissing(activeConnection, 'project', 'client_name', 'VARCHAR(255) NULL');
-  await addColumnIfMissing(activeConnection, 'project', 'industry', 'VARCHAR(100) NULL');
-  await addColumnIfMissing(activeConnection, 'project', 'project_type', 'VARCHAR(100) NULL');
-  await addColumnIfMissing(activeConnection, 'project', 'delivery_model', 'VARCHAR(100) NULL');
-  await addColumnIfMissing(activeConnection, 'project', 'technology_stack', 'VARCHAR(255) NULL');
-  await addColumnIfMissing(activeConnection, 'project', 'complexity', 'DECIMAL(10,2) NULL DEFAULT 0');
-  await addColumnIfMissing(activeConnection, 'project', 'estimated_team_size', 'DECIMAL(10,2) NULL DEFAULT 0');
-  await addColumnIfMissing(activeConnection, 'project', 'planned_effort', 'DECIMAL(12,2) NULL DEFAULT 0');
-  await addColumnIfMissing(activeConnection, 'project', 'budget', 'DECIMAL(14,2) NULL DEFAULT 0');
-  await addColumnIfMissing(activeConnection, 'project', 'predicted_hours', 'DECIMAL(12,2) NULL DEFAULT 0');
-  await addColumnIfMissing(activeConnection, 'project', 'approved_data', 'JSON NULL');
-  await addColumnIfMissing(activeConnection, 'project', 'approved_by_user_id', 'BIGINT UNSIGNED NULL');
-  await addColumnIfMissing(activeConnection, 'project', 'approved_at', 'TIMESTAMP NULL DEFAULT NULL');
-  await addColumnIfMissing(activeConnection, 'project', 'created_at', 'TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP');
-  await addColumnIfMissing(activeConnection, 'project', 'updated_at', 'TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
-
-  await activeConnection.query(`
-    CREATE TABLE IF NOT EXISTS project_team_snapshot (
-      team_snapshot_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-      project_id BIGINT UNSIGNED NOT NULL,
-      role VARCHAR(100) NULL,
-      resource_count DECIMAL(10,2) NULL DEFAULT 0,
-      avg_experience_years DECIMAL(10,2) NULL DEFAULT 0,
-      location VARCHAR(100) NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (team_snapshot_id),
-      INDEX idx_project_team_snapshot_project (project_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
-
-  await addColumnIfMissing(activeConnection, 'project_team_snapshot', 'project_id', 'BIGINT UNSIGNED NULL');
-  await addColumnIfMissing(activeConnection, 'project_team_snapshot', 'role', 'VARCHAR(100) NULL');
-  await addColumnIfMissing(activeConnection, 'project_team_snapshot', 'resource_count', 'DECIMAL(10,2) NULL DEFAULT 0');
-  await addColumnIfMissing(activeConnection, 'project_team_snapshot', 'avg_experience_years', 'DECIMAL(10,2) NULL DEFAULT 0');
-  await addColumnIfMissing(activeConnection, 'project_team_snapshot', 'location', 'VARCHAR(100) NULL');
-  await addColumnIfMissing(activeConnection, 'project_team_snapshot', 'created_at', 'TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP');
+async function ensureApprovedProjectTables() {
+  return true;
 }
 
 async function createDraft(ownerId, draftData, status = 'DRAFT') {
@@ -645,15 +547,24 @@ async function insertProjectTeamSnapshots(connection, projectId, teamRows = []) 
   if (!Array.isArray(teamRows) || teamRows.length === 0) return;
   const values = teamRows.map((row) => [
     projectId,
+    Number(row.roleId) || null,
     row.role || '',
+    row.locationType || 'ONSITE',
     Number(row.count) || 0,
+    Number(row.allocationPercent) || 0,
+    row.startDate || null,
+    row.endDate || null,
+    Number(row.ratePerDay) || 0,
+    Number(row.plannedEffort) || 0,
+    Number(row.plannedCost) || 0,
     Number(row.avgExperience) || 0,
     row.location || '',
   ]);
   await connection.query(
     `
       INSERT INTO project_team_snapshot
-        (project_id, role, resource_count, avg_experience_years, location)
+        (project_id, role_id, role, location_type, resource_count, allocation_percent, allocation_start_date, allocation_end_date,
+         rate_per_day, planned_effort, planned_cost, avg_experience_years, location)
       VALUES ?
     `,
     [values],

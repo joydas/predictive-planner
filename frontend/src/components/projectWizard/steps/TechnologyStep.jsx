@@ -3,6 +3,8 @@ import { CRow, CCol, CForm, CFormInput, CFormSelect } from '@coreui/react';
 
 const architectureOptions = ['Monolithic', 'Microservices', 'Event-driven', 'Serverless'];
 const cloudOptions = ['AWS', 'Azure', 'GCP', 'Private Cloud', 'Hybrid'];
+const technologyStackOptions = ['Java', 'Python', 'React', 'Angular', 'Node.js', '.NET', 'SAP', 'Salesforce', 'Data/BI', 'Full Stack'];
+const externalDependencyOptions = ['None', 'Internal systems only', 'Third-party APIs', 'Vendor product dependency', 'Regulatory/external approval', 'Multiple external parties'];
 
 const TechnologyStep = ({ data, updateSection, errors }) => {
   const handleChange = (field) => (event) => {
@@ -16,11 +18,16 @@ const TechnologyStep = ({ data, updateSection, errors }) => {
         <CRow className="mb-4">
           <CCol md={6}>
             <label className="form-label">Technology Stack</label>
-            <CFormInput
+            <CFormSelect
               value={data.technology_stack}
               onChange={handleChange('technology_stack')}
               invalid={!!errors.technology_stack}
-            />
+            >
+              <option value="">Select stack</option>
+              {technologyStackOptions.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </CFormSelect>
             {errors.technology_stack && <div className="form-error">{errors.technology_stack}</div>}
           </CCol>
           <CCol md={6}>
@@ -77,6 +84,23 @@ const TechnologyStep = ({ data, updateSection, errors }) => {
               ))}
             </CFormSelect>
             {errors.complexity && <div className="form-error">{errors.complexity}</div>}
+          </CCol>
+        </CRow>
+        <CRow>
+          <CCol md={6}>
+            <label className="form-label">External Dependencies</label>
+            <CFormSelect
+              value={data.external_dependencies}
+              onChange={handleChange('external_dependencies')}
+              invalid={!!errors.external_dependencies}
+            >
+              <option value="">Select dependency profile</option>
+              {externalDependencyOptions.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </CFormSelect>
+            <div className="form-help-text">Select the dependency type; integration count captures the number.</div>
+            {errors.external_dependencies && <div className="form-error">{errors.external_dependencies}</div>}
           </CCol>
         </CRow>
       </CForm>

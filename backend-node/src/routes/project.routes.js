@@ -1,16 +1,16 @@
 const express = require('express');
 const projectController = require('../controllers/project.controller');
-const { authenticateToken } = require('../middleware/auth.middleware');
+const { authenticateToken, authorizeRoles } = require('../middleware/auth.middleware');
 
 const router = express.Router();
 
 router.get('/', authenticateToken, projectController.listMyProjects);
 router.get('/available-for-cr', authenticateToken, projectController.listProjectsAvailableForCr);
 router.post('/ml-recommendation', authenticateToken, projectController.getMlRecommendation);
-router.post('/draft', authenticateToken, projectController.createDraft);
-router.put('/:id/draft', authenticateToken, projectController.updateDraft);
+router.post('/draft', authenticateToken, authorizeRoles(['PM']), projectController.createDraft);
+router.put('/:id/draft', authenticateToken, authorizeRoles(['PM']), projectController.updateDraft);
 router.get('/:id/draft', authenticateToken, projectController.getDraft);
-router.post('/submit', authenticateToken, projectController.submitProject);
+router.post('/submit', authenticateToken, authorizeRoles(['PM']), projectController.submitProject);
 router.get('/:id', authenticateToken, projectController.getProject);
 router.get('/:id/workflow-history', authenticateToken, projectController.getWorkflowHistory);
 router.post('/:id/submit', authenticateToken, projectController.submitExistingProject);

@@ -3,6 +3,7 @@ import { CRow, CCol, CForm, CFormInput, CFormSelect } from '@coreui/react';
 
 const projectTypes = ['New Build', 'Modernization', 'Migration', 'Support'];
 const deliveryModels = ['Agile', 'Waterfall', 'Hybrid'];
+const criticalityOptions = ['Low', 'Medium', 'High', 'Critical'];
 
 const BasicInfoStep = ({ data, updateSection, errors }) => {
   const handleChange = (field) => (event) => {
@@ -62,6 +63,22 @@ const BasicInfoStep = ({ data, updateSection, errors }) => {
               ))}
             </CFormSelect>
             {errors.delivery_model && <div className="form-error">{errors.delivery_model}</div>}
+          </CCol>
+        </CRow>
+        <CRow>
+          <CCol md={4}>
+            <label className="form-label">Business Criticality</label>
+            <CFormSelect
+              value={data.business_criticality}
+              onChange={handleChange('business_criticality')}
+              invalid={!!errors.business_criticality}
+            >
+              <option value="">Select criticality</option>
+              {criticalityOptions.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </CFormSelect>
+            {errors.business_criticality && <div className="form-error">{errors.business_criticality}</div>}
           </CCol>
         </CRow>
       </CForm>

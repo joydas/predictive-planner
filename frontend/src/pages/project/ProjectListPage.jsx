@@ -6,7 +6,7 @@ import TableFilters from '../../components/dataTable/TableFilters';
 import TableToolbar from '../../components/dataTable/TableToolbar';
 import { listProjects } from '../../services/projectService';
 import authService from '../../services/authService';
-import { formatGridDateTime } from '../../utils/dateFormat';
+import { formatDisplayDateTime } from '../../utils/dateUtils';
 
 const statusOptions = ['DRAFT', 'SUBMITTED', 'RETURNED', 'APPROVED', 'REJECTED'].map((value) => ({ value, label: value }));
 const industryOptions = ['Banking', 'Healthcare', 'Retail', 'Technology', 'Manufacturing'].map((value) => ({ value, label: value }));
@@ -87,8 +87,8 @@ const ProjectListPage = () => {
       sortKey: 'status',
       render: (row) => <CBadge color={statusColors[row.currentStatus] || 'secondary'}>{row.currentStatus}</CBadge>,
     },
-    { key: 'createdAt', label: 'Created Date', sortKey: 'createdAt', render: (row) => formatGridDateTime(row.createdAt) },
-    { key: 'updatedAt', label: 'Last Updated', sortKey: 'updatedAt', render: (row) => formatGridDateTime(row.updatedAt) },
+    { key: 'createdAt', label: 'Created Date', sortKey: 'createdAt', render: (row) => formatDisplayDateTime(row.createdAt) },
+    { key: 'updatedAt', label: 'Last Updated', sortKey: 'updatedAt', render: (row) => formatDisplayDateTime(row.updatedAt) },
     { key: 'reviewerComment', label: 'Reviewer Comment' },
     {
       key: 'actions',

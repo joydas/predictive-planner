@@ -69,6 +69,12 @@
   font-size: 0.9rem;
 }
 
+.form-help-text {
+  margin-top: 4px;
+  color: #6c757d;
+  font-size: 0.82rem;
+}
+
 .team-composition-grid {
   display: grid;
   gap: 12px;
@@ -112,6 +118,48 @@
   align-items: center;
 }
 
+.resource-loading-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.4fr) minmax(118px, 0.9fr) minmax(72px, 0.6fr) minmax(100px, 0.8fr) minmax(132px, 1fr) minmax(132px, 1fr) minmax(90px, 0.7fr) minmax(80px, 0.7fr) minmax(90px, 0.8fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.resource-loading-header {
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.derived-cell {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  border: 1px solid #d8dbe0;
+  border-radius: 6px;
+  background: #f8f9fa;
+  white-space: nowrap;
+}
+
+.derived-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.derived-summary-grid > div {
+  border: 1px solid #d8dbe0;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fff;
+}
+
+.derived-summary-grid strong,
+.derived-summary-grid span {
+  display: block;
+}
+
 .team-composition-header {
   font-weight: 700;
   opacity: 0.85;
@@ -129,6 +177,10 @@
 
 @media (max-width: 992px) {
   .team-composition-row {
+    grid-template-columns: 1fr;
+  }
+  .resource-loading-row,
+  .derived-summary-grid {
     grid-template-columns: 1fr;
   }
   .ml-recommendation-grid {

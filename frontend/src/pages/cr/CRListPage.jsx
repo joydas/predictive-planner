@@ -6,7 +6,7 @@ import TableFilters from '../../components/dataTable/TableFilters';
 import TableToolbar from '../../components/dataTable/TableToolbar';
 import { listChangeRequests } from '../../services/crService';
 import authService from '../../services/authService';
-import { formatGridDateTime } from '../../utils/dateFormat';
+import { formatDisplayDateTime } from '../../utils/dateUtils';
 
 const statusOptions = ['DRAFT', 'SUBMITTED', 'RETURNED', 'APPROVED', 'REJECTED'].map((value) => ({ value, label: value }));
 const severityOptions = ['Low', 'Medium', 'High', 'Critical'].map((value) => ({ value, label: value }));
@@ -87,7 +87,7 @@ const CRListPage = () => {
     { key: 'scheduleImpactDays', label: 'Schedule Impact', sortKey: 'scheduleImpactDays', render: (row) => `${row.scheduleImpactDays ?? 0} days` },
     { key: 'estimatedCostImpact', label: 'Estimated Cost', sortKey: 'estimatedCostImpact' },
     { key: 'latestComment', label: 'Last Comment' },
-    { key: 'updatedAt', label: 'Updated Date', sortKey: 'updatedAt', render: (row) => formatGridDateTime(row.updatedAt) },
+    { key: 'updatedAt', label: 'Updated Date', sortKey: 'updatedAt', render: (row) => formatDisplayDateTime(row.updatedAt) },
     {
       key: 'actions',
       label: 'Actions',

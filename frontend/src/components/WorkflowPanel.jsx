@@ -10,6 +10,7 @@ import {
   CSpinner,
 } from '@coreui/react';
 import authService from '../services/authService';
+import { formatDisplayDateTime } from '../utils/dateUtils';
 
 const statusColors = {
   DRAFT: 'secondary',
@@ -43,8 +44,7 @@ function getAvailableActions(status, role, allowRejectedSubmit) {
 }
 
 const formatDateTime = (value) => {
-  if (!value) return '';
-  return new Date(value).toLocaleString();
+  return formatDisplayDateTime(value);
 };
 
 const WorkflowPanel = ({

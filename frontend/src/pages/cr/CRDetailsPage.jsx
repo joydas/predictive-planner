@@ -4,6 +4,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import WorkflowPanel from '../../components/WorkflowPanel';
 import { getChangeRequest, transitionChangeRequest } from '../../services/crService';
 import authService from '../../services/authService';
+import { formatDisplayDateTime } from '../../utils/dateUtils';
+import { formatCurrency } from '../../utils/resourcePlanning';
 import '../../styles/projectWizard.css';
 
 const statusColors = {
@@ -126,7 +128,7 @@ const CRDetailsPage = () => {
                 <h5>Impact Analysis</h5>
                 <DetailItem label="Schedule impact days" value={changeRequest.scheduleImpactDays} />
                 <DetailItem label="Estimated effort hours" value={changeRequest.estimatedEffortHours} />
-                <DetailItem label="Estimated cost" value={changeRequest.estimatedCostImpact} />
+                <DetailItem label="Estimated cost" value={formatCurrency(changeRequest.estimatedCostImpact || 0)} />
                 <DetailItem label="Dependency impact" value={changeRequest.dependencyImpact} />
                 <DetailItem label="Environments affected" value={changeRequest.environmentsAffected} />
               </CCol>
@@ -142,17 +144,17 @@ const CRDetailsPage = () => {
               </CCol>
               <CCol md={6}>
                 <h5>Financial Impact</h5>
-                <DetailItem label="Additional budget" value={changeRequest.additionalBudget} />
-                <DetailItem label="Licensing cost" value={changeRequest.additionalLicensingCost} />
-                <DetailItem label="Infrastructure cost" value={changeRequest.infrastructureCostImpact} />
+                <DetailItem label="Additional budget" value={formatCurrency(changeRequest.additionalBudget || 0)} />
+                <DetailItem label="Licensing cost" value={formatCurrency(changeRequest.additionalLicensingCost || 0)} />
+                <DetailItem label="Infrastructure cost" value={formatCurrency(changeRequest.infrastructureCostImpact || 0)} />
               </CCol>
             </CRow>
             <CRow>
               <CCol md={12}>
                 <h5>Review Comments</h5>
                 <DetailItem label="Latest comment" value={changeRequest.latestComment} />
-                <DetailItem label="Submitted at" value={changeRequest.submittedAt ? new Date(changeRequest.submittedAt).toLocaleString() : ''} />
-                <DetailItem label="Approved at" value={changeRequest.approvedAt ? new Date(changeRequest.approvedAt).toLocaleString() : ''} />
+                <DetailItem label="Submitted at" value={formatDisplayDateTime(changeRequest.submittedAt)} />
+                <DetailItem label="Approved at" value={formatDisplayDateTime(changeRequest.approvedAt)} />
               </CCol>
             </CRow>
           </div>

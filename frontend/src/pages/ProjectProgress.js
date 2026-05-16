@@ -3,13 +3,15 @@ import { CCard, CCardBody, CCardHeader, CCol, CRow, CForm, CFormInput, CFormText
 import { useParams, useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
 import { NODE_API_URL } from '../config';
+import DateDisplayInput from '../components/projectWizard/DateDisplayInput';
+import { formatApiDate } from '../utils/dateUtils';
 
 const ProjectProgress = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0], // Today's date in YYYY-MM-DD format
+    date: formatApiDate(new Date()),
     effortSpent: '',
     tasksCompleted: ''
   });
@@ -61,7 +63,7 @@ const ProjectProgress = () => {
 
   const resetForm = () => {
     setFormData({
-      date: new Date().toISOString().split('T')[0],
+      date: formatApiDate(new Date()),
       effortSpent: '',
       tasksCompleted: ''
     });
@@ -214,14 +216,10 @@ const ProjectProgress = () => {
                   <label htmlFor="date" className="form-label">
                     Date <span style={{ color: '#f5576c' }}>*</span>
                   </label>
-                  <CFormInput
-                    type="date"
-                    id="date"
-                    name="date"
+                  <DateDisplayInput
                     value={formData.date}
-                    onChange={handleInputChange}
+                    onChange={(value) => setFormData((current) => ({ ...current, date: value }))}
                     invalid={!!formErrors.date}
-                    disabled={loading}
                   />
                   {formErrors.date && (
                     <CFormFeedback invalid className="d-block">

@@ -3,19 +3,17 @@ const mlPredictionService = require('../services/mlPrediction.service');
 
 async function createDraft(req, res) {
   try {
-    const ownerId = req.user.userId;
     const draftData = req.body;
-    const draft = await projectService.createDraft(ownerId, draftData);
+    const draft = await projectService.createDraft(req.user, draftData);
     return res.status(201).json({ message: 'Draft created', draftId: draft.draftId });
   } catch (error) {
     console.error('Draft creation failed:', error);
-    return res.status(500).json({ message: 'Failed to create draft' });
+    return res.status(error.status || 500).json({ message: error.message || 'Failed to create draft' });
   }
 }
 
 async function updateDraft(req, res) {
   try {
-    const ownerId = req.user.userId;
     const draftId = Number(req.params.id);
     const draftData = req.body;
 
@@ -23,7 +21,7 @@ async function updateDraft(req, res) {
       return res.status(400).json({ message: 'Draft id is required' });
     }
 
-    const updated = await projectService.updateDraft(draftId, ownerId, draftData);
+    const updated = await projectService.updateDraft(draftId, req.user, draftData);
     if (!updated) {
       return res.status(404).json({ message: 'Draft not found or not owned by user' });
     }
@@ -58,11 +56,10 @@ async function getDraft(req, res) {
 
 async function submitProject(req, res) {
   try {
-    const ownerId = req.user.userId;
     const { draftId, projectData, comment } = req.body;
 
     const data = projectData || req.body;
-    const submitted = await projectService.submitProject(ownerId, data, draftId, comment);
+    const submitted = await projectService.submitProject(req.user, data, draftId, comment);
 
     return res.status(201).json({ message: 'Project submitted', projectId: submitted.projectId });
   } catch (error) {
@@ -83,9 +80,8 @@ async function listProjects(req, res) {
 
 async function createProject(req, res) {
   try {
-    const ownerId = req.user.userId;
     const payload = req.body;
-    const project = await projectService.submitProject(ownerId, payload.projectData || payload, null, payload.comment);
+    const project = await projectService.submitProject(req.user, payload.projectData || payload, null, payload.comment);
     return res.status(201).json({ message: 'Project created with prediction', projectId: project.projectId, predicted_hours: project.predicted_hours });
   } catch (error) {
     console.error('Project creation failed:', error);

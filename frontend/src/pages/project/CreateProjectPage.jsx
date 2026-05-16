@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ProjectWizardProvider } from '../../context/projectWizard.context';
+import authService from '../../services/authService';
 import { getDraft } from '../../services/projectService';
 import ProjectWizard from '../../components/projectWizard/ProjectWizard';
 import '../../styles/projectWizard.css';
@@ -40,8 +41,21 @@ const CreateProjectPage = () => {
       .finally(() => setLoading(false));
   }, [routeDraftId, searchParams]);
 
+  const navigate = useNavigate();
+  const isAccountManager = String(authService.getUserRole() || '').toUpperCase() === 'ACCOUNT_MANAGER';
+
+  useEffect(() => {
+    if (isAccountManager) {
+      navigate('/projects', { replace: true });
+    }
+  }, [isAccountManager, navigate]);
+
   const mode = routeDraftId || searchParams.get('draftId') ? 'edit' : 'create';
   const title = mode === 'edit' ? 'Edit Project' : 'Create Project';
+
+  if (isAccountManager) {
+    return null;
+  }
 
   return (
     <div className="project-wizard-page">
