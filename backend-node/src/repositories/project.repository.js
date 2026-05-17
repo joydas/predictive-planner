@@ -8,6 +8,68 @@ async function ensureApprovedProjectTables() {
   return true;
 }
 
+async function ensureProjectCompletionTables() {
+  await db.promise().query(`
+    CREATE TABLE IF NOT EXISTS project_completion_history (
+      completion_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      project_id BIGINT UNSIGNED NOT NULL,
+      source_draft_id BIGINT UNSIGNED NOT NULL,
+      completed_by_user_id BIGINT UNSIGNED NOT NULL,
+      final_resource_loading JSON NOT NULL,
+      management_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
+      contingency_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
+      resource_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
+      full_project_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
+      dependency_count DECIMAL(10,2) NULL DEFAULT NULL,
+      requirement_stability_index DECIMAL(10,2) NULL DEFAULT NULL,
+      actual_cr_volatility VARCHAR(50) NULL DEFAULT NULL,
+      risk_level_indicators JSON NULL,
+      completion_payload JSON NOT NULL,
+      completed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (completion_id),
+      INDEX idx_project_completion_project (project_id),
+      INDEX idx_project_completion_draft (source_draft_id),
+      INDEX idx_project_completion_completed_at (completed_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  const [completionColumns] = await db.promise().query(
+    `
+      SELECT DATA_TYPE AS dataType
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'project_completion_history'
+        AND COLUMN_NAME = 'actual_cr_volatility'
+      LIMIT 1
+    `,
+  );
+
+  if (completionColumns[0]?.dataType !== 'varchar') {
+    await db.promise().query(`
+      ALTER TABLE project_completion_history
+      MODIFY actual_cr_volatility VARCHAR(50) NULL DEFAULT NULL
+    `);
+  }
+
+  await db.promise().query(`
+    CREATE TABLE IF NOT EXISTS project_completion_resource_loading (
+      completion_resource_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      completion_id BIGINT UNSIGNED NOT NULL,
+      project_id BIGINT UNSIGNED NOT NULL,
+      role VARCHAR(100) NOT NULL,
+      location VARCHAR(100) NOT NULL,
+      resource_count DECIMAL(10,2) NOT NULL DEFAULT 0,
+      rate DECIMAL(14,2) NOT NULL DEFAULT 0,
+      effort DECIMAL(14,2) NOT NULL DEFAULT 0,
+      actual_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (completion_resource_id),
+      INDEX idx_completion_resource_completion (completion_id),
+      INDEX idx_completion_resource_project (project_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+}
+
 async function createDraft(ownerId, draftData, status = 'DRAFT') {
   await ensureDraftTable();
   const sql = `
@@ -171,7 +233,7 @@ function buildProjectListWhere(filters) {
   const params = [];
 
   if (actorRole === 'ACCOUNT_MANAGER') {
-    where.push("(p.workflow_status = 'SUBMITTED' OR (p.workflow_status = 'APPROVED' AND p.approved_by_user_id = ?))");
+    where.push("(p.workflow_status = 'SUBMITTED' OR (p.workflow_status IN ('APPROVED', 'COMPLETE') AND p.approved_by_user_id = ?))");
     params.push(filters.userId);
   } else {
     where.push('(p.submitted_by_user_id = ? OR p.owner_id = ?)');
@@ -238,6 +300,7 @@ function mapProjectListRow(row) {
     reviewerComment: row.reviewerComment || '-',
     canEdit: row.recordType !== 'APPROVED_PROJECT' && ['DRAFT', 'RETURNED'].includes(row.currentStatus),
     canCreateCr: row.recordType === 'APPROVED_PROJECT' && row.currentStatus === 'APPROVED',
+    canComplete: row.recordType === 'APPROVED_PROJECT' && row.currentStatus === 'APPROVED',
   };
 }
 
@@ -258,7 +321,7 @@ async function findProjectsForPm(filters) {
         SELECT p.draft_id
         FROM project_drafts p
         WHERE ${where.sql}
-          AND NOT (p.workflow_status = 'APPROVED' AND p.is_published = 1)
+          AND p.is_published = 0
         UNION ALL
         SELECT ap.project_id
         FROM project ap
@@ -300,7 +363,7 @@ async function findProjectsForPm(filters) {
       ) reviewer
         ON reviewer.project_id = p.draft_id
       WHERE ${where.sql}
-        AND NOT (p.workflow_status = 'APPROVED' AND p.is_published = 1)
+        AND p.is_published = 0
       UNION ALL
       SELECT ap.project_id AS projectId,
              p.draft_id AS draftId,
@@ -311,9 +374,9 @@ async function findProjectsForPm(filters) {
              ap.client_name AS clientName,
              ap.industry AS industry,
              ap.delivery_model AS deliveryModel,
-             'APPROVED' AS currentStatus,
+             CASE WHEN p.workflow_status = 'COMPLETE' THEN 'COMPLETE' ELSE 'APPROVED' END AS currentStatus,
              ap.created_at AS createdAt,
-             ap.updated_at AS updatedAt,
+             p.updated_at AS updatedAt,
              reviewer.action_comment AS reviewerComment
       FROM project ap
       INNER JOIN project_drafts p ON p.draft_id = ap.source_draft_id
@@ -372,12 +435,13 @@ async function findApprovedProjectsAvailableForCr(user) {
              ap.client_name AS clientName,
              ap.industry,
              ap.delivery_model AS deliveryModel,
-             'APPROVED' AS currentStatus,
+             CASE WHEN pd.workflow_status = 'COMPLETE' THEN 'COMPLETE' ELSE 'APPROVED' END AS currentStatus,
              'APPROVED_PROJECT' AS recordType,
-             1 AS canCreateCr
+             CASE WHEN pd.workflow_status = 'APPROVED' THEN 1 ELSE 0 END AS canCreateCr
       FROM project ap
       INNER JOIN project_drafts pd ON pd.draft_id = ap.source_draft_id
       WHERE ${where.join(' AND ')}
+        AND pd.workflow_status = 'APPROVED'
       ORDER BY ap.updated_at DESC, ap.project_id DESC
     `,
     params,
@@ -430,15 +494,15 @@ async function getProjectById(projectId) {
            ap.project_code AS projectCode,
            ap.owner_id AS ownerId,
            ap.approved_data AS draftData,
-           'APPROVED' AS status,
-           'APPROVED' AS workflowStatus,
+           CASE WHEN pd.workflow_status = 'COMPLETE' THEN 'COMPLETE' ELSE 'APPROVED' END AS status,
+           CASE WHEN pd.workflow_status = 'COMPLETE' THEN 'COMPLETE' ELSE 'APPROVED' END AS workflowStatus,
            pd.submitted_by_user_id AS submittedByUserId,
            ap.approved_by_user_id AS approvedByUserId,
            pd.submitted_at AS submittedAt,
            ap.approved_at AS approvedAt,
            pd.latest_comment AS latestComment,
            ap.created_at AS createdAt,
-           ap.updated_at AS updatedAt
+           pd.updated_at AS updatedAt
     FROM project ap
     INNER JOIN project_drafts pd ON pd.draft_id = ap.source_draft_id
     WHERE ap.project_id = ?
@@ -449,6 +513,107 @@ async function getProjectById(projectId) {
     return null;
   }
   return mapDraftDataToProject(rows[0]);
+}
+
+async function getProjectForCompletion(connection, projectId) {
+  const [rows] = await connection.query(
+    `
+      SELECT ap.project_id AS projectId,
+             ap.source_draft_id AS sourceDraftId,
+             ap.owner_id AS ownerId,
+             ap.project_name AS projectName,
+             ap.project_code AS projectCode,
+             pd.submitted_by_user_id AS submittedByUserId,
+             pd.approved_by_user_id AS approvedByUserId,
+             pd.workflow_status AS workflowStatus
+      FROM project ap
+      INNER JOIN project_drafts pd ON pd.draft_id = ap.source_draft_id
+      WHERE ap.project_id = ?
+      FOR UPDATE
+    `,
+    [projectId],
+  );
+  return rows[0] || null;
+}
+
+async function insertProjectCompletion(connection, completion) {
+  const [result] = await connection.query(
+    `
+      INSERT INTO project_completion_history
+        (project_id, source_draft_id, completed_by_user_id, final_resource_loading,
+         management_cost, contingency_cost, resource_cost, full_project_cost,
+         dependency_count, requirement_stability_index, actual_cr_volatility,
+         risk_level_indicators, completion_payload)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    [
+      completion.projectId,
+      completion.sourceDraftId,
+      completion.completedByUserId,
+      JSON.stringify(completion.finalResourceLoading),
+      completion.managementCost,
+      completion.contingencyCost,
+      completion.resourceCost,
+      completion.fullProjectCost,
+      completion.dependencyCount,
+      completion.requirementStabilityIndex,
+      completion.actualCrVolatility,
+      JSON.stringify(completion.riskLevelIndicators),
+      JSON.stringify(completion.payload),
+    ],
+  );
+
+  if (completion.finalResourceLoading.length) {
+    const values = completion.finalResourceLoading.map((row) => [
+      result.insertId,
+      completion.projectId,
+      row.role,
+      row.location,
+      row.count,
+      row.rate,
+      row.effort,
+      row.actualCost,
+    ]);
+    await connection.query(
+      `
+        INSERT INTO project_completion_resource_loading
+          (completion_id, project_id, role, location, resource_count, rate, effort, actual_cost)
+        VALUES ?
+      `,
+      [values],
+    );
+  }
+
+  return { completionId: result.insertId };
+}
+
+async function markProjectComplete(connection, draftId, projectId, user, comment) {
+  const [result] = await connection.query(
+    `
+      UPDATE project_drafts
+      SET status = 'COMPLETE',
+          workflow_status = 'COMPLETE',
+          latest_comment = ?,
+          updated_at = NOW()
+      WHERE draft_id = ? AND workflow_status = 'APPROVED'
+    `,
+    [comment, draftId],
+  );
+
+  if (result.affectedRows === 0) {
+    return false;
+  }
+
+  await connection.query(
+    `
+      INSERT INTO project_workflow_history
+        (project_id, from_status, to_status, action_by_user_id, action_by_role, action_comment, action_type)
+      VALUES (?, 'APPROVED', 'COMPLETE', ?, ?, ?, 'COMPLETE')
+    `,
+    [draftId, user.userId, String(user.role || '').toUpperCase(), comment],
+  );
+
+  return true;
 }
 
 async function getDraftProjectById(draftId) {
@@ -598,9 +763,13 @@ module.exports = {
   getDraftProjectById,
   getDraftForPublishing,
   ensureApprovedProjectTables,
+  ensureProjectCompletionTables,
   ensureDraftTable,
+  getProjectForCompletion,
+  insertProjectCompletion,
   insertApprovedProject,
   insertProjectTeamSnapshots,
+  markProjectComplete,
   markDraftPublished,
   insertProject,
 };

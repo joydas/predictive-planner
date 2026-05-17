@@ -11,6 +11,7 @@ const CR_SELECT = `
   cr.project_id AS projectId,
   CONCAT('PRJ-', LPAD(cr.project_id, 6, '0')) AS projectCode,
   p.project_name AS projectName,
+  pd.workflow_status AS projectWorkflowStatus,
   cr.cr_title AS title,
   COALESCE(cr.cr_description, cr.root_cause) AS description,
   cr.cr_category AS category,
@@ -132,6 +133,7 @@ async function getChangeRequestById(crId) {
       SELECT ${CR_SELECT}
       FROM change_request cr
       INNER JOIN project p ON p.project_id = cr.project_id
+      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
       WHERE cr.cr_id = ?
       LIMIT 1
     `,
@@ -148,6 +150,7 @@ async function getChangeRequestsByProject(projectId) {
       SELECT ${CR_SELECT}
       FROM change_request cr
       INNER JOIN project p ON p.project_id = cr.project_id
+      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
       WHERE cr.project_id = ?
       ORDER BY cr.updated_at DESC, cr.cr_id DESC
     `,
@@ -241,7 +244,9 @@ function mapCrListRow(row) {
     latestComment: row.latestComment || '-',
     updatedAt: row.updatedAt,
     createdAt: row.createdAt,
-    canEdit: ['DRAFT', 'RETURNED'].includes(row.currentStatus),
+    canEdit: ['DRAFT', 'RETURNED'].includes(row.currentStatus)
+      && String(row.projectWorkflowStatus || '').toUpperCase() !== 'COMPLETE',
+    projectWorkflowStatus: row.projectWorkflowStatus,
   };
 }
 
@@ -259,6 +264,7 @@ async function findCrsForPm(filters) {
       SELECT COUNT(*) AS totalRecords
       FROM change_request cr
       INNER JOIN project p ON p.project_id = cr.project_id
+      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
       WHERE ${where.sql}
     `,
     where.params,
@@ -270,6 +276,7 @@ async function findCrsForPm(filters) {
              COALESCE(cr.cr_code, CONCAT('CR-', LPAD(cr.cr_id, 6, '0'))) AS crNumber,
              cr.project_id AS projectId,
              p.project_name AS projectName,
+             pd.workflow_status AS projectWorkflowStatus,
              cr.cr_category AS category,
              cr.severity,
              cr.priority,
@@ -281,6 +288,7 @@ async function findCrsForPm(filters) {
              cr.updated_at AS updatedAt
       FROM change_request cr
       INNER JOIN project p ON p.project_id = cr.project_id
+      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
       WHERE ${where.sql}
       ORDER BY ${sortColumn} ${sortOrder}, cr.cr_id DESC
       LIMIT ? OFFSET ?

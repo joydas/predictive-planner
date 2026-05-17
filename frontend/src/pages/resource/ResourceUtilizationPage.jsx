@@ -13,6 +13,7 @@ import {
   CTableDataCell,
   CTableHead,
   CTableHeaderCell,
+  CTableRow,
 } from '@coreui/react';
 import { getUtilization, getBench } from '../../services/resourceService';
 

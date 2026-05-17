@@ -17,5 +17,6 @@ router.post('/:id/submit', authenticateToken, projectController.submitExistingPr
 router.post('/:id/approve', authenticateToken, projectController.approveProject);
 router.post('/:id/return', authenticateToken, projectController.returnProject);
 router.post('/:id/reject', authenticateToken, projectController.rejectProject);
+router.post('/:id/complete', authenticateToken, authorizeRoles(['PM']), projectController.completeProject);
 
 module.exports = router;

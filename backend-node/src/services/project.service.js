@@ -306,6 +306,7 @@ async function createProject(user, projectPayload) {
 
 async function submitProject(user, projectData, draftId = null, comment = '') {
   assertPmUser(user);
+  const ownerId = user.userId;
   const payload = await applyDerivedPlanning(normalizeProjectPayload(projectData), { requireResourceLoading: true });
   validateResourceDates(payload);
   const derivedPlanning = deriveResourcePlanning(payload);
@@ -377,6 +378,142 @@ async function submitProject(user, projectData, draftId = null, comment = '') {
     draftId: projectId,
     ...finalPayload,
   };
+}
+
+function normalizeCompletionPayload(payload = {}) {
+  const resourceLoading = Array.isArray(payload.resourceLoading) ? payload.resourceLoading : [];
+  const actuals = payload.actuals || payload.financialActuals || {};
+  const groundMetrics = payload.groundMetrics || payload.metrics || {};
+  const finalResourceLoading = resourceLoading.map((row) => {
+    const count = normalizeNumber(row.count, 0);
+    const rate = normalizeNumber(row.rate ?? row.ratePerDay, 0);
+    const effort = normalizeNumber(row.effort, 0);
+    return {
+      role: String(row.role || '').trim(),
+      location: String(row.location || row.locationType || '').trim(),
+      count,
+      rate,
+      effort,
+      actualCost: Number((count * rate * effort).toFixed(2)),
+    };
+  });
+  const resourceCost = finalResourceLoading.reduce((sum, row) => sum + row.actualCost, 0);
+  const managementCost = normalizeNumber(actuals.managementCost ?? actuals.management_cost, 0);
+  const contingencyCost = normalizeNumber(actuals.contingencyCost ?? actuals.contingency_cost, 0);
+  const actualCrVolatility = groundMetrics.actualCrVolatility ?? groundMetrics.actual_cr_volatility ?? '';
+  const riskLevelIndicators = groundMetrics.riskLevelIndicators ?? groundMetrics.risk_level_indicators ?? '';
+
+  return {
+    finalResourceLoading,
+    managementCost: Number(managementCost.toFixed(2)),
+    contingencyCost: Number(contingencyCost.toFixed(2)),
+    resourceCost: Number(resourceCost.toFixed(2)),
+    fullProjectCost: Number((resourceCost + managementCost + contingencyCost).toFixed(2)),
+    dependencyCount: normalizeNumber(groundMetrics.dependencyCount ?? groundMetrics.dependency_count, null),
+    requirementStabilityIndex: normalizeNumber(
+      groundMetrics.requirementStabilityIndex ?? groundMetrics.requirement_stability_index,
+      null,
+    ),
+    actualCrVolatility: String(actualCrVolatility || '').trim() || null,
+    riskLevelIndicators: Array.isArray(riskLevelIndicators)
+      ? riskLevelIndicators
+      : String(riskLevelIndicators || '').split(',').map((item) => item.trim()).filter(Boolean),
+  };
+}
+
+function validateCompletionPayload(completion) {
+  if (!completion.finalResourceLoading.length) {
+    const error = new Error('At least one final resource loading row is required');
+    error.status = 400;
+    throw error;
+  }
+
+  completion.finalResourceLoading.forEach((row, index) => {
+    if (!row.role) {
+      const error = new Error(`Final resource row ${index + 1} role is required`);
+      error.status = 400;
+      throw error;
+    }
+    if (!row.location) {
+      const error = new Error(`Final resource row ${index + 1} location is required`);
+      error.status = 400;
+      throw error;
+    }
+    if (row.count <= 0 || row.rate < 0 || row.effort <= 0) {
+      const error = new Error(`Final resource row ${index + 1} must have positive count and effort, and non-negative rate`);
+      error.status = 400;
+      throw error;
+    }
+  });
+}
+
+async function completeProject(projectId, user, payload) {
+  assertPmUser(user);
+  await projectRepository.ensureProjectCompletionTables();
+
+  const completion = normalizeCompletionPayload(payload);
+  validateCompletionPayload(completion);
+  const comment = String(payload.comment || 'Project completed').trim() || 'Project completed';
+
+  const connection = await pool.promise().getConnection();
+  try {
+    await connection.beginTransaction();
+    const project = await projectRepository.getProjectForCompletion(connection, projectId);
+    if (!project) {
+      const error = new Error('Project not found');
+      error.status = 404;
+      throw error;
+    }
+
+    if (
+      Number(project.ownerId) !== Number(user.userId)
+      && Number(project.submittedByUserId) !== Number(user.userId)
+    ) {
+      const error = new Error('Access forbidden for this project');
+      error.status = 403;
+      throw error;
+    }
+
+    if (String(project.workflowStatus || '').toUpperCase() !== 'APPROVED') {
+      const error = new Error('Only approved projects can be completed');
+      error.status = 400;
+      throw error;
+    }
+
+    const completionRecord = await projectRepository.insertProjectCompletion(connection, {
+      projectId,
+      sourceDraftId: project.sourceDraftId,
+      completedByUserId: user.userId,
+      payload,
+      ...completion,
+    });
+    const marked = await projectRepository.markProjectComplete(
+      connection,
+      project.sourceDraftId,
+      projectId,
+      user,
+      comment,
+    );
+    if (!marked) {
+      const error = new Error('Project is no longer available for completion');
+      error.status = 409;
+      throw error;
+    }
+
+    await connection.commit();
+    return {
+      ...completionRecord,
+      projectId,
+      sourceDraftId: project.sourceDraftId,
+      status: 'COMPLETE',
+      fullProjectCost: completion.fullProjectCost,
+    };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 }
 
 async function getProject(projectId) {
@@ -513,4 +650,5 @@ module.exports = {
   createProject,
   submitProject,
   transitionProject,
+  completeProject,
 };

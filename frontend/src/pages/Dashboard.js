@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CCard, CCardBody, CCardHeader, CCol, CRow, CSpinner, CAlert, CWidgetStatsF, CBadge } from '@coreui/react';
+import { CCard, CCardBody, CCardHeader, CCol, CRow, CSpinner, CAlert, CBadge } from '@coreui/react';
 import { Bar, Pie } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -57,14 +57,6 @@ const Dashboard = () => {
     const riskLevel = getRiskLevel(variance);
     return { ...project, variance, riskLevel };
   });
-
-  // Count projects by risk level
-  const riskCounts = {
-    Low: projectsWithRisk.filter(p => p.riskLevel === 'Low').length,
-    Medium: projectsWithRisk.filter(p => p.riskLevel === 'Medium').length,
-    High: projectsWithRisk.filter(p => p.riskLevel === 'High').length,
-    Critical: projectsWithRisk.filter(p => p.riskLevel === 'Critical').length,
-  };
 
   const highRiskProjects = projectsWithRisk.filter(p => ['High', 'Critical'].includes(p.riskLevel));
 

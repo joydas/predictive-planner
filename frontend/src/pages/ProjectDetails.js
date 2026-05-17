@@ -12,7 +12,7 @@ import WorkflowPanel from '../components/WorkflowPanel';
 import { getProject, transitionProject } from '../services/projectService';
 import authService from '../services/authService';
 import { formatDisplayDate } from '../utils/dateUtils';
-import { formatCurrency } from '../utils/resourcePlanning';
+import { formatCurrency, getInclusiveDays, parseNumber } from '../utils/resourcePlanning';
 import '../styles/projectWizard.css';
 
 const statusColors = {
@@ -20,6 +20,7 @@ const statusColors = {
   SUBMITTED: 'info',
   RETURNED: 'warning',
   APPROVED: 'success',
+  COMPLETE: 'dark',
   REJECTED: 'danger',
 };
 
@@ -28,6 +29,56 @@ const valueOrDash = (value) => (value === null || value === undefined || value =
 const DetailItem = ({ label, value }) => (
   <p><strong>{label}:</strong> {valueOrDash(value)}</p>
 );
+
+const normalizeDisplayResourceRow = (row = {}, deliveryDetails = {}) => ({
+  ...row,
+  locationType: row.locationType || row.location_type || row.location || 'ONSITE',
+  count: parseNumber(row.count ?? row.resource_count, 0),
+  allocationPercent: parseNumber(row.allocationPercent ?? row.allocation_percent ?? row.allocation ?? 100, 100),
+  startDate: row.startDate || row.allocationStartDate || row.allocation_start_date || deliveryDetails.start_date || '',
+  endDate: row.endDate || row.allocationEndDate || row.allocation_end_date || deliveryDetails.planned_end_date || '',
+  ratePerDay: parseNumber(row.ratePerDay ?? row.rate_per_day ?? row.rate, 0),
+  plannedEffort: parseNumber(row.plannedEffort ?? row.planned_effort ?? row.effort, 0),
+  plannedCost: parseNumber(row.plannedCost ?? row.planned_cost ?? row.cost, 0),
+});
+
+const deriveDisplayResourcePlanning = (rows = [], financial = {}, deliveryDetails = {}) => {
+  const normalizedRows = rows.map((row) => normalizeDisplayResourceRow(row, deliveryDetails));
+  const displayRows = normalizedRows.map((row) => {
+    const count = parseNumber(row.count, 0);
+    const allocationPercent = parseNumber(row.allocationPercent, 100);
+    const allocationMultiplier = allocationPercent / 100;
+    const ratePerDay = parseNumber(row.ratePerDay, 0);
+    const durationDays = getInclusiveDays(row.startDate, row.endDate);
+    const effort = parseNumber(row.effort ?? row.plannedEffort ?? row.durationDays, durationDays);
+    const plannedEffort = count * allocationMultiplier * effort;
+    const plannedCost = count * allocationMultiplier * ratePerDay * effort;
+
+    return {
+      ...row,
+      durationDays,
+      count,
+      allocationPercent,
+      ratePerDay,
+      effort,
+      plannedEffort,
+      plannedCost,
+    };
+  });
+  const baseResourceCost = displayRows.reduce((sum, row) => sum + parseNumber(row.plannedCost, 0), 0);
+  const planned_effort = displayRows.reduce((sum, row) => sum + parseNumber(row.plannedEffort, 0), 0);
+  const estimated_team_size = displayRows.reduce((sum, row) => sum + parseNumber(row.count, 0), 0);
+  const managementReservePercent = parseNumber(financial.management_reserve_percent, 0);
+  const contingencyReservePercent = parseNumber(financial.contingency_reserve_percent, 0);
+
+  return {
+    rows: displayRows,
+    baseResourceCost,
+    planned_effort,
+    estimated_team_size,
+    budget: baseResourceCost * (1 + (managementReservePercent + contingencyReservePercent) / 100),
+  };
+};
 
 const ProjectDetails = () => {
   const { projectId } = useParams();
@@ -104,6 +155,14 @@ const ProjectDetails = () => {
   const risks = draftData.risks || {};
   const displayProjectName = basicInfo.project_name || project.name || 'Untitled Project';
   const isAgile = String(basicInfo.delivery_model || '').toLowerCase() === 'agile';
+  const displayPlanning = deriveDisplayResourcePlanning(
+    Array.isArray(teamComposition.rows) ? teamComposition.rows : [],
+    financial,
+    deliveryDetails,
+  );
+  const displayResourceRows = displayPlanning.rows;
+  const displayDeliveryBudget = displayPlanning.budget || parseNumber(financial.budget, 0);
+  const displayPlannedEffort = displayPlanning.planned_effort || parseNumber(financial.planned_effort || project.estimated_hours, 0);
 
   return (
     <div className="fade-in">
@@ -133,6 +192,11 @@ const ProjectDetails = () => {
       {status === 'APPROVED' && (
         <CAlert color="info">
           This approved project is an immutable operational baseline. Future changes must happen through change requests.
+        </CAlert>
+      )}
+      {status === 'COMPLETE' && (
+        <CAlert color="success">
+          This project is complete. Change requests are locked for this project.
         </CAlert>
       )}
 
@@ -174,7 +238,7 @@ const ProjectDetails = () => {
             <CRow>
               <CCol md={12} className="mb-3">
                 <h5>Resource Loading</h5>
-                {Array.isArray(teamComposition.rows) && teamComposition.rows.length > 0 ? (
+                {displayResourceRows.length > 0 ? (
                   <div className="table-responsive">
                     <table className="table table-sm mb-3">
                       <thead>
@@ -191,7 +255,7 @@ const ProjectDetails = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {teamComposition.rows.map((row, index) => (
+                        {displayResourceRows.map((row, index) => (
                           <tr key={`${row.role}-${index}`}>
                             <td>{valueOrDash(row.role)}</td>
                             <td>{valueOrDash(row.locationType)}</td>
@@ -227,9 +291,9 @@ const ProjectDetails = () => {
                 <DetailItem label="Billing model" value={financial.billing_model} />
                 <DetailItem label="Management reserve %" value={financial.management_reserve_percent} />
                 <DetailItem label="Contingency reserve %" value={financial.contingency_reserve_percent} />
-                <DetailItem label="Derived budget" value={formatCurrency(financial.budget || 0)} />
-                <DetailItem label="Derived effort" value={financial.planned_effort || project.estimated_hours} />
-                <DetailItem label="Derived team size" value={financial.estimated_team_size || project.team_size} />
+                <DetailItem label="Derived budget" value={formatCurrency(displayDeliveryBudget)} />
+                <DetailItem label="Derived effort" value={displayPlannedEffort} />
+                <DetailItem label="Derived team size" value={displayPlanning.estimated_team_size || financial.estimated_team_size || project.team_size} />
                 <DetailItem label="Predicted hours" value={project.predicted_hours} />
               </CCol>
             </CRow>

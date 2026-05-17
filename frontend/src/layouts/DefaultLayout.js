@@ -24,7 +24,6 @@ import {
   cilReload,
   cilChart,
   cilSpeedometer,
-  cilPeople,
   cilX,
 } from '@coreui/icons';
 import CIcon from '@coreui/icons-react';

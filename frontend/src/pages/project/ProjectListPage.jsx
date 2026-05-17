@@ -8,7 +8,7 @@ import { listProjects } from '../../services/projectService';
 import authService from '../../services/authService';
 import { formatDisplayDateTime } from '../../utils/dateUtils';
 
-const statusOptions = ['DRAFT', 'SUBMITTED', 'RETURNED', 'APPROVED', 'REJECTED'].map((value) => ({ value, label: value }));
+const statusOptions = ['DRAFT', 'SUBMITTED', 'RETURNED', 'APPROVED', 'COMPLETE', 'REJECTED'].map((value) => ({ value, label: value }));
 const industryOptions = ['Banking', 'Healthcare', 'Retail', 'Technology', 'Manufacturing'].map((value) => ({ value, label: value }));
 const deliveryModelOptions = ['Agile', 'Waterfall', 'Hybrid', 'Scrum', 'Kanban'].map((value) => ({ value, label: value }));
 
@@ -17,6 +17,7 @@ const statusColors = {
   SUBMITTED: 'info',
   RETURNED: 'warning',
   APPROVED: 'success',
+  COMPLETE: 'dark',
   REJECTED: 'danger',
 };
 
@@ -105,6 +106,11 @@ const ProjectListPage = () => {
                   Create CR
                 </CButton>
               )}
+              {row.canComplete && !isAccountManager && (
+                <CButton color="success" variant="outline" size="sm" onClick={() => navigate(`/projects/complete/${row.publishedProjectId || row.projectId}`)}>
+                  Complete
+                </CButton>
+              )}
             </>
           ) : (
             <CButton color="primary" variant="outline" size="sm" onClick={() => navigate(`/projects/${row.draftId || row.projectId}`)}>
@@ -124,7 +130,7 @@ const ProjectListPage = () => {
         </div>
       ),
     },
-  ], [navigate]);
+  ], [isAccountManager, navigate]);
 
   const filterConfig = [
     { key: 'status', label: 'Status', type: 'select', options: statusOptions },

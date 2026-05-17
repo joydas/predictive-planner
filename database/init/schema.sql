@@ -136,6 +136,44 @@ CREATE TABLE project_team_snapshot (
   INDEX idx_project_team_snapshot_role (role_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE project_completion_history (
+  completion_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  project_id BIGINT UNSIGNED NOT NULL,
+  source_draft_id BIGINT UNSIGNED NOT NULL,
+  completed_by_user_id BIGINT UNSIGNED NOT NULL,
+  final_resource_loading JSON NOT NULL,
+  management_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
+  contingency_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
+  resource_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
+  full_project_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
+  dependency_count DECIMAL(10,2) NULL DEFAULT NULL,
+  requirement_stability_index DECIMAL(10,2) NULL DEFAULT NULL,
+  actual_cr_volatility VARCHAR(50) NULL DEFAULT NULL,
+  risk_level_indicators JSON NULL,
+  completion_payload JSON NOT NULL,
+  completed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (completion_id),
+  INDEX idx_project_completion_project (project_id),
+  INDEX idx_project_completion_draft (source_draft_id),
+  INDEX idx_project_completion_completed_at (completed_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE project_completion_resource_loading (
+  completion_resource_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  completion_id BIGINT UNSIGNED NOT NULL,
+  project_id BIGINT UNSIGNED NOT NULL,
+  role VARCHAR(100) NOT NULL,
+  location VARCHAR(100) NOT NULL,
+  resource_count DECIMAL(10,2) NOT NULL DEFAULT 0,
+  rate DECIMAL(14,2) NOT NULL DEFAULT 0,
+  effort DECIMAL(14,2) NOT NULL DEFAULT 0,
+  actual_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (completion_resource_id),
+  INDEX idx_completion_resource_completion (completion_id),
+  INDEX idx_completion_resource_project (project_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE resource_master (
   resource_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   employee_code VARCHAR(64) NOT NULL,
