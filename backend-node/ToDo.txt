@@ -1,0 +1,11 @@
+1. Update README including set-up details
+3. Architectural diagram
+4. ML explanation from reading project, snapshot etc. tables to creating models
+5. Deployment checklist (versions of Node, React etc.)
+5. A deck for the presentation
+6. Create clean-up branch and clean-up:
+    1. Unused tables
+    2. Unused columns
+    3. Unused files - code and CSV
+
+   

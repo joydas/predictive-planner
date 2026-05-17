@@ -10,6 +10,7 @@ function normalizeRole(user) {
 function normalizePaging(query, prefix) {
   const page = Math.max(1, Number(query[`${prefix}Page`] || query.page) || 1);
   const pageSize = Math.min(50, Math.max(5, Number(query[`${prefix}PageSize`] || query.pageSize) || 10));
+
   return {
     page,
     pageSize,
@@ -23,43 +24,51 @@ function normalizeSearch(value) {
 
 function visibleApprovedProjectWhere(user, alias = 'p', draftAlias = 'pd') {
   const role = normalizeRole(user);
+
   if (role === 'PM') {
     return {
       sql: `(${alias}.owner_id = ? OR ${draftAlias}.submitted_by_user_id = ?)`,
       params: [user.userId, user.userId],
     };
   }
+
   if (role === 'ACCOUNT_MANAGER') {
     return {
       sql: `${alias}.approved_by_user_id = ?`,
       params: [user.userId],
     };
   }
+
   return { sql: '1 = 0', params: [] };
 }
 
 function visibleDraftWorkflowWhere(user, alias = 'pd') {
   const role = normalizeRole(user);
+
   if (role === 'PM') {
     return {
       sql: `(${alias}.owner_id = ? OR ${alias}.submitted_by_user_id = ?)`,
       params: [user.userId, user.userId],
     };
   }
+
   if (role === 'ACCOUNT_MANAGER') {
     return {
       sql: `${alias}.workflow_status = 'SUBMITTED'`,
       params: [],
     };
   }
+
   return { sql: '1 = 0', params: [] };
 }
 
 function projectSearchWhere(search, aliases = { project: 'p' }) {
   if (!search) return { sql: '', params: [] };
+
   const value = `%${search}%`;
   const projectAlias = aliases.project;
   const draftAlias = aliases.draft;
+
   if (projectAlias) {
     return {
       sql: `AND (
@@ -71,6 +80,7 @@ function projectSearchWhere(search, aliases = { project: 'p' }) {
       params: [value, value, value, value],
     };
   }
+
   return {
     sql: `AND (
       JSON_UNQUOTE(JSON_EXTRACT(${draftAlias}.draft_data, '$.basicInfo.project_name')) LIKE ?
@@ -81,14 +91,22 @@ function projectSearchWhere(search, aliases = { project: 'p' }) {
   };
 }
 
-function crVisibilityWhere(user, crAlias = 'cr', projectAlias = 'p', draftAlias = 'pd', { includeSubmittedForAm = false } = {}) {
+function crVisibilityWhere(
+  user,
+  crAlias = 'cr',
+  projectAlias = 'p',
+  draftAlias = 'pd',
+  { includeSubmittedForAm = false } = {},
+) {
   const role = normalizeRole(user);
+
   if (role === 'PM') {
     return {
       sql: `(${projectAlias}.owner_id = ? OR ${draftAlias}.submitted_by_user_id = ?)`,
       params: [user.userId, user.userId],
     };
   }
+
   if (role === 'ACCOUNT_MANAGER') {
     if (includeSubmittedForAm) {
       return {
@@ -96,32 +114,36 @@ function crVisibilityWhere(user, crAlias = 'cr', projectAlias = 'p', draftAlias 
         params: [user.userId],
       };
     }
+
     return {
       sql: `${projectAlias}.approved_by_user_id = ?`,
       params: [user.userId],
     };
   }
+
   return { sql: '1 = 0', params: [] };
 }
 
 async function getKpis(user) {
   const visibility = visibleApprovedProjectWhere(user);
+
   const [rows] = await pool.promise().query(
     `
       SELECT
         SUM(CASE WHEN pd.workflow_status = 'APPROVED' THEN 1 ELSE 0 END) AS approvedProjects,
-        SUM(CASE WHEN pd.workflow_status IN (?, ?) THEN 1 ELSE 0 END) AS completedProjects,
-        SUM(CASE WHEN pd.workflow_status IN (?) THEN 1 ELSE 0 END) AS activeProjects,
+        SUM(CASE WHEN pd.workflow_status IN ('COMPLETE', 'CLOSED') THEN 1 ELSE 0 END) AS completedProjects,
+        SUM(CASE WHEN pd.workflow_status = 'APPROVED' THEN 1 ELSE 0 END) AS activeProjects,
         SUM(CASE WHEN pd.workflow_status = 'APPROVED' THEN COALESCE(p.current_planned_effort, 0) ELSE 0 END) AS totalPlannedEffort,
         SUM(CASE WHEN pd.workflow_status = 'APPROVED' THEN COALESCE(p.current_planned_team_size, 0) ELSE 0 END) AS totalResourceCount
       FROM project p
       INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
       WHERE ${visibility.sql}
     `,
-    [...COMPLETED_PROJECT_STATUSES, ...ACTIVE_PROJECT_STATUSES, ...visibility.params],
+    [...visibility.params],
   );
 
   const row = rows[0] || {};
+
   return {
     approvedProjects: Number(row.approvedProjects || 0),
     completedProjects: Number(row.completedProjects || 0),
@@ -133,8 +155,10 @@ async function getKpis(user) {
 
 function mapProjectRow(row) {
   const actions = [];
+
   if (Number(row.pendingCrCount || 0) > 0) actions.push('CR Pending');
   if (row.plannedEndDate) actions.push('Pending Completion');
+
   if (actions.length === 0) actions.push('Action Required');
 
   return {
@@ -157,9 +181,14 @@ function mapProjectRow(row) {
 async function getActiveProjects(user, query) {
   const paging = normalizePaging(query, 'activeProjects');
   const search = normalizeSearch(query.activeProjectsSearch || query.search);
+
   const visibility = visibleApprovedProjectWhere(user);
   const searchClause = projectSearchWhere(search);
-  const params = [...visibility.params, ...ACTIVE_PROJECT_STATUSES, ...searchClause.params];
+
+  const params = [
+    ...visibility.params,
+    ...searchClause.params,
+  ];
 
   const [countRows] = await pool.promise().query(
     `
@@ -167,7 +196,7 @@ async function getActiveProjects(user, query) {
       FROM project p
       INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
       WHERE ${visibility.sql}
-        AND pd.workflow_status IN (?)
+        AND pd.workflow_status = 'APPROVED'
         ${searchClause.sql}
     `,
     params,
@@ -192,7 +221,7 @@ async function getActiveProjects(user, query) {
       INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
       LEFT JOIN change_request cr ON cr.project_id = p.project_id
       WHERE ${visibility.sql}
-        AND pd.workflow_status IN (?)
+        AND pd.workflow_status = 'APPROVED'
         ${searchClause.sql}
       GROUP BY p.project_id, pd.workflow_status
       ORDER BY p.updated_at DESC, p.project_id DESC
@@ -202,6 +231,7 @@ async function getActiveProjects(user, query) {
   );
 
   const totalRecords = Number(countRows[0]?.totalRecords || 0);
+
   return {
     items: rows.map(mapProjectRow),
     page: paging.page,
@@ -212,16 +242,22 @@ async function getActiveProjects(user, query) {
 }
 
 function workflowProjectStatusForRole(role) {
-  return role === 'ACCOUNT_MANAGER' ? ['SUBMITTED'] : ['DRAFT', 'RETURNED'];
+  return role === 'ACCOUNT_MANAGER'
+    ? ['SUBMITTED']
+    : ['DRAFT', 'RETURNED'];
 }
 
 function workflowCrStatusForRole(role) {
-  return role === 'ACCOUNT_MANAGER' ? ['SUBMITTED'] : ['DRAFT', 'RETURNED'];
+  return role === 'ACCOUNT_MANAGER'
+    ? ['SUBMITTED']
+    : ['DRAFT', 'RETURNED'];
 }
 
 function mapWorkflowRow(row) {
   const currentStatus = row.currentStatus || 'DRAFT';
+
   let actionRequired = 'Action Required';
+
   if (currentStatus === 'SUBMITTED') actionRequired = 'Pending Approval';
   if (currentStatus === 'RETURNED') actionRequired = 'Returned for Rework';
   if (currentStatus === 'DRAFT') actionRequired = 'Pending Submission';
@@ -240,13 +276,32 @@ function mapWorkflowRow(row) {
 
 async function getWorkflowQueue(user, query) {
   const role = normalizeRole(user);
+
   const paging = normalizePaging(query, 'workflow');
   const search = normalizeSearch(query.workflowSearch || query.search);
+
   const projectVisibility = visibleDraftWorkflowWhere(user, 'pd');
   const projectSearch = projectSearchWhere(search, { draft: 'pd' });
-  const crVisibility = crVisibilityWhere(user, 'cr', 'p', 'pd', { includeSubmittedForAm: true });
+
+  const crVisibility = crVisibilityWhere(
+    user,
+    'cr',
+    'p',
+    'pd',
+    { includeSubmittedForAm: true },
+  );
+
   const workflowProjectStatuses = workflowProjectStatusForRole(role);
   const workflowCrStatuses = workflowCrStatusForRole(role);
+
+  const workflowProjectPlaceholders = workflowProjectStatuses
+    .map(() => '?')
+    .join(',');
+
+  const workflowCrPlaceholders = workflowCrStatuses
+    .map(() => '?')
+    .join(',');
+
   const crSearchSql = search
     ? `AND (
         cr.cr_title LIKE ?
@@ -254,7 +309,10 @@ async function getWorkflowQueue(user, query) {
         OR p.project_name LIKE ?
       )`
     : '';
-  const crSearchParams = search ? [`%${search}%`, `%${search}%`, `%${search}%`] : [];
+
+  const crSearchParams = search
+    ? [`%${search}%`, `%${search}%`, `%${search}%`]
+    : [];
 
   const countParams = [
     ...projectVisibility.params,
@@ -264,6 +322,7 @@ async function getWorkflowQueue(user, query) {
     ...workflowCrStatuses,
     ...crSearchParams,
   ];
+
   const [countRows] = await pool.promise().query(
     `
       SELECT SUM(totalRecords) AS totalRecords
@@ -271,15 +330,17 @@ async function getWorkflowQueue(user, query) {
         SELECT COUNT(*) AS totalRecords
         FROM project_drafts pd
         WHERE ${projectVisibility.sql}
-          AND pd.workflow_status IN (?)
+          AND pd.workflow_status IN (${workflowProjectPlaceholders})
           ${projectSearch.sql}
+
         UNION ALL
+
         SELECT COUNT(*) AS totalRecords
         FROM change_request cr
         INNER JOIN project p ON p.project_id = cr.project_id
         INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
         WHERE ${crVisibility.sql}
-          AND cr.workflow_status IN (?)
+          AND cr.workflow_status IN (${workflowCrPlaceholders})
           ${crSearchSql}
       ) counts
     `,
@@ -289,6 +350,7 @@ async function getWorkflowQueue(user, query) {
   const [rows] = await pool.promise().query(
     `
       SELECT * FROM (
+
         SELECT
           'Project' AS type,
           pd.draft_id AS id,
@@ -296,16 +358,24 @@ async function getWorkflowQueue(user, query) {
           submitter.user_name AS submittedBy,
           pd.workflow_status AS currentStatus,
           pd.updated_at AS lastUpdated,
+
           CASE
-            WHEN pd.workflow_status = 'SUBMITTED' THEN COALESCE(pd.submitted_at, pd.updated_at, pd.created_at)
+            WHEN pd.workflow_status = 'SUBMITTED'
+              THEN COALESCE(pd.submitted_at, pd.updated_at, pd.created_at)
             ELSE COALESCE(pd.updated_at, pd.created_at)
           END AS pendingSince
+
         FROM project_drafts pd
-        LEFT JOIN app_user submitter ON submitter.user_id = COALESCE(pd.submitted_by_user_id, pd.owner_id)
+
+        LEFT JOIN app_user submitter
+          ON submitter.user_id = COALESCE(pd.submitted_by_user_id, pd.owner_id)
+
         WHERE ${projectVisibility.sql}
-          AND pd.workflow_status IN (?)
+          AND pd.workflow_status IN (${workflowProjectPlaceholders})
           ${projectSearch.sql}
+
         UNION ALL
+
         SELECT
           'CR' AS type,
           cr.cr_id AS id,
@@ -313,25 +383,39 @@ async function getWorkflowQueue(user, query) {
           submitter.user_name AS submittedBy,
           cr.workflow_status AS currentStatus,
           cr.updated_at AS lastUpdated,
+
           CASE
-            WHEN cr.workflow_status = 'SUBMITTED' THEN COALESCE(cr.submitted_at, cr.updated_at, cr.created_at)
+            WHEN cr.workflow_status = 'SUBMITTED'
+              THEN COALESCE(cr.submitted_at, cr.updated_at, cr.created_at)
             ELSE COALESCE(cr.updated_at, cr.created_at)
           END AS pendingSince
+
         FROM change_request cr
-        INNER JOIN project p ON p.project_id = cr.project_id
-        INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
-        LEFT JOIN app_user submitter ON submitter.user_id = cr.submitted_by_user_id
+
+        INNER JOIN project p
+          ON p.project_id = cr.project_id
+
+        INNER JOIN project_drafts pd
+          ON pd.draft_id = p.source_draft_id
+
+        LEFT JOIN app_user submitter
+          ON submitter.user_id = cr.submitted_by_user_id
+
         WHERE ${crVisibility.sql}
-          AND cr.workflow_status IN (?)
+          AND cr.workflow_status IN (${workflowCrPlaceholders})
           ${crSearchSql}
+
       ) workflow_items
+
       ORDER BY lastUpdated DESC, id DESC
+
       LIMIT ? OFFSET ?
     `,
     [...countParams, paging.pageSize, paging.offset],
   );
 
   const totalRecords = Number(countRows[0]?.totalRecords || 0);
+
   return {
     items: rows.map(mapWorkflowRow),
     page: paging.page,
@@ -342,25 +426,61 @@ async function getWorkflowQueue(user, query) {
 }
 
 async function getCrSnapshot(user) {
-  const visibility = crVisibilityWhere(user, 'cr', 'p', 'pd', { includeSubmittedForAm: true });
+  const visibility = crVisibilityWhere(
+    user,
+    'cr',
+    'p',
+    'pd',
+    { includeSubmittedForAm: true },
+  );
+
   const [rows] = await pool.promise().query(
     `
       SELECT
         COUNT(*) AS totalCrCount,
-        SUM(CASE WHEN cr.workflow_status = 'APPROVED' THEN 1 ELSE 0 END) AS approvedCrCount,
-        SUM(CASE WHEN cr.workflow_status = 'SUBMITTED' THEN 1 ELSE 0 END) AS pendingCrCount,
-        SUM(CASE WHEN cr.workflow_status IN ('RETURNED', 'REJECTED') THEN 1 ELSE 0 END) AS rejectedReturnedCrCount,
-        SUM(CASE WHEN cr.workflow_status = 'APPROVED' THEN COALESCE(cr.effort_impact, 0) ELSE 0 END) AS cumulativeCrEffortImpact,
-        SUM(CASE WHEN cr.workflow_status = 'APPROVED' THEN COALESCE(cr.budget_impact, 0) ELSE 0 END) AS cumulativeCrBudgetImpact
+
+        SUM(CASE
+          WHEN cr.workflow_status = 'APPROVED'
+          THEN 1 ELSE 0
+        END) AS approvedCrCount,
+
+        SUM(CASE
+          WHEN cr.workflow_status = 'SUBMITTED'
+          THEN 1 ELSE 0
+        END) AS pendingCrCount,
+
+        SUM(CASE
+          WHEN cr.workflow_status IN ('RETURNED', 'REJECTED')
+          THEN 1 ELSE 0
+        END) AS rejectedReturnedCrCount,
+
+        SUM(CASE
+          WHEN cr.workflow_status = 'APPROVED'
+          THEN COALESCE(cr.effort_impact, 0)
+          ELSE 0
+        END) AS cumulativeCrEffortImpact,
+
+        SUM(CASE
+          WHEN cr.workflow_status = 'APPROVED'
+          THEN COALESCE(cr.budget_impact, 0)
+          ELSE 0
+        END) AS cumulativeCrBudgetImpact
+
       FROM change_request cr
-      INNER JOIN project p ON p.project_id = cr.project_id
-      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
+
+      INNER JOIN project p
+        ON p.project_id = cr.project_id
+
+      INNER JOIN project_drafts pd
+        ON pd.draft_id = p.source_draft_id
+
       WHERE ${visibility.sql}
     `,
     visibility.params,
   );
 
   const row = rows[0] || {};
+
   return {
     totalCrCount: Number(row.totalCrCount || 0),
     approvedCrCount: Number(row.approvedCrCount || 0),
@@ -372,7 +492,12 @@ async function getCrSnapshot(user) {
 }
 
 async function getDashboard(user, query = {}) {
-  const [kpis, activeProjects, workflowQueue, crSnapshot] = await Promise.all([
+  const [
+    kpis,
+    activeProjects,
+    workflowQueue,
+    crSnapshot,
+  ] = await Promise.all([
     getKpis(user),
     getActiveProjects(user, query),
     getWorkflowQueue(user, query),
