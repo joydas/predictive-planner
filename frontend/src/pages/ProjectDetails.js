@@ -12,7 +12,7 @@ import WorkflowPanel from '../components/WorkflowPanel';
 import { getProject, transitionProject } from '../services/projectService';
 import authService from '../services/authService';
 import { formatDisplayDate } from '../utils/dateUtils';
-import { formatCurrency, getInclusiveDays, parseNumber } from '../utils/resourcePlanning';
+import { formatCurrency, getWorkingDays, parseNumber } from '../utils/resourcePlanning';
 import '../styles/projectWizard.css';
 
 const statusColors = {
@@ -49,18 +49,17 @@ const deriveDisplayResourcePlanning = (rows = [], financial = {}, deliveryDetail
     const allocationPercent = parseNumber(row.allocationPercent, 100);
     const allocationMultiplier = allocationPercent / 100;
     const ratePerDay = parseNumber(row.ratePerDay, 0);
-    const durationDays = getInclusiveDays(row.startDate, row.endDate);
-    const effort = parseNumber(row.effort ?? row.plannedEffort ?? row.durationDays, durationDays);
-    const plannedEffort = count * allocationMultiplier * effort;
-    const plannedCost = count * allocationMultiplier * ratePerDay * effort;
+    const workingDays = getWorkingDays(row.startDate, row.endDate);
+    const plannedEffort = count * allocationMultiplier * workingDays;
+    const plannedCost = plannedEffort * ratePerDay;
 
     return {
       ...row,
-      durationDays,
+      durationDays: workingDays,
+      workingDays,
       count,
       allocationPercent,
       ratePerDay,
-      effort,
       plannedEffort,
       plannedCost,
     };
@@ -294,7 +293,6 @@ const ProjectDetails = () => {
                 <DetailItem label="Derived budget" value={formatCurrency(displayDeliveryBudget)} />
                 <DetailItem label="Derived effort" value={displayPlannedEffort} />
                 <DetailItem label="Derived team size" value={displayPlanning.estimated_team_size || financial.estimated_team_size || project.team_size} />
-                <DetailItem label="Predicted hours" value={project.predicted_hours} />
               </CCol>
             </CRow>
             <CRow>

@@ -105,7 +105,6 @@ const ReviewSubmitStep = ({ state, onEdit, submitComment, onSubmitCommentChange,
           </CCol>
           <CCol md={6}>
             <h5>ML Recommendation</h5>
-            <p><strong>Predicted effort:</strong> {Math.round(state.mlRecommendation.recommendation?.effort?.predictedHours || 0)} hours</p>
             <p><strong>Predicted risk:</strong> {state.mlRecommendation.recommendation?.risk?.riskLevel || empty}</p>
           </CCol>
         </CRow>

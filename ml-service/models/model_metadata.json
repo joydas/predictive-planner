@@ -1,54 +1,30 @@
 {
-  "training_timestamp": "2026-05-16T17:29:40.956496+00:00",
+  "training_timestamp": "2026-05-17T10:47:44.088530+00:00",
   "dataset_version": "project_training_dataset_v1",
   "feature_version": "project_features_v1",
   "dataset_path": "C:\\OurWorkspace\\Dipanjan\\AI\\predictive-planner\\ml-service\\datasets\\project_training_dataset.csv",
-  "row_count": 122,
+  "row_count": 123,
   "evaluation_metrics": {
     "effort": {
-      "rmse": 41.717688814648426,
-      "mae": 24.997849462365593,
-      "r2": 0.9973932704400885
+      "rmse": 49.42901061172242,
+      "mae": 32.175537634408606,
+      "r2": 0.9965449094455319
     },
     "staffing": {
       "mae_per_role": {
-        "Automation_Tester": 0.03118279569892473,
-        "Business_Analyst": 0.0,
-        "DevOps_Engineer": 0.015591397849462365,
-        "Java_Developer": 0.11586021505376347,
-        "Java_Lead": 0.005645161290322579,
-        "Manual_Tester": 0.019623655913978494,
-        "Project_Manager": 0.0,
-        "Python_Developer": 0.3169354838709677,
-        "Python_Lead": 0.01370967741935484,
+        "Automation_Tester": 0.45403225806451614,
+        "DevOps_Engineer": 0.0,
+        "Java_Developer": 0.17930107526881722,
+        "Java_Lead": 0.0008064516129032258,
+        "Manual_Tester": 0.46451612903225803,
+        "Project_Manager": 0.19623655913978497,
+        "Python_Developer": 1.5682795698924732,
+        "Python_Lead": 0.04301075268817204,
         "QA_Lead": 0.0,
-        "React_Developer": 0.04112903225806454,
-        "React_Lead": 0.023118279569892475,
-        "SAP_Consultant": 0.1349462365591398,
-        "Solution_Architect": 0.06451612903225808,
-        "Angular_Developer": 0.0,
-        "BI_Developer": 0.0,
-        "Cloud_Engineer": 0.0,
-        "Data_Engineer": 0.0,
-        "Data_Scientist": 0.0,
-        "Delivery_Manager": 0.0,
-        "Enterprise_Architect": 0.0,
-        "Functional_Consultant": 0.0,
-        "Java_Architect": 0.0,
-        "Java_SSE": 0.0,
-        "L1_Support": 0.0,
-        "L2_Support": 0.0,
-        "L3_Support": 0.0,
-        "Performance_Tester": 0.0,
-        "Product_Owner": 0.0,
-        "Program_Manager": 0.0,
-        "Python_Architect": 0.0,
-        "Python_SSE": 0.0,
-        "React_SSE": 0.0,
-        "SRE_Engineer": 0.0,
-        "Salesforce_Developer": 0.0,
-        "Scrum_Master": 0.0,
-        "Technical_Architect": 0.0
+        "React_Developer": 0.06801075268817204,
+        "React_Lead": 0.03198924731182796,
+        "SAP_Consultant": 0.17500000000000002,
+        "Solution_Architect": 0.14489247311827955
       }
     },
     "schedule_risk": {
@@ -57,7 +33,13 @@
       "recall": 0.0
     }
   },
-  "warnings": [],
+  "warnings": [
+    {
+      "report": "staffing_diversity_validation",
+      "issue_count": 29,
+      "path": "C:\\OurWorkspace\\Dipanjan\\AI\\predictive-planner\\ml-service\\reports\\staffing_diversity_validation_report.csv"
+    }
+  ],
   "reports": {
     "staffing_distribution": "C:\\OurWorkspace\\Dipanjan\\AI\\predictive-planner\\ml-service\\reports\\staffing_distribution_report.csv",
     "target_distribution": "C:\\OurWorkspace\\Dipanjan\\AI\\predictive-planner\\ml-service\\reports\\target_distribution_report.csv",

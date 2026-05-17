@@ -82,7 +82,7 @@ async function createProject(req, res) {
   try {
     const payload = req.body;
     const project = await projectService.submitProject(req.user, payload.projectData || payload, null, payload.comment);
-    return res.status(201).json({ message: 'Project created with prediction', projectId: project.projectId, predicted_hours: project.predicted_hours });
+    return res.status(201).json({ message: 'Project created', projectId: project.projectId });
   } catch (error) {
     console.error('Project creation failed:', error);
     return res.status(error.status || 500).json({ message: error.message || 'Failed to create project' });

@@ -11,14 +11,24 @@ function normalizeNumber(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function getInclusiveDays(startDate, endDate) {
+function getWorkingDays(startDate, endDate) {
   if (!startDate || !endDate) return 0;
   const start = new Date(`${startDate}T00:00:00`);
   const end = new Date(`${endDate}T00:00:00`);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
     return 0;
   }
-  return Math.floor((end - start) / 86400000) + 1;
+
+  let workingDays = 0;
+  const current = new Date(start);
+  while (current <= end) {
+    const day = current.getDay();
+    if (day !== 0 && day !== 6) {
+      workingDays += 1;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  return workingDays;
 }
 
 function getRateForRole(roleId, locationType, rateCards = []) {
@@ -36,8 +46,8 @@ function deriveResourcePlanning(payload) {
     const allocationPercent = normalizeNumber(row.allocationPercent ?? row.allocation ?? 100, 0);
     const locationType = row.locationType || 'ONSITE';
     const ratePerDay = normalizeNumber(row.ratePerDay, getRateForRole(row.roleId, locationType, rateCards));
-    const durationDays = getInclusiveDays(row.startDate, row.endDate);
-    const plannedEffort = count * (allocationPercent / 100) * durationDays;
+    const workingDays = getWorkingDays(row.startDate, row.endDate);
+    const plannedEffort = count * (allocationPercent / 100) * workingDays;
     const plannedCost = plannedEffort * ratePerDay;
 
     return {
@@ -45,7 +55,8 @@ function deriveResourcePlanning(payload) {
       locationType,
       allocationPercent,
       ratePerDay,
-      durationDays,
+      durationDays: workingDays,
+      workingDays,
       plannedEffort,
       plannedCost,
     };
@@ -246,18 +257,6 @@ function buildLegacyProjectRecord(rawPayload, ownerId) {
   };
 }
 
-async function predictProjectHours(projectPayload) {
-  const response = await mlPredictionService.getProjectRecommendations({
-    team_size: projectPayload.team_size,
-    complexity: projectPayload.complexity,
-    change_count: 0,
-    avg_experience: projectPayload.avg_experience,
-    technology_score: projectPayload.technology_score,
-  }, projectPayload.created_by);
-
-  return response.effort?.predictedHours || 0;
-}
-
 async function createDraft(user, draftData) {
   assertPmUser(user);
   return projectRepository.createDraft(user.userId, await applyDerivedPlanning(draftData));
@@ -310,7 +309,6 @@ async function submitProject(user, projectData, draftId = null, comment = '') {
   const payload = await applyDerivedPlanning(normalizeProjectPayload(projectData), { requireResourceLoading: true });
   validateResourceDates(payload);
   const derivedPlanning = deriveResourcePlanning(payload);
-  const technologyScore = normalizeNumber(payload.technology.integration_count, 0);
   const avgExperience = calculateAverageExperience(payload.teamComposition.rows);
 
   const finalPayload = {
@@ -326,13 +324,6 @@ async function submitProject(user, projectData, draftId = null, comment = '') {
       base_resource_cost: Number(derivedPlanning.baseResourceCost.toFixed(2)),
       budget: Number(derivedPlanning.budget.toFixed(2)),
     },
-    predicted_hours: await predictProjectHours({
-      team_size: normalizeNumber(derivedPlanning.estimatedTeamSize, 1),
-      complexity: normalizeNumber(payload.technology.complexity, 1),
-      avg_experience: normalizeNumber(avgExperience, 0),
-      technology_score: technologyScore,
-      created_by: ownerId,
-    }),
     _legacy: {
       name: payload.basicInfo.project_name || 'Untitled Project',
       business_unit: payload.basicInfo.client_name || 'Unknown Client',
@@ -341,7 +332,7 @@ async function submitProject(user, projectData, draftId = null, comment = '') {
       team_size: normalizeNumber(derivedPlanning.estimatedTeamSize, 1),
       estimated_hours: normalizeNumber(derivedPlanning.plannedEffort, 0),
       avg_experience: normalizeNumber(avgExperience, 0),
-      technology_score: technologyScore,
+      technology_score: normalizeNumber(payload.technology.integration_count, 0),
       created_by: ownerId,
     },
   };

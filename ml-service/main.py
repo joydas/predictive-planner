@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-from inference.predictors import predict_effort, predict_risk, predict_staffing
+from inference.predictors import debug_model_prediction, predict_effort, predict_risk, predict_staffing
 from timeseries import predict_final_effort
 
 
@@ -63,6 +63,16 @@ def risk_prediction(data: dict):
         return predict_risk(data)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post("/debug/predict/{model_name}")
+def debug_prediction(model_name: str, data: dict):
+    try:
+        return debug_model_prediction(model_name, data)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/predict")

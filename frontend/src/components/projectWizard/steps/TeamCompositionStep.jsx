@@ -260,10 +260,6 @@ const TeamCompositionStep = ({
               </div>
             </div>
             <div>
-              <strong>ML Predicted Effort</strong>
-              <div>{Math.round(recommendation.effort?.predictedHours || 0)} hours</div>
-            </div>
-            <div>
               <strong>ML Predicted Risk</strong>
               <div>{recommendation.risk?.riskLevel || 'Unknown'}</div>
             </div>

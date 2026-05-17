@@ -1,8 +1,15 @@
 import json
+import math
 from datetime import datetime, timezone
 from typing import Any
 
-from inference.predictors import build_prediction_frame, load_artifact
+from inference.predictors import (
+    _log_inference_debug,
+    _unwrap_payload,
+    build_prediction_frame,
+    feature_diagnostics,
+    load_artifact,
+)
 from utils.feature_utils import normalize_role
 from utils.paths import REPORTS_DIR, ensure_runtime_dirs
 
@@ -50,6 +57,7 @@ def _ensure_first_available(team: dict[str, int], available_roles: set[str], cou
 
 
 def _project_context(payload: dict) -> str:
+    payload = _unwrap_payload(payload)
     basic = payload.get("basicInfo", payload)
     delivery = payload.get("deliveryDetails", {})
     technology = payload.get("technology", {})
@@ -69,6 +77,7 @@ def _project_context(payload: dict) -> str:
 
 
 def _duration_days(payload: dict) -> int:
+    payload = _unwrap_payload(payload)
     delivery = payload.get("deliveryDetails", {})
     start = delivery.get("start_date")
     end = delivery.get("planned_end_date")
@@ -83,6 +92,7 @@ def _duration_days(payload: dict) -> int:
 
 
 def _apply_heuristics(team: dict[str, int], payload: dict, available_roles: set[str]) -> dict[str, int]:
+    payload = _unwrap_payload(payload)
     context = _project_context(payload)
     technology = payload.get("technology", {})
     risks = payload.get("risks", {})
@@ -126,7 +136,8 @@ def _apply_heuristics(team: dict[str, int], payload: dict, available_roles: set[
     return {role: count for role, count in team.items() if count > 0 and role in available_roles}
 
 
-def _log_debug(payload: dict, raw: dict[str, float], post_processed: dict[str, int], final: dict[str, int]) -> None:
+def _log_debug(payload: dict, raw: dict[str, float], post_processed: dict[str, int], final: dict[str, int], diagnostics: dict | None = None) -> None:
+    payload = _unwrap_payload(payload)
     ensure_runtime_dirs()
     debug_path = REPORTS_DIR / "staffing_prediction_debug.jsonl"
     record = {
@@ -139,6 +150,7 @@ def _log_debug(payload: dict, raw: dict[str, float], post_processed: dict[str, i
         "rawPredictions": raw,
         "postProcessedPredictions": post_processed,
         "finalRecommendation": final,
+        "diagnostics": diagnostics or {},
     }
     with debug_path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(record) + "\n")
@@ -149,6 +161,7 @@ def build_staffing_recommendation(payload: dict) -> dict:
     frame = build_prediction_frame(payload, artifact["feature_columns"])
     prediction = artifact["pipeline"].predict(frame)[0]
     target_columns = artifact["target_columns"]
+    diagnostics = feature_diagnostics(payload, artifact["feature_columns"], frame)
 
     raw = {
         _role_name(role): float(max(value, 0))
@@ -156,14 +169,18 @@ def build_staffing_recommendation(payload: dict) -> dict:
     }
     available_roles = set(raw.keys())
     post_processed = {
-        role: (max(1, round(value)) if value >= THRESHOLD else 0)
+        role: (max(1, math.ceil(value)) if value >= THRESHOLD else 0)
         for role, value in raw.items()
     }
     final = _apply_heuristics(dict(post_processed), payload, available_roles)
-    _log_debug(payload, raw, post_processed, final)
+    _log_debug(payload, raw, post_processed, final, diagnostics)
+    _log_inference_debug("staffing", payload, artifact, frame, raw, diagnostics)
 
-    return {
+    response = {
         "recommendedTeam": final,
         "rawPredictions": raw,
         "postProcessedPredictions": post_processed,
     }
+    if diagnostics["warnings"]:
+        response["diagnostics"] = diagnostics
+    return response

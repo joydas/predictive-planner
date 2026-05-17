@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { CCard, CCardBody, CCardHeader, CCol, CRow, CTable, CTableHead, CTableRow, CTableHeaderCell, CTableBody, CTableDataCell, CButton, CSpinner, CAlert, CFormInput, CBadge, CTooltip } from '@coreui/react';
 import { useNavigate } from 'react-router-dom';
 import { NODE_API_URL } from '../config';
-import { calculateVariance, getRiskLevel, getRiskColor, formatVariance } from '../utils/projectUtils';
 import CIcon from '@coreui/icons-react';
 import { cilChart, cilReload, cilPeople, cilPlus } from '@coreui/icons';
 
@@ -65,21 +64,15 @@ const Projects = () => {
     'end_date',
     'actual_hours',
     'variance',
+    'predicted_hours',
   ];
   const displayedColumns = projects.length
     ? Object.keys(projects[0]).filter((key) => !excludedColumns.includes(key))
     : [];
 
-  // Add risk calculation to projects
-  const projectsWithRisk = projects.map(project => {
-    const variance = calculateVariance(project.predicted_hours || 0, project.estimated_hours || 0);
-    const riskLevel = getRiskLevel(variance);
-    return { ...project, variance, riskLevel };
-  });
-
   const formatHeader = (key) => key.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
   const normalizedSearch = searchTerm.trim().toLowerCase();
-  const filteredProjects = projectsWithRisk.filter((project) =>
+  const filteredProjects = projects.filter((project) =>
     displayedColumns.some((column) => {
       const value = project[column];
       return String(value).toLowerCase().includes(normalizedSearch);
@@ -213,8 +206,6 @@ const Projects = () => {
                             <CTableHeaderCell key={column}>{formatHeader(column)}</CTableHeaderCell>
                           ))}
                           <CTableHeaderCell>Status</CTableHeaderCell>
-                          <CTableHeaderCell>Variance</CTableHeaderCell>
-                          <CTableHeaderCell>Risk Level</CTableHeaderCell>
                           <CTableHeaderCell className="text-center">Actions</CTableHeaderCell>
                         </CTableRow>
                       </CTableHead>
@@ -227,7 +218,7 @@ const Projects = () => {
                                   ? '—'
                                   : typeof project[column] === 'object'
                                   ? JSON.stringify(project[column])
-                                  : column === 'predicted_hours' || column === 'estimated_hours'
+                                  : column === 'estimated_hours'
                                   ? `${project[column]}h`
                                   : project[column]}
                               </CTableDataCell>
@@ -243,16 +234,6 @@ const Projects = () => {
                                   : 'info'
                               }>
                                 {project.workflowStatus || 'SUBMITTED'}
-                              </CBadge>
-                            </CTableDataCell>
-                            <CTableDataCell>
-                              <span className={`fw-bold ${project.variance >= 0 ? 'text-danger' : 'text-success'}`}>
-                                {formatVariance(project.variance)}
-                              </span>
-                            </CTableDataCell>
-                            <CTableDataCell>
-                              <CBadge color={getRiskColor(project.riskLevel)}>
-                                {project.riskLevel}
                               </CBadge>
                             </CTableDataCell>
                             <CTableDataCell>

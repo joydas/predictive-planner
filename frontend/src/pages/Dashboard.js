@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CCard, CCardBody, CCardHeader, CCol, CRow, CSpinner, CAlert, CBadge } from '@coreui/react';
+import { CCard, CCardBody, CCardHeader, CCol, CRow, CSpinner, CAlert } from '@coreui/react';
 import { Bar, Pie } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -15,7 +15,6 @@ import {
   Filler,
 } from 'chart.js';
 import { NODE_API_URL } from '../config';
-import { calculateVariance, getRiskLevel, getRiskColor, formatVariance } from '../utils/projectUtils';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler);
 
@@ -51,19 +50,7 @@ const Dashboard = () => {
   // Calculate metrics
   const totalProjects = projects.length;
 
-  // Calculate risk levels for all projects
-  const projectsWithRisk = projects.map(project => {
-    const variance = calculateVariance(project.predicted_hours || 0, project.estimated_hours || 0);
-    const riskLevel = getRiskLevel(variance);
-    return { ...project, variance, riskLevel };
-  });
-
-  const highRiskProjects = projectsWithRisk.filter(p => ['High', 'Critical'].includes(p.riskLevel));
-
-  // Calculate average variance
-  const avgVariance = projectsWithRisk.length > 0
-    ? projectsWithRisk.reduce((sum, p) => sum + Math.abs(p.variance), 0) / projectsWithRisk.length
-    : 0;
+  const totalEstimatedEffort = projects.reduce((sum, project) => sum + Number(project.estimated_hours || 0), 0);
 
   // Dummy resource utilization (can be replaced with real data later)
   const resourceUtilization = 78; // percentage
@@ -71,28 +58,20 @@ const Dashboard = () => {
   // Trend indicators (dummy values for now - can be calculated from historical data)
   const trends = {
     totalProjects: 12, // +12% from last month
-    avgVariance: -5,   // -5% improvement
-    highRisk: -8,      // -8% reduction
+    effort: 5,
+    activeProjects: -8,
     utilization: 3     // +3% increase
   };
 
-  // Bar chart data: Estimated vs Predicted Hours
+  // Bar chart data: derived effort by project
   const barChartData = {
     labels: projects.slice(0, 10).map((p) => p.name || 'Project'),
     datasets: [
       {
-        label: 'Estimated Hours',
+        label: 'Derived Effort',
         data: projects.slice(0, 10).map((p) => p.estimated_hours || 0),
         backgroundColor: 'rgba(21, 108, 194, 0.7)',
         borderColor: 'rgba(44, 62, 80, 1)',
-        borderWidth: 1,
-        borderRadius: 4,
-      },
-      {
-        label: 'Predicted Hours',
-        data: projects.slice(0, 10).map((p) => p.predicted_hours || 0),
-        backgroundColor: 'rgba(27, 191, 62, 0.7)',
-        borderColor: 'rgba(127, 140, 141, 1)',
         borderWidth: 1,
         borderRadius: 4,
       },
@@ -258,16 +237,16 @@ const Dashboard = () => {
             <CCardBody className="p-3">
               <div className="d-flex justify-content-between align-items-center mb-2">
                 <div>
-                  <div className="card-title">AVG VARIANCE</div>
-                  <div className="card-value">{avgVariance.toFixed(1)}%</div>
+                  <div className="card-title">TOTAL EFFORT</div>
+                  <div className="card-value">{totalEstimatedEffort.toFixed(0)}h</div>
                 </div>
                 <div style={{ fontSize: '1.5rem', opacity: 0.8 }}>📈</div>
               </div>
               <div className="d-flex align-items-center">
-                <span className={`badge ${trends.avgVariance >= 0 ? 'bg-danger' : 'bg-success'} me-2`} style={{ fontSize: '0.7rem' }}>
-                  {trends.avgVariance >= 0 ? '↗' : '↘'} {Math.abs(trends.avgVariance)}%
+                <span className={`badge ${trends.effort >= 0 ? 'bg-success' : 'bg-danger'} me-2`} style={{ fontSize: '0.7rem' }}>
+                  {trends.effort >= 0 ? '↗' : '↘'} {Math.abs(trends.effort)}%
                 </span>
-                <small className="opacity-75" style={{ fontSize: '0.7rem' }}>improvement</small>
+                <small className="opacity-75" style={{ fontSize: '0.7rem' }}>vs last month</small>
               </div>
             </CCardBody>
           </CCard>
@@ -278,16 +257,16 @@ const Dashboard = () => {
             <CCardBody className="p-3">
               <div className="d-flex justify-content-between align-items-center mb-2">
                 <div>
-                  <div className="card-title">HIGH RISK COUNT</div>
-                  <div className="card-value">{highRiskProjects.length}</div>
+                  <div className="card-title">ACTIVE PROJECTS</div>
+                  <div className="card-value">{totalProjects}</div>
                 </div>
                 <div style={{ fontSize: '1.5rem', opacity: 0.8 }}>🚨</div>
               </div>
               <div className="d-flex align-items-center">
-                <span className={`badge ${trends.highRisk >= 0 ? 'bg-danger' : 'bg-success'} me-2`} style={{ fontSize: '0.7rem' }}>
-                  {trends.highRisk >= 0 ? '↗' : '↘'} {Math.abs(trends.highRisk)}%
+                <span className={`badge ${trends.activeProjects >= 0 ? 'bg-success' : 'bg-danger'} me-2`} style={{ fontSize: '0.7rem' }}>
+                  {trends.activeProjects >= 0 ? '↗' : '↘'} {Math.abs(trends.activeProjects)}%
                 </span>
-                <small className="opacity-75" style={{ fontSize: '0.7rem' }}>reduction</small>
+                <small className="opacity-75" style={{ fontSize: '0.7rem' }}>vs last month</small>
               </div>
             </CCardBody>
           </CCard>
@@ -319,7 +298,7 @@ const Dashboard = () => {
         <CCol lg={6} className="mb-4">
           <CCard className="border-0 shadow-sm">
             <CCardHeader className="border-bottom">
-              <strong>Estimated vs Predicted Hours (Top 10 Projects)</strong>
+              <strong>Derived Effort By Project</strong>
             </CCardHeader>
             <CCardBody>
               {projects.length > 0 ? (
@@ -352,59 +331,6 @@ const Dashboard = () => {
           </CCard>
         </CCol>
       </CRow>
-
-      {/* High Risk Projects Details */}
-      {highRiskProjects.length > 0 && (
-        <CRow className="section-gap">
-          <CCol xs={12}>
-            <CCard className="border-0 shadow-sm">
-              <CCardHeader className="border-bottom">
-                <strong>High Risk Projects ({highRiskProjects.length})</strong>
-              </CCardHeader>
-              <CCardBody>
-                <div className="table-responsive">
-                  <table className="table table-sm table-hover mb-0">
-                    <thead className="bg-light">
-                      <tr>
-                        <th>Project Name</th>
-                        <th>Business Unit</th>
-                        <th className="text-end">Estimated (h)</th>
-                        <th className="text-end">Predicted (h)</th>
-                        <th className="text-end">Variance</th>
-                        <th>Risk Level</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {highRiskProjects.map((project) => (
-                        <tr key={project.id}>
-                          <td>
-                            <strong>{project.name}</strong>
-                          </td>
-                          <td>{project.business_unit}</td>
-                          <td className="text-end number-cell">{project.estimated_hours}h</td>
-                          <td className="text-end number-cell">{project.predicted_hours}h</td>
-                          <td className="text-end">
-                            <span className={`fw-bold ${project.variance >= 0 ? 'text-danger' : 'text-success'}`}>
-                              {formatVariance(project.variance)}
-                            </span>
-                          </td>
-                          <td>
-                            <CBadge color={getRiskColor(project.riskLevel)}>
-                              {project.riskLevel}
-                            </CBadge>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CCardBody>
-            </CCard>
-          </CCol>
-        </CRow>
-      )}
-
-      
 
       <CRow className="section-gap">
         <CCol md={8}>
