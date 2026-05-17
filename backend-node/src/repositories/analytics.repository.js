@@ -422,6 +422,10 @@ function mapVarianceRow(row) {
 
 function buildVarianceWidgets(rows) {
   const labels = rows.map((row) => row.projectName || `Project ${row.projectId}`);
+  const aiVsActualEffort = buildAiVsActualWidget('Effort', rows, 'aiBaselineEffort', 'actualEffort');
+  const aiVsActualBudget = buildAiVsActualWidget('Budget', rows, 'aiBaselineBudget', 'actualBudget');
+  const aiVsActualTeamSize = buildAiVsActualWidget('Team Size', rows, 'aiBaselineTeamSize', 'actualTeamSize');
+
   return {
     effortVariance: {
       labels,
@@ -435,6 +439,9 @@ function buildVarianceWidgets(rows) {
       labels,
       datasets: [{ label: 'Team Size Variance %', data: rows.map((row) => row.teamSizeVariancePercent) }],
     },
+    aiVsActualEffort,
+    aiVsActualBudget,
+    aiVsActualTeamSize,
     aiVsActual: {
       labels: ['Effort', 'Budget', 'Team Size'],
       datasets: [
@@ -456,6 +463,22 @@ function buildVarianceWidgets(rows) {
         },
       ],
     },
+  };
+}
+
+function buildAiVsActualWidget(label, rows, aiKey, actualKey) {
+  return {
+    labels: [label],
+    datasets: [
+      {
+        label: 'AI Predicted',
+        data: [sumValues(rows, aiKey)],
+      },
+      {
+        label: 'Actual',
+        data: [sumValues(rows, actualKey)],
+      },
+    ],
   };
 }
 

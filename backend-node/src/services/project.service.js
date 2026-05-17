@@ -11,6 +11,23 @@ function normalizeNumber(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function requireNonNegativeNumber(value, label, { required = false } = {}) {
+  if (value === '' || value === null || value === undefined) {
+    if (!required) return 0;
+    const error = new Error(`${label} is required`);
+    error.status = 400;
+    throw error;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    const error = new Error(`${label} must be a non-negative number`);
+    error.status = 400;
+    throw error;
+  }
+  return parsed;
+}
+
 function getWorkingDays(startDate, endDate) {
   if (!startDate || !endDate) return 0;
   const start = new Date(`${startDate}T00:00:00`);
@@ -417,9 +434,9 @@ function normalizeCompletionPayload(payload = {}) {
   const actuals = payload.actuals || payload.financialActuals || {};
   const groundMetrics = payload.groundMetrics || payload.metrics || {};
   const finalResourceLoading = resourceLoading.map((row) => {
-    const count = normalizeNumber(row.count, 0);
-    const rate = normalizeNumber(row.rate ?? row.ratePerDay, 0);
-    const effort = normalizeNumber(row.effort, 0);
+    const count = requireNonNegativeNumber(row.count, 'Final resource count', { required: true });
+    const rate = requireNonNegativeNumber(row.rate ?? row.ratePerDay, 'Final resource rate', { required: true });
+    const effort = requireNonNegativeNumber(row.effort, 'Final resource effort', { required: true });
     return {
       role: String(row.role || '').trim(),
       location: String(row.location || row.locationType || '').trim(),
@@ -432,8 +449,14 @@ function normalizeCompletionPayload(payload = {}) {
   const resourceCost = finalResourceLoading.reduce((sum, row) => sum + row.actualCost, 0);
   const actualEffort = finalResourceLoading.reduce((sum, row) => sum + (row.count * row.effort), 0);
   const actualTeamSize = finalResourceLoading.reduce((sum, row) => sum + row.count, 0);
-  const managementCost = normalizeNumber(actuals.managementCost ?? actuals.management_cost, 0);
-  const contingencyCost = normalizeNumber(actuals.contingencyCost ?? actuals.contingency_cost, 0);
+  const managementCost = requireNonNegativeNumber(
+    actuals.managementCost ?? actuals.management_cost,
+    'Management cost spent',
+  );
+  const contingencyCost = requireNonNegativeNumber(
+    actuals.contingencyCost ?? actuals.contingency_cost,
+    'Contingency cost spent',
+  );
   const actualCrVolatility = groundMetrics.actualCrVolatility ?? groundMetrics.actual_cr_volatility ?? '';
   const riskLevelIndicators = groundMetrics.riskLevelIndicators ?? groundMetrics.risk_level_indicators ?? '';
 
@@ -529,11 +552,16 @@ async function completeProject(projectId, user, payload) {
       actualBudget: completion.fullProjectCost,
       actualTeamSize: completion.actualTeamSize,
     });
-    await projectRepository.updateProjectActuals(connection, projectId, {
+    const actualsUpdated = await projectRepository.updateProjectActuals(connection, projectId, {
       actualEffort: completion.actualEffort,
       actualBudget: completion.fullProjectCost,
       actualTeamSize: completion.actualTeamSize,
     });
+    if (!actualsUpdated) {
+      const error = new Error('Project completion actuals could not be stored');
+      error.status = 409;
+      throw error;
+    }
     const marked = await projectRepository.markProjectComplete(
       connection,
       project.sourceDraftId,

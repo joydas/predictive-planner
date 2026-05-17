@@ -80,7 +80,19 @@ const AnalyticsOverview = () => {
     { key: 'client', label: 'Client', sortKey: 'client' },
     { key: 'technology', label: 'Technology', sortKey: 'technology' },
     { key: 'pmName', label: 'PM Name', sortKey: 'pmName' },
-    { key: 'accountManagerName', label: 'Account Manager Name', sortKey: 'accountManagerName' },
+        {
+      key: 'varianceSeverity',
+      label: 'Severity',
+      render: (row) => (
+        <CBadge color={severityColors[row.varianceSeverity] || 'secondary'}>
+          {row.varianceSeverity || 'NORMAL'}
+        </CBadge>
+      ),
+    },
+    { key: 'effortVariancePercent', label: 'Effort Variance %', render: percentCell('effortVariancePercent') },
+    { key: 'budgetVariancePercent', label: 'Budget Variance %', render: percentCell('budgetVariancePercent') },
+    { key: 'teamSizeVariancePercent', label: 'Team Size Variance %', render: percentCell('teamSizeVariancePercent') },
+    //{ key: 'accountManagerName', label: 'Account Manager Name', sortKey: 'accountManagerName' },
     { key: 'aiBaselineEffort', label: 'AI Baseline Effort', sortKey: 'aiBaselineEffort', render: numberCell('aiBaselineEffort') },
     { key: 'pmBaselineEffort', label: 'PM Baseline Effort', sortKey: 'pmBaselineEffort', render: numberCell('pmBaselineEffort') },
     { key: 'currentPlannedEffort', label: 'Current Planned Effort', sortKey: 'currentPlannedEffort', render: numberCell('currentPlannedEffort') },
@@ -93,18 +105,8 @@ const AnalyticsOverview = () => {
     { key: 'pmBaselineTeamSize', label: 'PM Baseline Team Size', sortKey: 'pmBaselineTeamSize', render: numberCell('pmBaselineTeamSize') },
     { key: 'currentPlannedTeamSize', label: 'Current Planned Team Size', sortKey: 'currentPlannedTeamSize', render: numberCell('currentPlannedTeamSize') },
     { key: 'actualTeamSize', label: 'Actual Team Size', sortKey: 'actualTeamSize', render: numberCell('actualTeamSize') },
-    { key: 'effortVariancePercent', label: 'Effort Variance %', render: percentCell('effortVariancePercent') },
-    { key: 'budgetVariancePercent', label: 'Budget Variance %', render: percentCell('budgetVariancePercent') },
-    { key: 'teamSizeVariancePercent', label: 'Team Size Variance %', render: percentCell('teamSizeVariancePercent') },
-    {
-      key: 'varianceSeverity',
-      label: 'Severity',
-      render: (row) => (
-        <CBadge color={severityColors[row.varianceSeverity] || 'secondary'}>
-          {row.varianceSeverity || 'NORMAL'}
-        </CBadge>
-      ),
-    },
+    
+
   ], []);
 
   const handleSort = (sortBy) => {
@@ -135,18 +137,24 @@ const AnalyticsOverview = () => {
 
       {error && <CAlert color="danger">{error}</CAlert>}
 
-      <CRow className="mb-4">
-        <CCol xs={12} xl={6} xxl={3}>
+      <CRow className="mb-4 g-4">
+        <CCol xs={12} lg={4}>
           <ChartCard title="Effort Variance" data={varianceChart(widgets.effortVariance, '#2f80ed')} loading={loading} />
         </CCol>
-        <CCol xs={12} xl={6} xxl={3}>
+        <CCol xs={12} lg={4}>
           <ChartCard title="Cost Variance" data={varianceChart(widgets.costVariance, '#d64550')} loading={loading} />
         </CCol>
-        <CCol xs={12} xl={6} xxl={3}>
+        <CCol xs={12} lg={4}>
           <ChartCard title="Team Size Variance" data={varianceChart(widgets.teamSizeVariance, '#f9b115')} loading={loading} />
         </CCol>
-        <CCol xs={12} xl={6} xxl={3}>
-          <ChartCard title="AI vs Actual" data={comparisonChart(widgets.aiVsActual)} options={comparisonOptions} loading={loading} />
+        <CCol xs={12} lg={4}>
+          <ChartCard title="AI vs Actual Effort" data={comparisonMetricChart(widgets, 'effort')} options={comparisonOptions} loading={loading} />
+        </CCol>
+        <CCol xs={12} lg={4}>
+          <ChartCard title="AI vs Actual Budget" data={comparisonMetricChart(widgets, 'budget')} options={comparisonOptions} loading={loading} />
+        </CCol>
+        <CCol xs={12} lg={4}>
+          <ChartCard title="AI vs Actual Team Size" data={comparisonMetricChart(widgets, 'teamSize')} options={comparisonOptions} loading={loading} />
         </CCol>
       </CRow>
 
@@ -242,6 +250,28 @@ function comparisonChart(widget = {}) {
       borderWidth: 1,
     })),
   };
+}
+
+function comparisonMetricChart(widgets = {}, metric) {
+  const explicitWidgets = {
+    effort: widgets.aiVsActualEffort,
+    budget: widgets.aiVsActualBudget,
+    teamSize: widgets.aiVsActualTeamSize,
+  };
+  const explicitWidget = explicitWidgets[metric];
+  if (explicitWidget) {
+    return comparisonChart(explicitWidget);
+  }
+
+  const metricIndex = { effort: 0, budget: 1, teamSize: 2 }[metric] ?? 0;
+  const combinedWidget = widgets.aiVsActual || {};
+  return comparisonChart({
+    labels: [combinedWidget.labels?.[metricIndex] || 'Metric'],
+    datasets: (combinedWidget.datasets || []).map((dataset) => ({
+      ...dataset,
+      data: [dataset.data?.[metricIndex] || 0],
+    })),
+  });
 }
 
 function numberCell(key) {

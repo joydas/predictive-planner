@@ -1,34 +1,34 @@
 {
-  "training_timestamp": "2026-05-17T10:47:44.088530+00:00",
+  "training_timestamp": "2026-05-17T12:59:08.848524+00:00",
   "dataset_version": "project_training_dataset_v1",
   "feature_version": "project_features_v1",
   "dataset_path": "C:\\OurWorkspace\\Dipanjan\\AI\\predictive-planner\\ml-service\\datasets\\project_training_dataset.csv",
-  "row_count": 123,
+  "row_count": 124,
   "evaluation_metrics": {
     "effort": {
-      "rmse": 49.42901061172242,
-      "mae": 32.175537634408606,
-      "r2": 0.9965449094455319
+      "rmse": 133.3514123978747,
+      "mae": 67.98911290322579,
+      "r2": 0.9821690394241648
     },
     "staffing": {
       "mae_per_role": {
-        "Automation_Tester": 0.45403225806451614,
+        "Automation_Tester": 0.4126344086021504,
         "DevOps_Engineer": 0.0,
-        "Java_Developer": 0.17930107526881722,
-        "Java_Lead": 0.0008064516129032258,
-        "Manual_Tester": 0.46451612903225803,
-        "Project_Manager": 0.19623655913978497,
-        "Python_Developer": 1.5682795698924732,
-        "Python_Lead": 0.04301075268817204,
+        "Java_Developer": 0.15510752688172044,
+        "Java_Lead": 0.015591397849462365,
+        "Manual_Tester": 0.4338709677419355,
+        "Project_Manager": 0.20080645161290323,
+        "Python_Developer": 1.5137096774193548,
+        "Python_Lead": 0.028494623655913976,
         "QA_Lead": 0.0,
-        "React_Developer": 0.06801075268817204,
-        "React_Lead": 0.03198924731182796,
-        "SAP_Consultant": 0.17500000000000002,
-        "Solution_Architect": 0.14489247311827955
+        "React_Developer": 0.2134408602150538,
+        "React_Lead": 0.030645161290322576,
+        "SAP_Consultant": 0.16774193548387098,
+        "Solution_Architect": 0.13736559139784946
       }
     },
     "schedule_risk": {
-      "accuracy": 1.0,
+      "accuracy": 0.967741935483871,
       "precision": 0.0,
       "recall": 0.0
     }

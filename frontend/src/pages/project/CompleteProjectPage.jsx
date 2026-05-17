@@ -90,7 +90,9 @@ const CompleteProjectPage = () => {
             location: row.location || row.locationType || 'OFFSHORE',
             count: row.count || 1,
             rate: row.ratePerDay || '',
-            effort: row.plannedEffort || '',
+            effort: row.plannedEffort && row.count
+              ? Number((parseNumber(row.plannedEffort, 0) / parseNumber(row.count, 1)).toFixed(2))
+              : '',
           })));
         }
         setError('');

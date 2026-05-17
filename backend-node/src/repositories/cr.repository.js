@@ -170,19 +170,21 @@ async function getChangeRequestForUpdate(connection, crId) {
 }
 
 async function accumulateApprovedCrImpact(connection, changeRequest) {
-  const effortImpact = Number(changeRequest.effortImpact || 0);
-  const budgetImpact = Number(changeRequest.budgetImpact || 0);
-  const teamSizeImpact = Number(changeRequest.teamSizeImpact || 0);
+  const effortImpact = Number(changeRequest.effortImpact);
+  const budgetImpact = Number(changeRequest.budgetImpact);
+  const teamSizeImpact = Number(changeRequest.teamSizeImpact);
   const [result] = await connection.query(
     `
-      UPDATE project
-      SET current_planned_effort = COALESCE(current_planned_effort, 0) + ?,
-          current_planned_budget = COALESCE(current_planned_budget, 0) + ?,
-          current_planned_team_size = COALESCE(current_planned_team_size, 0) + ?,
-          total_cr_effort_impact = COALESCE(total_cr_effort_impact, 0) + ?,
-          total_cr_budget_impact = COALESCE(total_cr_budget_impact, 0) + ?,
-          total_cr_team_impact = COALESCE(total_cr_team_impact, 0) + ?
-      WHERE project_id = ?
+      UPDATE project p
+      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
+      SET p.current_planned_effort = COALESCE(p.current_planned_effort, 0) + ?,
+          p.current_planned_budget = COALESCE(p.current_planned_budget, 0) + ?,
+          p.current_planned_team_size = COALESCE(p.current_planned_team_size, 0) + ?,
+          p.total_cr_effort_impact = COALESCE(p.total_cr_effort_impact, 0) + ?,
+          p.total_cr_budget_impact = COALESCE(p.total_cr_budget_impact, 0) + ?,
+          p.total_cr_team_impact = COALESCE(p.total_cr_team_impact, 0) + ?
+      WHERE p.project_id = ?
+        AND pd.workflow_status = 'APPROVED'
     `,
     [
       effortImpact,

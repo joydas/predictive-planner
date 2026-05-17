@@ -8,6 +8,23 @@ function normalizeNumber(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function requireValidCrImpact(changeRequest) {
+  const fields = [
+    ['effortImpact', 'effort impact'],
+    ['budgetImpact', 'budget impact'],
+    ['teamSizeImpact', 'team size impact'],
+  ];
+
+  fields.forEach(([key, label]) => {
+    const value = Number(changeRequest?.[key]);
+    if (!Number.isFinite(value) || value < 0) {
+      const error = new Error(`Approved change request has invalid ${label}`);
+      error.status = 400;
+      throw error;
+    }
+  });
+}
+
 function normalizeCrPayload(payload = {}) {
   const basic = payload.basic || payload.basicInfo || payload;
   const impact = payload.impact || payload.impactAssessment || payload;
@@ -290,6 +307,12 @@ async function transitionChangeRequest(crId, user, actionType, comment) {
   try {
     await connection.beginTransaction();
     const lockedChangeRequest = await crRepository.getChangeRequestForUpdate(connection, crId);
+    if (!lockedChangeRequest) {
+      const error = new Error('Change request not found');
+      error.status = 404;
+      throw error;
+    }
+    requireValidCrImpact(lockedChangeRequest);
     const transition = await workflowService.transitionWorkflowInTransaction(connection, {
       entityType: 'CR',
       entityId: crId,
@@ -304,7 +327,12 @@ async function transitionChangeRequest(crId, user, actionType, comment) {
       budgetImpact: lockedChangeRequest.budgetImpact,
       teamSizeImpact: lockedChangeRequest.teamSizeImpact,
     });
-    await crRepository.accumulateApprovedCrImpact(connection, lockedChangeRequest);
+    const accumulated = await crRepository.accumulateApprovedCrImpact(connection, lockedChangeRequest);
+    if (!accumulated) {
+      const error = new Error('Approved change request could not be applied because the project is not approved or no longer exists');
+      error.status = 409;
+      throw error;
+    }
     await connection.commit();
     return transition;
   } catch (error) {

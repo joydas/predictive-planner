@@ -226,7 +226,10 @@ const TeamCompositionStep = ({
         financial,
         rateCards,
       });
-      const aiEffort = Number(result.effort?.predictedHours ?? recommendedPlanning.planned_effort ?? 0);
+      const recommendedEffort = Number(recommendedPlanning.planned_effort || 0);
+      const aiEffort = recommendedRows.length
+        ? recommendedEffort
+        : Number(result.effort?.predictedHours ?? 0);
       updateMlRecommendation({
         recommendation: {
           ...result,
