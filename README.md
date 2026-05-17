@@ -1,331 +1,335 @@
 # Predictive Planner
 
-Predictive Planner is a full-stack project planning application that helps teams estimate effort, track scope change, monitor delivery progress, and assemble a suitable delivery team. It combines a React frontend, a Node.js/Express API layer, a Python/FastAPI ML service, and a MySQL database.
+## AI-Driven Predictive Project Planning & Governance Platform
 
-## Purpose
+Predictive Planner is an enterprise-grade project planning and governance platform that combines:
 
-This app is intended to support project managers, admins, and leadership teams with:
+* AI-driven staffing recommendations
+* predictive effort estimation
+* workflow-driven approvals
+* resource loading & budget planning
+* change request governance
+* operational dashboards
+* variance analytics
 
-- AI-assisted effort prediction when a project is created
-- Scope creep handling through change requests
-- Progress-based effort forecasting
-- Team recommendation based on project technology, complexity, and available resources
-- Portfolio visibility through a dashboard and project list
+to improve delivery planning accuracy, governance visibility, and operational decision-making.
 
-## Architecture
+The platform transforms historical delivery intelligence into actionable project recommendations using machine learning, analytics, and workflow orchestration.
 
-| Layer | Folder | Tech | Default Port | Responsibility |
-| --- | --- | --- | --- | --- |
-| Frontend | `frontend/` | React + CoreUI | `3000` | Login, dashboard, projects, forms, team recommendation UI |
-| Backend | `backend-node/` | Node.js + Express + MySQL | `3001` | Authentication, project APIs, DB access, ML orchestration |
-| ML Service | `ml-service/` | FastAPI + scikit-learn | `8000` | Effort prediction and progress-based forecast |
-| Database | external | MySQL | n/a | Stores users, projects, change requests, progress, resources |
+---
 
-## Main Workflows
+# Key Capabilities
 
-1. A PM or admin creates a project in the React app.
-2. The Node backend calls the ML service `/predict` endpoint and stores `predicted_hours` in MySQL.
-3. Change requests are recorded in MySQL and trigger a refreshed prediction.
-4. Progress entries are stored in MySQL and can be sent to the ML service `/predict-delay` endpoint.
-5. Team recommendations are generated from project data plus rows in the `resources` table.
-6. Leadership can view aggregated project risk and effort variance in the dashboard.
+## AI-Assisted Project Planning
 
-## Repository Layout
+The platform uses historical delivery data to recommend:
+
+* staffing composition
+* estimated effort
+* estimated budget
+* team size
+* delivery risk indicators
+
+---
+
+## Resource Loading & Budget Planning
+
+Project Managers can:
+
+* allocate resources by role
+* configure onsite/offshore staffing
+* define allocation percentages
+* specify custom resource durations
+* dynamically derive:
+
+  * planned effort
+  * planned budget
+  * team size
+
+---
+
+## Workflow-Based Governance
+
+Supports approval workflows for:
+
+* project approvals
+* project resubmissions
+* change requests (CRs)
+
+Roles supported:
+
+* Project Manager (PM)
+* Account Manager (AM)
+
+---
+
+## Immutable Baseline Architecture
+
+The platform preserves:
+
+* AI baseline recommendations
+* PM baseline plans
+* CR-adjusted current plans
+* actual delivery outcomes
+
+This enables:
+
+* variance analytics
+* governance intelligence
+* AI effectiveness measurement
+* delivery maturity analysis
+
+---
+
+## Change Request Governance
+
+Approved CRs:
+
+* incrementally impact current planning
+* preserve original baselines
+* maintain cumulative impact visibility
+
+This creates measurable scope-growth analytics.
+
+---
+
+## Analytics Dashboard
+
+Provides:
+
+* effort variance analytics
+* budget variance analytics
+* staffing variance analytics
+* AI vs Actual comparison
+* governance visibility
+* delivery drift analysis
+
+---
+
+## Operational Dashboard
+
+Provides:
+
+* active project visibility
+* pending approvals
+* workflow queues
+* CR operational summaries
+* operational KPIs
+
+with role-based visibility.
+
+---
+
+# High-Level Architecture
+
+```text
+React Frontend
+       ↓
+Node.js / Express Backend APIs
+       ↓
+MariaDB + Python ML Engine
+       ↓
+Analytics & Governance Layer
+```
+
+---
+
+# Technology Stack
+
+| Layer          | Technology                      |
+| -------------- | ------------------------------- |
+| Frontend       | React + CoreUI                  |
+| Backend        | Node.js + Express               |
+| Database       | MariaDB / MySQL                 |
+| ML Engine      | Python + FastAPI + scikit-learn |
+| Authentication | JWT                             |
+| Deployment     | AWS / Azure Ready               |
+
+---
+
+# Core Modules
+
+| Module                | Purpose                      |
+| --------------------- | ---------------------------- |
+| Project Planning      | project metadata & staffing  |
+| AI Recommendation     | staffing & effort prediction |
+| Resource Loading      | dynamic planning             |
+| Workflow Engine       | approvals & governance       |
+| Change Request Engine | CR lifecycle                 |
+| Analytics Dashboard   | variance intelligence        |
+| Operational Dashboard | execution visibility         |
+| Completion Module     | actual delivery capture      |
+
+---
+
+# Main Workflows
+
+## Project Lifecycle
+
+1. PM creates project
+2. AI recommendations generated
+3. PM adjusts staffing/resource loading
+4. AM reviews & approves
+5. Approved CRs modify current planning
+6. PM completes project with actuals
+7. Analytics compare:
+
+   * AI baseline
+   * PM baseline
+   * CR-adjusted plan
+   * actual delivery outcome
+
+---
+
+## AI Recommendation Lifecycle
+
+1. Project metadata submitted
+2. Backend builds feature payload
+3. ML engine performs inference
+4. Staffing & effort recommendations generated
+5. AI baselines stored
+6. PM adjusts planning before approval
+
+---
+
+## Change Request Lifecycle
+
+1. PM creates CR
+2. AM reviews CR
+3. Approved CRs:
+
+   * increment current planning
+   * preserve baselines
+4. Analytics reflect cumulative impact
+
+---
+
+# Machine Learning Overview
+
+The ML engine learns from:
+
+* historical projects
+* staffing snapshots
+* CR history
+* delivery outcomes
+
+to generate:
+
+* staffing recommendations
+* effort predictions
+* risk indicators
+
+---
+
+# ML Lifecycle
+
+```text
+Operational Tables
+        ↓
+Historical Extraction
+        ↓
+CSV Preparation
+        ↓
+Feature Engineering
+        ↓
+Training Dataset Generation
+        ↓
+Model Training
+        ↓
+Serialized Model Artifacts
+        ↓
+Inference APIs
+        ↓
+AI Recommendations
+```
+
+---
+
+# Repository Structure
 
 ```text
 predictive-planner/
-|-- frontend/        # React application
-|-- backend-node/    # Express API and MySQL integration
-|-- ml-service/      # FastAPI ML service and training scripts
-`-- README.md
+│
+├── frontend/             # React application
+│
+├── backend-node/         # Express APIs & workflow engine
+│
+├── ml-service/           # FastAPI ML service & training scripts
+│
+├── database/
+│   └── predictive_planner_v2.sql
+│
+└── README.md
 ```
 
-## Prerequisites
+---
 
-Install these before running the app locally:
+# Prerequisites
 
-- Node.js 18+ and npm
-- Python 3.10+ with `pip`
-- MySQL 8+ or compatible
+Install these before running locally:
 
-## Installation
+* Node.js 18+
+* npm
+* Python 3.10+
+* MariaDB/MySQL 8+
+* Git
 
-### 1. Clone the repository
+---
+
+# Installation
+
+## 1. Clone Repository
 
 ```bash
 git clone <your-repo-url>
 cd predictive-planner
 ```
 
-### 2. Install frontend dependencies
+---
+
+## 2. Database Setup
+
+Create database:
+
+```sql
+CREATE DATABASE predictive_planner;
+```
+
+Import schema:
+
+```bash
+mysql -u root -p predictive_planner < predictive_planner_v2.sql
+```
+
+The SQL dump contains:
+
+* workflow tables
+* analytics fields
+* baseline fields
+* snapshot tables
+* role masters
+* ML operational tables
+
+---
+
+## 3. Frontend Setup
 
 ```bash
 cd frontend
 npm install
-cd ..
 ```
 
-### 3. Install backend dependencies
+Create `.env`:
+
+```env
+REACT_APP_NODE_API_URL=http://localhost:3001
+REACT_APP_ML_API_URL=http://127.0.0.1:8000
+```
+
+Run frontend:
 
 ```bash
-cd backend-node
-npm install
-cd ..
-```
-
-### 4. Install ML dependencies
-
-There is no `requirements.txt` yet, so install the Python packages directly.
-
-```bash
-cd ml-service
-python -m venv .venv
-```
-
-Activate the virtual environment:
-
-Windows PowerShell:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-```
-
-macOS/Linux:
-
-```bash
-source .venv/bin/activate
-```
-
-Install packages:
-
-```bash
-pip install fastapi uvicorn pandas numpy scikit-learn joblib
-cd ..
-```
-
-## Database Setup
-
-### Current schema
-
-The schema below matches the fields currently used by the running code. This is different from the old README in a few important ways:
-
-- `frontend/` is now React, not static HTML
-- the backend runs on port `3001`, not `3000`
-- `project_progress.tasks_completed` should be `TEXT`, not an integer
-- `resources` must include `role` and `technology` for team recommendation to work
-
-Run the following in MySQL:
-
-```sql
-CREATE DATABASE IF NOT EXISTS predictive_planner;
-USE predictive_planner;
-
-CREATE TABLE users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    email VARCHAR(100) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL,
-    role ENUM('admin', 'pm', 'leadership') NOT NULL
-);
-
-CREATE TABLE projects (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    business_unit VARCHAR(100) NOT NULL,
-    technology VARCHAR(100) NOT NULL,
-    complexity INT NOT NULL,
-    team_size INT NOT NULL,
-    estimated_hours FLOAT NOT NULL,
-    predicted_hours FLOAT DEFAULT NULL,
-    avg_experience FLOAT NOT NULL,
-    technology_score FLOAT NOT NULL,
-    created_by INT NOT NULL,
-    CONSTRAINT fk_projects_created_by
-        FOREIGN KEY (created_by) REFERENCES users(id)
-);
-
-CREATE TABLE change_request (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    project_id INT NOT NULL,
-    description TEXT NOT NULL,
-    impact_hours FLOAT NOT NULL,
-    status VARCHAR(50) NOT NULL DEFAULT 'OPEN',
-    created_by INT NOT NULL,
-    CONSTRAINT fk_change_requests_project
-        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-    CONSTRAINT fk_change_requests_created_by
-        FOREIGN KEY (created_by) REFERENCES users(id)
-);
-
-CREATE TABLE project_progress (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    project_id INT NOT NULL,
-    date DATE NOT NULL,
-    effort_spent FLOAT NOT NULL,
-    tasks_completed TEXT NOT NULL,
-    CONSTRAINT fk_project_progress_project
-        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
-);
-
-CREATE TABLE resources (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    role VARCHAR(50) NOT NULL,
-    technology VARCHAR(100) NULL,
-    experience_years FLOAT NOT NULL,
-    availability INT NOT NULL,
-    cost_per_hour FLOAT DEFAULT NULL
-);
-```
-
-### Seed demo data
-
-These records line up with the current React login screen and the backend role handling.
-
-```sql
-INSERT INTO users (name, email, password, role) VALUES
-('Admin User', 'admin@example.com', 'password', 'admin'),
-('PM User', 'pm@example.com', 'password', 'pm'),
-('Leadership User', 'leadership@example.com', 'password', 'leadership');
-
-INSERT INTO resources (name, role, technology, experience_years, availability, cost_per_hour) VALUES
-('Ava React Dev', 'Developer', 'react', 6, 80, 75),
-('Victor Vue Dev', 'Developer', 'vue', 5, 70, 72),
-('Anika Angular Dev', 'Developer', 'angular', 6, 65, 78),
-('Noah Node Dev', 'Developer', 'node', 5, 85, 74),
-('Priya Python Dev', 'Developer', 'python', 7, 75, 82),
-('Jay Java Dev', 'Developer', 'java', 8, 70, 88),
-('Dina DotNet Dev', 'Developer', 'dotnet', 6, 68, 80),
-('Quinn QA', 'QA', NULL, 5, 80, 45),
-('Ethan BA', 'BA', NULL, 6, 75, 55),
-('Olivia PM', 'PM', NULL, 8, 60, 95),
-('Mia UX', 'UX', NULL, 5, 70, 58),
-('Lucas UI', 'UI', NULL, 4, 78, 52);
-```
-
-Important notes for `resources`:
-
-- `role` values should match the backend logic exactly: `Developer`, `QA`, `BA`, `PM`, `UX`, `UI`
-- developer `technology` values should match project technology values exactly: `react`, `vue`, `angular`, `node`, `python`, `java`, `dotnet`
-- if a project needs more developers than you have matching resource rows, the recommendation will return a smaller team than desired
-
-## Configuration
-
-### Service URLs and CORS
-
-The frontend, backend, and ML service are now environment-driven for service discovery and cross-origin access.
-
-| Layer | Setting | Example value | Purpose |
-| --- | --- | --- | --- |
-| Frontend | `REACT_APP_NODE_API_URL` | `http://localhost:3001` | Backend base URL used by the React app |
-| Frontend | `REACT_APP_ML_API_URL` | `http://127.0.0.1:8000` | ML base URL for future/direct frontend calls |
-| Backend | `ML_API_URL` | `http://127.0.0.1:8000` | ML base URL used by the Node API |
-| Backend | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated browser origins allowed to call the backend |
-| Backend | `PORT` | `3001` | Express listen port |
-| Backend | `DB_HOST` | `localhost` | MySQL host name |
-| Backend | `DB_PORT` | `3306` | MySQL port |
-| Backend | `DB_USER` | `root` | MySQL user name |
-| Backend | `DB_PASSWORD` | `` | MySQL password |
-| Backend | `DB_NAME` | `predictive_planner` | MySQL database name |
-| ML service | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000,http://localhost:3001` | Comma-separated browser origins allowed to call the ML API |
-
-Frontend notes:
-
-- Copy [frontend/.env.example](/C:/OurWorkspace/Dipanjan/AI/predictive-planner/frontend/.env.example) to `frontend/.env` for local development.
-- `REACT_APP_NODE_API_URL` is the URL the current UI actively uses.
-- `REACT_APP_ML_API_URL` is still useful for future/direct browser calls and keeps the deployment config explicit.
-
-Backend and ML notes:
-
-- Use [backend-node/.env.example](/C:/OurWorkspace/Dipanjan/AI/predictive-planner/backend-node/.env.example) and [ml-service/.env.example](/C:/OurWorkspace/Dipanjan/AI/predictive-planner/ml-service/.env.example) as references.
-- The backend now auto-loads `backend-node/.env` when present and still prefers real environment variables from the shell, Azure App Settings, or container runtime.
-- `CORS_ALLOWED_ORIGINS` accepts a comma-separated list such as `https://predictive-planner-frontend.azurewebsites.net,https://predictive-planner-backend.azurewebsites.net`.
-
-### Backend database connection
-
-The backend MySQL connection now reads from environment variables in [backend-node/index.js](/C:/OurWorkspace/Dipanjan/AI/predictive-planner/backend-node/index.js). Supported names are:
-
-- `DB_HOST` or `MYSQL_HOST`
-- `DB_PORT` or `MYSQL_PORT`
-- `DB_USER`, `DB_USERNAME`, or `MYSQL_USER`
-- `DB_PASSWORD` or `MYSQL_PASSWORD`
-- `DB_NAME` or `MYSQL_DATABASE`
-
-If none are provided, the backend falls back to `localhost`, `3306`, `root`, an empty password, and `predictive_planner`.
-
-## Running the Application
-
-Start the services in this order.
-
-### 1. Run the ML service
-
-```bash
-cd ml-service
-python train.py
-uvicorn main:app --reload --host 127.0.0.1 --port 8000
-```
-
-What this does:
-
-- `python train.py` trains a demo model from `project_data.csv` and creates `model.pkl`
-- `uvicorn main:app --reload` starts the FastAPI service used by the backend
-
-Optional PowerShell env setup before starting it:
-
-```powershell
-$env:CORS_ALLOWED_ORIGINS="http://localhost:3000,http://localhost:3001"
-```
-
-ML service URL:
-
-```text
-http://127.0.0.1:8000
-```
-
-### 2. Run the Node.js backend
-
-In a second terminal:
-
-```powershell
-cd backend-node
-$env:ML_API_URL="http://127.0.0.1:8000"
-$env:CORS_ALLOWED_ORIGINS="http://localhost:3000"
-$env:DB_HOST="localhost"
-$env:DB_PORT="3306"
-$env:DB_USER="root"
-$env:DB_PASSWORD=""
-$env:DB_NAME="predictive_planner"
-node index.js
-```
-
-Optional development mode:
-
-```powershell
-cd backend-node
-$env:ML_API_URL="http://127.0.0.1:8000"
-$env:CORS_ALLOWED_ORIGINS="http://localhost:3000"
-npm run dev
-```
-
-Backend URL:
-
-```text
-http://localhost:3001
-```
-
-### 3. Run the React frontend
-
-In a third terminal:
-
-```bash
-cd frontend
 npm start
-```
-
-Optional local config:
-
-```bash
-cp .env.example .env
 ```
 
 Frontend URL:
@@ -334,122 +338,355 @@ Frontend URL:
 http://localhost:3000
 ```
 
-Open the app in a browser:
+---
 
-```text
-http://localhost:3000/login
+## 4. Backend Setup
+
+```bash
+cd backend-node
+npm install
 ```
 
-## Azure Deployment Settings
+Create `.env`:
 
-Use the same environment variable names in Azure App Service, Container Apps, or Web App configuration.
+```env
+PORT=3001
 
-Example values:
-
-```text
-Frontend
-REACT_APP_NODE_API_URL=https://predictive-planner-api.azurewebsites.net
-REACT_APP_ML_API_URL=https://predictive-planner-ml.azurewebsites.net
-
-Backend
-ML_API_URL=https://predictive-planner-ml.azurewebsites.net
-CORS_ALLOWED_ORIGINS=https://predictive-planner-frontend.azurewebsites.net
-DB_HOST=your-mysql-host.mysql.database.azure.com
+DB_HOST=localhost
 DB_PORT=3306
-DB_USER=your-db-user
-DB_PASSWORD=your-db-password
+DB_USER=root
+DB_PASSWORD=
 DB_NAME=predictive_planner
 
-ML service
-CORS_ALLOWED_ORIGINS=https://predictive-planner-frontend.azurewebsites.net,https://predictive-planner-api.azurewebsites.net
+JWT_SECRET=your_secret
+
+ML_API_URL=http://127.0.0.1:8000
+
+CORS_ALLOWED_ORIGINS=http://localhost:3000
 ```
 
-Deployment guidance:
+Run backend:
 
-- Set the frontend app URL in the backend `CORS_ALLOWED_ORIGINS`.
-- Set the frontend app URL in the ML `CORS_ALLOWED_ORIGINS` if the browser will ever call the ML API directly.
-- Point backend `ML_API_URL` to the public or internal Azure URL of the deployed ML service.
-- Rebuild the React frontend after changing `REACT_APP_*` values because Create React App embeds them at build time.
+```bash
+npm run dev
+```
 
-## Demo Login Accounts
+or:
 
-| Role | Email | Password |
-| --- | --- | --- |
-| Admin | `admin@example.com` | `password` |
-| PM | `pm@example.com` | `password` |
-| Leadership | `leadership@example.com` | `password` |
+```bash
+node index.js
+```
 
-## How to Use the App
+Backend URL:
 
-### Project manager / admin flow
+```text
+http://localhost:3001
+```
 
-1. Log in with a PM or admin account.
-2. Open `Projects` to view the current portfolio.
-3. Open `Create Project` and enter:
-   - project name
-   - business unit
-   - technology
-   - complexity
-   - team size
-   - estimated hours
-   - average experience
-   - technology score
-4. Submit the form to create the project and store the ML prediction.
-5. From the project list, use:
-   - `Progress` to record delivery updates and request a final effort forecast
-   - `Change Request` to log scope change and refresh the prediction
-   - `Team` to fetch a recommended team composition
+---
 
-### Leadership flow
+## 5. ML Service Setup
 
-1. Log in with a leadership account.
-2. Open the dashboard to review:
-   - project counts
-   - estimated vs predicted effort
-   - business unit distribution
-   - risk badges derived from variance
+```bash
+cd ml-service
 
-## API Summary
+python -m venv .venv
+```
 
-### Backend endpoints
+Activate environment:
 
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| `GET` | `/` | Health check |
-| `POST` | `/login` | User login |
-| `GET` | `/projects` | List projects and computed variance |
-| `POST` | `/projects` | Create project and call ML prediction |
-| `POST` | `/change-request` | Create a change request and update prediction |
-| `POST` | `/progress` | Save progress data |
-| `GET` | `/project-delay/:id` | Predict final effort from progress history |
-| `GET` | `/recommend-team/:projectId` | Recommend team composition from project + resources |
+### Windows PowerShell
 
-### ML endpoints
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
 
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| `GET` | `/` | Health check |
-| `POST` | `/predict` | Predict project effort |
-| `POST` | `/predict-delay` | Forecast final effort from progress history |
+### macOS/Linux
 
-## Development Notes
+```bash
+source .venv/bin/activate
+```
 
-- The backend currently stores and compares passwords in plain text. That is acceptable only for local demo use.
-- If MySQL is unavailable, `GET /projects` falls back to sample project rows. Other DB-backed operations still require a working database.
-- The team recommendation logic uses `predicted_hours / 160` to estimate the number of developers needed.
-- The progress forecast is a simple linear regression over submitted `effort_spent` values and should be treated as a demo model, not production forecasting.
+Install dependencies:
 
-## Troubleshooting
+```bash
+pip install fastapi uvicorn pandas numpy scikit-learn joblib
+```
 
-- Login fails: confirm the demo users were inserted into `users` and the backend is pointed at the correct MySQL instance.
-- Project creation returns `ML service error`: make sure `python train.py` was run and `ML_API_URL` points to a reachable FastAPI deployment.
-- Team recommendation is empty: check that `resources.role` values match the backend values exactly and that developer `technology` matches the project technology.
-- Frontend cannot reach backend: verify `REACT_APP_NODE_API_URL`, make sure the backend `CORS_ALLOWED_ORIGINS` contains the frontend origin, then rebuild or restart the frontend.
-- Browser gets CORS errors against the ML API: add the frontend origin to the ML service `CORS_ALLOWED_ORIGINS`.
+---
 
-## Future Improvements
+## 6. Train ML Models
 
-- Add migrations and seed scripts
-- Add `requirements.txt` for the ML service
-- Hash passwords and add proper auth tokens/session handling
-- Improve ML models and retraining workflow
+```bash
+python train.py
+```
+
+Training pipeline:
+
+* extracts historical data
+* prepares datasets
+* performs feature engineering
+* trains staffing & effort models
+* persists model artifacts
+
+---
+
+## 7. Start ML Service
+
+```bash
+uvicorn main:app --reload --host 127.0.0.1 --port 8000
+```
+
+ML service URL:
+
+```text
+http://127.0.0.1:8000
+```
+
+---
+
+# Startup Sequence
+
+Start services in this order:
+
+```text
+1. MariaDB
+2. ML Service
+3. Backend APIs
+4. Frontend
+```
+
+---
+
+# Demo Login Accounts
+
+| Role       | Email                                                   | Password |
+| ---------- | ------------------------------------------------------- | -------- |
+| PM         | [pm@example.com](mailto:pm@test.com)                 | password |
+| Leadership | [leadership@example.com](mailto:leadership@test.com) | password |
+
+---
+
+# Operational Dashboard
+
+The operational dashboard provides:
+
+* active project visibility
+* pending approvals
+* returned items
+* CR operational tracking
+* workflow queues
+
+### PM Visibility
+
+PMs can access:
+
+* own projects
+* own CRs
+* own operational queues
+
+### AM Visibility
+
+AMs can access:
+
+* approved projects
+* approval queues
+* governance operational visibility
+
+---
+
+# Analytics Dashboard
+
+The analytics dashboard compares:
+
+| Metric Type  | Description                   |
+| ------------ | ----------------------------- |
+| AI Baseline  | AI-generated recommendation   |
+| PM Baseline  | approved PM plan              |
+| Current Plan | baseline + approved CR impact |
+| Actuals      | final delivery outcomes       |
+
+Variance analytics include:
+
+* effort variance
+* budget variance
+* staffing variance
+
+Severity indicators:
+
+* NORMAL
+* MEDIUM
+* HIGH
+* URGENT
+
+---
+
+# API Summary
+
+## Backend APIs
+
+| Method | Endpoint                     | Purpose                 |
+| ------ | ---------------------------- | ----------------------- |
+| POST   | `/login`                     | user authentication     |
+| GET    | `/projects`                  | project listing         |
+| POST   | `/projects`                  | create project          |
+| PUT    | `/projects/:id`              | edit project            |
+| POST   | `/change-request`            | create CR               |
+| POST   | `/progress`                  | save project progress   |
+| GET    | `/analytics`                 | analytics dashboard     |
+| GET    | `/operational-dashboard`     | operational dashboard   |
+| GET    | `/recommend-team/:projectId` | staffing recommendation |
+
+---
+
+## ML APIs
+
+| Method | Endpoint         | Purpose           |
+| ------ | ---------------- | ----------------- |
+| POST   | `/predict`       | AI recommendation |
+| POST   | `/predict-delay` | delivery forecast |
+| GET    | `/health`        | ML service health |
+
+---
+
+# Security Model
+
+Authentication:
+
+* JWT-based authentication
+
+Authorization:
+
+* role-based access control
+
+Roles:
+
+* Admin
+* PM
+* AM / Leadership
+
+Visibility filtering is enforced server-side.
+
+---
+
+# AWS / Azure Deployment
+
+The platform is cloud-ready.
+
+Recommended deployment topology:
+
+```text
+Users
+   ↓
+Load Balancer
+   ↓
+React Frontend
+   ↓
+Node.js Backend APIs
+   ↓
+MariaDB + Python ML Service
+```
+
+Recommended services:
+
+* EC2 / ECS
+* RDS MariaDB
+* S3 + CloudFront
+* CloudWatch
+
+---
+
+# Development Notes
+
+* Baselines are immutable after approval.
+* Approved CRs modify current planning only.
+* Resource loading drives planned effort and budget.
+* ML recommendations are advisory and preserved separately from PM plans.
+* Analytics compare:
+
+  * AI baseline
+  * PM baseline
+  * current plan
+  * actuals
+
+---
+
+# Troubleshooting
+
+## Cannot GET /api/...
+
+Usually caused by:
+
+* backend not restarted
+* incorrect route registration
+* wrong API URL
+
+---
+
+## ML Recommendation Issues
+
+Potential causes:
+
+* model artifacts missing
+* inference feature mismatch
+* incorrect payload mapping
+
+---
+
+## Empty Team Recommendations
+
+Potential causes:
+
+* insufficient staffing history
+* missing role mappings
+* feature engineering mismatch
+
+---
+
+## CORS Issues
+
+Verify:
+
+* frontend origin added to backend `CORS_ALLOWED_ORIGINS`
+* frontend rebuilt after `.env` updates
+
+---
+
+# Future Enhancements
+
+Potential roadmap:
+
+* portfolio analytics
+* resource forecasting
+* utilization forecasting
+* delivery risk scoring
+* cloud-native deployment
+* Kubernetes orchestration
+* advanced ML models
+
+---
+
+# Design Principles
+
+The platform is built around:
+
+* predictive governance
+* immutable baselines
+* historical delivery intelligence
+* workflow-driven approvals
+* analytics-first visibility
+* modular architecture
+
+---
+
+# Conclusion
+
+Predictive Planner demonstrates how:
+
+* AI-driven planning
+* workflow governance
+* operational visibility
+* delivery analytics
+* historical intelligence
+
+can be unified into a scalable enterprise project planning ecosystem.
