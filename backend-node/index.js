@@ -10,7 +10,9 @@ const crRoutes = require("./src/routes/cr.routes");
 const crController = require("./src/controllers/cr.controller");
 const masterDataRoutes = require("./src/routes/masterData.routes");
 const analyticsRoutes = require("./src/routes/analytics.routes");
+const analyticsController = require("./src/controllers/analytics.controller");
 const resourceRoutes = require("./src/routes/resource.routes");
+const operationalDashboardRoutes = require("./src/routes/operationalDashboard.routes");
 const projectRepository = require("./src/repositories/project.repository");
 const { authenticateToken } = require("./src/middleware/auth.middleware");
 const { pool: db, DB_CONFIG } = require("./src/config/db.config");
@@ -61,13 +63,13 @@ const sampleProjects = [
     id: 1,
     name: "Sample Project A",
     business_unit: "Operations",
-    predicted_hours: 120
+    estimated_hours: 120
   },
   {
     id: 2,
     name: "Sample Project B",
     business_unit: "Technology",
-    predicted_hours: 210
+    estimated_hours: 210
   }
 ];
 
@@ -112,6 +114,8 @@ app.use('/api/cr', crRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/crs', crRoutes);
 app.use('/api/master-data', masterDataRoutes);
+app.use('/api/operational-dashboard', operationalDashboardRoutes);
+app.get('/api/analytics/variance-dashboard', authenticateToken, analyticsController.varianceDashboard);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/resources', resourceRoutes);
 
@@ -172,7 +176,7 @@ app.get("/recommend-team/:projectId", async (req, res) => {
       if (err) return res.status(500).send(err);
 
       const requiredRoles = {
-        Developer: Math.ceil((project.predicted_hours || 0) / 160),
+        Developer: Math.ceil((project.estimated_hours || 0) / 160),
         QA: 1,
         BA: 1,
         PM: 1,
@@ -204,7 +208,7 @@ app.get("/recommend-team/:projectId", async (req, res) => {
       res.json({
         project: project.name,
         technology: project.technology,
-        predicted_hours: project.predicted_hours,
+        estimated_hours: project.estimated_hours,
         team_composition: requiredRoles,
         recommended_team_size: totalTeamSize,
         team,

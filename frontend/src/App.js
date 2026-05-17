@@ -4,6 +4,7 @@ import DefaultLayout from './layouts/DefaultLayout';
 import Dashboard from './pages/Dashboard';
 import ProjectDetails from './pages/ProjectDetails';
 import CreateProjectPage from './pages/project/CreateProjectPage';
+import CompleteProjectPage from './pages/project/CompleteProjectPage';
 import ProjectListPage from './pages/project/ProjectListPage';
 import CRListPage from './pages/cr/CRListPage';
 import CreateCRPage from './pages/cr/CreateCRPage';
@@ -50,6 +51,7 @@ function App() {
           <Route path="projects" element={<ProjectListPage />} />
           <Route path="projects/create" element={<CreateProjectPage />} />
           <Route path="projects/edit/:draftId" element={<CreateProjectPage />} />
+          <Route path="projects/complete/:projectId" element={<CompleteProjectPage />} />
           <Route path="projects/view/:projectId" element={<ProjectDetails />} />
           <Route path="projects/:projectId" element={<ProjectDetails />} />
           <Route path="crs" element={<CRListPage />} />

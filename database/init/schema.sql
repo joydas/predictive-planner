@@ -104,6 +104,21 @@ CREATE TABLE project (
   planned_effort DECIMAL(12,2) NULL DEFAULT 0,
   budget DECIMAL(14,2) NULL DEFAULT 0,
   predicted_hours DECIMAL(12,2) NULL DEFAULT 0,
+  ai_baseline_effort DECIMAL(12,2) NULL DEFAULT NULL,
+  ai_baseline_budget DECIMAL(14,2) NULL DEFAULT NULL,
+  ai_baseline_team_size DECIMAL(10,2) NULL DEFAULT NULL,
+  pm_baseline_effort DECIMAL(12,2) NULL DEFAULT NULL,
+  pm_baseline_budget DECIMAL(14,2) NULL DEFAULT NULL,
+  pm_baseline_team_size DECIMAL(10,2) NULL DEFAULT NULL,
+  current_planned_effort DECIMAL(12,2) NOT NULL DEFAULT 0,
+  current_planned_budget DECIMAL(14,2) NOT NULL DEFAULT 0,
+  current_planned_team_size DECIMAL(10,2) NOT NULL DEFAULT 0,
+  actual_effort DECIMAL(12,2) NULL DEFAULT NULL,
+  actual_budget DECIMAL(14,2) NULL DEFAULT NULL,
+  actual_team_size DECIMAL(10,2) NULL DEFAULT NULL,
+  total_cr_effort_impact DECIMAL(12,2) NOT NULL DEFAULT 0,
+  total_cr_budget_impact DECIMAL(14,2) NOT NULL DEFAULT 0,
+  total_cr_team_impact DECIMAL(10,2) NOT NULL DEFAULT 0,
   approved_data JSON NOT NULL,
   approved_by_user_id BIGINT UNSIGNED NULL,
   approved_at TIMESTAMP NULL DEFAULT NULL,
@@ -134,6 +149,44 @@ CREATE TABLE project_team_snapshot (
   PRIMARY KEY (team_snapshot_id),
   INDEX idx_project_team_snapshot_project (project_id),
   INDEX idx_project_team_snapshot_role (role_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE project_completion_history (
+  completion_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  project_id BIGINT UNSIGNED NOT NULL,
+  source_draft_id BIGINT UNSIGNED NOT NULL,
+  completed_by_user_id BIGINT UNSIGNED NOT NULL,
+  final_resource_loading JSON NOT NULL,
+  management_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
+  contingency_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
+  resource_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
+  full_project_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
+  dependency_count DECIMAL(10,2) NULL DEFAULT NULL,
+  requirement_stability_index DECIMAL(10,2) NULL DEFAULT NULL,
+  actual_cr_volatility VARCHAR(50) NULL DEFAULT NULL,
+  risk_level_indicators JSON NULL,
+  completion_payload JSON NOT NULL,
+  completed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (completion_id),
+  INDEX idx_project_completion_project (project_id),
+  INDEX idx_project_completion_draft (source_draft_id),
+  INDEX idx_project_completion_completed_at (completed_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE project_completion_resource_loading (
+  completion_resource_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  completion_id BIGINT UNSIGNED NOT NULL,
+  project_id BIGINT UNSIGNED NOT NULL,
+  role VARCHAR(100) NOT NULL,
+  location VARCHAR(100) NOT NULL,
+  resource_count DECIMAL(10,2) NOT NULL DEFAULT 0,
+  rate DECIMAL(14,2) NOT NULL DEFAULT 0,
+  effort DECIMAL(14,2) NOT NULL DEFAULT 0,
+  actual_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (completion_resource_id),
+  INDEX idx_completion_resource_completion (completion_id),
+  INDEX idx_completion_resource_project (project_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE resource_master (
@@ -200,6 +253,9 @@ CREATE TABLE change_request (
   schedule_impact_days DECIMAL(10,2) NULL DEFAULT 0,
   estimated_effort_hours DECIMAL(12,2) NULL DEFAULT 0,
   estimated_cost_impact DECIMAL(14,2) NULL DEFAULT 0,
+  effort_impact DECIMAL(12,2) NOT NULL DEFAULT 0,
+  budget_impact DECIMAL(14,2) NOT NULL DEFAULT 0,
+  team_size_impact DECIMAL(10,2) NOT NULL DEFAULT 0,
   dependency_impact TEXT NULL,
   environments_affected VARCHAR(255) NULL,
   additional_pm_count DECIMAL(10,2) NULL DEFAULT 0,

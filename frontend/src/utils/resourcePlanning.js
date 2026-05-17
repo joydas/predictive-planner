@@ -6,12 +6,27 @@ export function parseNumber(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-export function getInclusiveDays(startDate, endDate) {
+export function getWorkingDays(startDate, endDate) {
   const start = parseBackendDate(startDate);
   const end = parseBackendDate(endDate);
   if (!start || !end || end.isBefore(start, 'day')) return 0;
-  return end.diff(start, 'day') + 1;
+
+  let current = start.startOf('day');
+  const last = end.startOf('day');
+  let workingDays = 0;
+
+  while (!current.isAfter(last, 'day')) {
+    const day = current.day();
+    if (day !== 0 && day !== 6) {
+      workingDays += 1;
+    }
+    current = current.add(1, 'day');
+  }
+
+  return workingDays;
 }
+
+export const getInclusiveDays = getWorkingDays;
 
 export function getRateForRole(roleId, locationType, rateCards = []) {
   const match = (rateCards || []).find((card) =>
@@ -25,15 +40,16 @@ export function deriveResourcePlanning({ rows = [], financial = {}, rateCards = 
     const count = parseNumber(row.count, 0);
     const allocationPercent = parseNumber(row.allocationPercent ?? row.allocation ?? 100, 0);
     const ratePerDay = parseNumber(row.ratePerDay, getRateForRole(row.roleId, row.locationType, rateCards));
-    const durationDays = getInclusiveDays(row.startDate, row.endDate);
-    const effort = count * (allocationPercent / 100) * durationDays;
+    const workingDays = getWorkingDays(row.startDate, row.endDate);
+    const effort = count * (allocationPercent / 100) * workingDays;
     const cost = effort * ratePerDay;
 
     return {
       ...row,
       allocationPercent,
       ratePerDay,
-      durationDays,
+      durationDays: workingDays,
+      workingDays,
       plannedEffort: effort,
       plannedCost: cost,
     };

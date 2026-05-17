@@ -1,5 +1,5 @@
 import { CFormInput } from '@coreui/react';
-import { formatApiDate, formatDisplayDate } from '../../utils/dateUtils';
+import { formatApiDate } from '../../utils/dateUtils';
 
 const DateDisplayInput = ({ value, onChange, invalid, min, max }) => {
   return (

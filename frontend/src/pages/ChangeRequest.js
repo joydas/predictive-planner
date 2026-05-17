@@ -48,7 +48,6 @@ const ChangeRequest = () => {
     comment: '',
   });
   const [showSuccess, setShowSuccess] = useState(false);
-  const [newPrediction, setNewPrediction] = useState(null);
   const [apiMessage, setApiMessage] = useState('');
   const [submitError, setSubmitError] = useState('');
   const [formErrors, setFormErrors] = useState({});
@@ -135,7 +134,6 @@ const ChangeRequest = () => {
     });
     setFormErrors({});
     setApiMessage('');
-    setNewPrediction(null);
     setSubmitError('');
     setShowSuccess(false);
   };
@@ -161,7 +159,6 @@ const ChangeRequest = () => {
         comment: formData.comment.trim(),
       });
 
-      setNewPrediction(data.new_prediction ?? null);
       setApiMessage(data.message || 'Change request created successfully');
       setShowSuccess(true);
       await loadChangeRequests();
@@ -228,11 +225,6 @@ const ChangeRequest = () => {
             {showSuccess && (
               <CAlert color="success">
                 <strong>{apiMessage}</strong>
-                {newPrediction !== null && (
-                  <div className="mt-2">
-                    Updated Predicted Hours: <strong>{newPrediction}h</strong>
-                  </div>
-                )}
               </CAlert>
             )}
             {submitError && (

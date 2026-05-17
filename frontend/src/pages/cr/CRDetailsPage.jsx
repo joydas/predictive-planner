@@ -79,7 +79,9 @@ const CRDetailsPage = () => {
 
   const status = String(changeRequest.workflowStatus || changeRequest.status || 'DRAFT').toUpperCase();
   const isPm = String(authService.getUserRole() || '').toUpperCase() === 'PM';
-  const canEdit = isPm && ['DRAFT', 'RETURNED'].includes(status);
+  const canEdit = isPm
+    && ['DRAFT', 'RETURNED'].includes(status)
+    && String(changeRequest.projectWorkflowStatus || '').toUpperCase() !== 'COMPLETE';
 
   return (
     <div className="fade-in">

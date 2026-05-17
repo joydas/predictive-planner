@@ -11,6 +11,7 @@ const CR_SELECT = `
   cr.project_id AS projectId,
   CONCAT('PRJ-', LPAD(cr.project_id, 6, '0')) AS projectCode,
   p.project_name AS projectName,
+  pd.workflow_status AS projectWorkflowStatus,
   cr.cr_title AS title,
   COALESCE(cr.cr_description, cr.root_cause) AS description,
   cr.cr_category AS category,
@@ -20,6 +21,9 @@ const CR_SELECT = `
   cr.schedule_impact_days AS scheduleImpactDays,
   cr.estimated_effort_hours AS estimatedEffortHours,
   cr.estimated_cost_impact AS estimatedCostImpact,
+  cr.effort_impact AS effortImpact,
+  cr.budget_impact AS budgetImpact,
+  cr.team_size_impact AS teamSizeImpact,
   cr.dependency_impact AS dependencyImpact,
   cr.environments_affected AS environmentsAffected,
   cr.additional_pm_count AS additionalPmCount,
@@ -53,6 +57,9 @@ const writableColumns = `
   schedule_impact_days = ?,
   estimated_effort_hours = ?,
   estimated_cost_impact = ?,
+  effort_impact = ?,
+  budget_impact = ?,
+  team_size_impact = ?,
   dependency_impact = ?,
   environments_affected = ?,
   additional_pm_count = ?,
@@ -78,6 +85,9 @@ function payloadValues(crData) {
     crData.scheduleImpactDays,
     crData.estimatedEffortHours,
     crData.estimatedCostImpact,
+    crData.effortImpact,
+    crData.budgetImpact,
+    crData.teamSizeImpact,
     crData.dependencyImpact,
     crData.environmentsAffected,
     crData.additionalPmCount,
@@ -132,6 +142,7 @@ async function getChangeRequestById(crId) {
       SELECT ${CR_SELECT}
       FROM change_request cr
       INNER JOIN project p ON p.project_id = cr.project_id
+      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
       WHERE cr.cr_id = ?
       LIMIT 1
     `,
@@ -141,6 +152,53 @@ async function getChangeRequestById(crId) {
   return rows[0] || null;
 }
 
+async function getChangeRequestForUpdate(connection, crId) {
+  const [rows] = await connection.query(
+    `
+      SELECT ${CR_SELECT}
+      FROM change_request cr
+      INNER JOIN project p ON p.project_id = cr.project_id
+      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
+      WHERE cr.cr_id = ?
+      LIMIT 1
+      FOR UPDATE
+    `,
+    [crId],
+  );
+
+  return rows[0] || null;
+}
+
+async function accumulateApprovedCrImpact(connection, changeRequest) {
+  const effortImpact = Number(changeRequest.effortImpact);
+  const budgetImpact = Number(changeRequest.budgetImpact);
+  const teamSizeImpact = Number(changeRequest.teamSizeImpact);
+  const [result] = await connection.query(
+    `
+      UPDATE project p
+      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
+      SET p.current_planned_effort = COALESCE(p.current_planned_effort, 0) + ?,
+          p.current_planned_budget = COALESCE(p.current_planned_budget, 0) + ?,
+          p.current_planned_team_size = COALESCE(p.current_planned_team_size, 0) + ?,
+          p.total_cr_effort_impact = COALESCE(p.total_cr_effort_impact, 0) + ?,
+          p.total_cr_budget_impact = COALESCE(p.total_cr_budget_impact, 0) + ?,
+          p.total_cr_team_impact = COALESCE(p.total_cr_team_impact, 0) + ?
+      WHERE p.project_id = ?
+        AND pd.workflow_status = 'APPROVED'
+    `,
+    [
+      effortImpact,
+      budgetImpact,
+      teamSizeImpact,
+      effortImpact,
+      budgetImpact,
+      teamSizeImpact,
+      changeRequest.projectId,
+    ],
+  );
+  return result.affectedRows > 0;
+}
+
 async function getChangeRequestsByProject(projectId) {
   await ensureCrSchema();
   const [rows] = await pool.promise().query(
@@ -148,6 +206,7 @@ async function getChangeRequestsByProject(projectId) {
       SELECT ${CR_SELECT}
       FROM change_request cr
       INNER JOIN project p ON p.project_id = cr.project_id
+      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
       WHERE cr.project_id = ?
       ORDER BY cr.updated_at DESC, cr.cr_id DESC
     `,
@@ -241,7 +300,9 @@ function mapCrListRow(row) {
     latestComment: row.latestComment || '-',
     updatedAt: row.updatedAt,
     createdAt: row.createdAt,
-    canEdit: ['DRAFT', 'RETURNED'].includes(row.currentStatus),
+    canEdit: ['DRAFT', 'RETURNED'].includes(row.currentStatus)
+      && String(row.projectWorkflowStatus || '').toUpperCase() !== 'COMPLETE',
+    projectWorkflowStatus: row.projectWorkflowStatus,
   };
 }
 
@@ -259,6 +320,7 @@ async function findCrsForPm(filters) {
       SELECT COUNT(*) AS totalRecords
       FROM change_request cr
       INNER JOIN project p ON p.project_id = cr.project_id
+      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
       WHERE ${where.sql}
     `,
     where.params,
@@ -270,6 +332,7 @@ async function findCrsForPm(filters) {
              COALESCE(cr.cr_code, CONCAT('CR-', LPAD(cr.cr_id, 6, '0'))) AS crNumber,
              cr.project_id AS projectId,
              p.project_name AS projectName,
+             pd.workflow_status AS projectWorkflowStatus,
              cr.cr_category AS category,
              cr.severity,
              cr.priority,
@@ -281,6 +344,7 @@ async function findCrsForPm(filters) {
              cr.updated_at AS updatedAt
       FROM change_request cr
       INNER JOIN project p ON p.project_id = cr.project_id
+      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
       WHERE ${where.sql}
       ORDER BY ${sortColumn} ${sortOrder}, cr.cr_id DESC
       LIMIT ? OFFSET ?
@@ -312,7 +376,9 @@ module.exports = {
   createDraft,
   ensureCrSchema,
   findCrsForPm,
+  accumulateApprovedCrImpact,
   getChangeRequestById,
+  getChangeRequestForUpdate,
   getChangeRequestsByProject,
   updateDraft,
 };

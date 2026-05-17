@@ -17,6 +17,7 @@ module.exports = {
   mlAccuracy: handler(() => analyticsService.getMlAccuracy(), 'ML accuracy'),
   projectRisk: handler(() => analyticsService.getProjectRisk(), 'project risk'),
   crTrends: handler(() => analyticsService.getCrTrends(), 'CR trend'),
+  varianceDashboard: handler((req) => analyticsService.getVarianceDashboard(req.user, req.query || {}), 'variance dashboard'),
   recordActualOutcome: handler(async (req) => {
     const affectedRows = await analyticsService.recordActualOutcome(req.body || {});
     return { message: 'Actual outcome captured', affectedRows };

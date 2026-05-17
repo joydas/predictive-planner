@@ -82,7 +82,7 @@ async function createProject(req, res) {
   try {
     const payload = req.body;
     const project = await projectService.submitProject(req.user, payload.projectData || payload, null, payload.comment);
-    return res.status(201).json({ message: 'Project created with prediction', projectId: project.projectId, predicted_hours: project.predicted_hours });
+    return res.status(201).json({ message: 'Project created', projectId: project.projectId });
   } catch (error) {
     console.error('Project creation failed:', error);
     return res.status(error.status || 500).json({ message: error.message || 'Failed to create project' });
@@ -172,6 +172,21 @@ async function getMlRecommendation(req, res) {
   }
 }
 
+async function completeProject(req, res) {
+  try {
+    const projectId = Number(req.params.id);
+    if (!projectId) {
+      return res.status(400).json({ message: 'Project id is required' });
+    }
+
+    const completion = await projectService.completeProject(projectId, req.user, req.body || {});
+    return res.json({ message: 'Project completed', completion });
+  } catch (error) {
+    console.error('Project completion failed:', error);
+    return res.status(error.status || 500).json({ message: error.message || 'Failed to complete project' });
+  }
+}
+
 function projectTransition(actionType) {
   return async (req, res) => {
     try {
@@ -202,6 +217,7 @@ module.exports = {
   getProject,
   getWorkflowHistory,
   getMlRecommendation,
+  completeProject,
   submitExistingProject: projectTransition('SUBMIT'),
   approveProject: projectTransition('APPROVE'),
   returnProject: projectTransition('RETURN'),

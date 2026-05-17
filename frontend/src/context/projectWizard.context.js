@@ -1,5 +1,16 @@
 import React, { createContext, useContext, useReducer, useMemo, useEffect } from 'react';
 
+const createDefaultTeamRow = () => ({
+  role: '',
+  roleId: '',
+  locationType: 'ONSITE',
+  count: 1,
+  allocationPercent: 100,
+  startDate: '',
+  endDate: '',
+  ratePerDay: '',
+});
+
 const initialState = {
   draftId: null,
   isDraftSaved: false,
@@ -20,7 +31,7 @@ const initialState = {
     milestone_count: '',
   },
   teamComposition: {
-    rows: [],
+    rows: [createDefaultTeamRow()],
   },
   technology: {
     technology_stack: '',
@@ -62,6 +73,7 @@ const initialState = {
 const ProjectWizardContext = createContext(null);
 
 function mergeWithInitialState(draft = {}) {
+  const draftRows = draft.teamComposition?.rows || [];
   return {
     ...initialState,
     ...draft,
@@ -76,12 +88,12 @@ function mergeWithInitialState(draft = {}) {
     teamComposition: {
       ...initialState.teamComposition,
       ...(draft.teamComposition || {}),
-      rows: (draft.teamComposition?.rows || initialState.teamComposition.rows).map((row) => ({
-        role: 'Developer',
-        roleId: row.roleId || '',
-        locationType: row.locationType || 'ONSITE',
-        count: 1,
+      rows: (draftRows.length ? draftRows : [createDefaultTeamRow()]).map((row) => ({
         ...row,
+        role: row.role || '',
+        roleId: row.roleId != null && row.roleId !== '' ? String(row.roleId) : '',
+        locationType: row.locationType || 'ONSITE',
+        count: row.count ?? 1,
         allocationPercent: row.allocationPercent ?? row.allocation ?? 100,
         startDate: row.startDate || '',
         endDate: row.endDate || '',
@@ -162,12 +174,26 @@ function reducer(state, action) {
         ...state,
         isDraftSaved: action.payload,
       };
-    case 'LOAD_DRAFT':
+    case 'LOAD_DRAFT': {
+      const loadedDraft = mergeWithInitialState(action.payload);
+      const preservedMasterData = {
+        ...loadedDraft.masterData,
+        ...state.masterData,
+      };
+      const preservedRateCards = preservedMasterData.rateCards?.length
+        ? preservedMasterData.rateCards
+        : loadedDraft.financial.rateCards;
       return {
-        ...mergeWithInitialState(action.payload),
+        ...loadedDraft,
+        masterData: preservedMasterData,
+        financial: {
+          ...loadedDraft.financial,
+          rateCards: preservedRateCards,
+        },
         draftId: action.draftId || state.draftId,
         isDraftSaved: true,
       };
+    }
     case 'RESET_WIZARD':
       return initialState;
     default:

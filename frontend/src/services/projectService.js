@@ -85,6 +85,15 @@ export async function transitionProject(projectId, action, comment) {
   return handleResponse(response);
 }
 
+export async function completeProject(projectId, payload) {
+  const response = await fetch(`${API_BASE_URL}/${projectId}/complete`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(response);
+}
+
 export async function listProjects(params = {}) {
   const searchParams = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {

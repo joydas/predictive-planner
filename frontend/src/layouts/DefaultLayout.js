@@ -24,7 +24,6 @@ import {
   cilReload,
   cilChart,
   cilSpeedometer,
-  cilPeople,
   cilX,
 } from '@coreui/icons';
 import CIcon from '@coreui/icons-react';
@@ -38,10 +37,10 @@ const SIDEBAR_STORAGE_KEY = 'layout.sidebarCollapsed';
 const navigationItems = [
   { icon: cilSpeedometer, label: 'Dashboard', to: '/dashboard' },
   { icon: cilChart, label: 'Analytics', to: '/analytics' },
-  { icon: cilPeople, label: 'Resources', to: '/resources' },
+  //{ icon: cilPeople, label: 'Resources', to: '/resources' },
   { icon: cilFolderOpen, label: 'My Projects', to: '/projects' },
   { icon: cilReload, label: 'My CRs', to: '/crs' },
-  { icon: cilPlus, label: 'Create CR', to: '/crs/create' },
+  //{ icon: cilPlus, label: 'Create CR', to: '/crs/create' },
   { icon: cilPlus, label: 'Create Project', to: '/projects/create' },
 ];
 

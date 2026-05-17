@@ -16,7 +16,6 @@ const CreateProject = () => {
   });
 
   const [showSuccess, setShowSuccess] = useState(false);
-  const [predictedHours, setPredictedHours] = useState(null);
   const [apiMessage, setApiMessage] = useState('');
   const [explanation, setExplanation] = useState('');
   const [submitError, setSubmitError] = useState('');
@@ -58,7 +57,6 @@ const CreateProject = () => {
     });
     setFormErrors({});
     setApiMessage('');
-    setPredictedHours(null);
     setExplanation('');
     setSubmitError('');
     setShowSuccess(false);
@@ -108,7 +106,6 @@ const CreateProject = () => {
         throw new Error(data.message || 'Failed to create project');
       }
 
-      setPredictedHours(data.predicted_hours ?? null);
       setExplanation(data.explanation || '');
       setApiMessage(data.message || 'Project created successfully');
       setShowSuccess(true);
@@ -141,8 +138,8 @@ const CreateProject = () => {
             {showSuccess && (
               <CAlert color="success" dismissible>
                 <strong>
-                  {predictedHours !== null && explanation
-                    ? `Project created with predicted hours: ${predictedHours}h and explanation: ${explanation}`
+                  {explanation
+                    ? `Project created. Explanation: ${explanation}`
                     : apiMessage
                   }
                 </strong>

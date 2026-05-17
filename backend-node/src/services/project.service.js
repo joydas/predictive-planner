@@ -11,14 +11,41 @@ function normalizeNumber(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function getInclusiveDays(startDate, endDate) {
+function requireNonNegativeNumber(value, label, { required = false } = {}) {
+  if (value === '' || value === null || value === undefined) {
+    if (!required) return 0;
+    const error = new Error(`${label} is required`);
+    error.status = 400;
+    throw error;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    const error = new Error(`${label} must be a non-negative number`);
+    error.status = 400;
+    throw error;
+  }
+  return parsed;
+}
+
+function getWorkingDays(startDate, endDate) {
   if (!startDate || !endDate) return 0;
   const start = new Date(`${startDate}T00:00:00`);
   const end = new Date(`${endDate}T00:00:00`);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
     return 0;
   }
-  return Math.floor((end - start) / 86400000) + 1;
+
+  let workingDays = 0;
+  const current = new Date(start);
+  while (current <= end) {
+    const day = current.getDay();
+    if (day !== 0 && day !== 6) {
+      workingDays += 1;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  return workingDays;
 }
 
 function getRateForRole(roleId, locationType, rateCards = []) {
@@ -36,8 +63,8 @@ function deriveResourcePlanning(payload) {
     const allocationPercent = normalizeNumber(row.allocationPercent ?? row.allocation ?? 100, 0);
     const locationType = row.locationType || 'ONSITE';
     const ratePerDay = normalizeNumber(row.ratePerDay, getRateForRole(row.roleId, locationType, rateCards));
-    const durationDays = getInclusiveDays(row.startDate, row.endDate);
-    const plannedEffort = count * (allocationPercent / 100) * durationDays;
+    const workingDays = getWorkingDays(row.startDate, row.endDate);
+    const plannedEffort = count * (allocationPercent / 100) * workingDays;
     const plannedCost = plannedEffort * ratePerDay;
 
     return {
@@ -45,7 +72,8 @@ function deriveResourcePlanning(payload) {
       locationType,
       allocationPercent,
       ratePerDay,
-      durationDays,
+      durationDays: workingDays,
+      workingDays,
       plannedEffort,
       plannedCost,
     };
@@ -124,6 +152,38 @@ function calculateAverageExperience(teamComposition) {
   }
 
   return validValues.reduce((sum, next) => sum + next, 0) / validValues.length;
+}
+
+function sumObjectValues(value = {}) {
+  return Object.values(value || {}).reduce((sum, next) => sum + normalizeNumber(next, 0), 0);
+}
+
+function extractAiBaselineFromPayload(payload = {}) {
+  const existing = payload.baselineTracking?.ai || payload.mlRecommendation?.aiBaseline || {};
+  const recommendation = payload.mlRecommendation?.recommendation || {};
+  const snapshot = recommendation.baselineSnapshot || {};
+  const recommendedTeam = recommendation.staffing?.recommendedTeam || {};
+  const hasRecommendedTeam = Object.keys(recommendedTeam).length > 0;
+  const effort = snapshot.effort
+    ?? snapshot.plannedEffort
+    ?? existing.effort
+    ?? recommendation.effort?.predictedHours
+    ?? null;
+  const budget = snapshot.budget ?? existing.budget ?? null;
+  const teamSize = snapshot.teamSize
+    ?? snapshot.estimatedTeamSize
+    ?? existing.teamSize
+    ?? (hasRecommendedTeam ? sumObjectValues(recommendedTeam) : null);
+
+  if (effort === null && budget === null && teamSize === null) {
+    return existing;
+  }
+
+  return {
+    effort: effort === null || effort === undefined ? null : normalizeNumber(effort, null),
+    budget: budget === null || budget === undefined ? null : normalizeNumber(budget, null),
+    teamSize: teamSize === null || teamSize === undefined ? null : normalizeNumber(teamSize, null),
+  };
 }
 
 function normalizeProjectPayload(payload) {
@@ -246,18 +306,6 @@ function buildLegacyProjectRecord(rawPayload, ownerId) {
   };
 }
 
-async function predictProjectHours(projectPayload) {
-  const response = await mlPredictionService.getProjectRecommendations({
-    team_size: projectPayload.team_size,
-    complexity: projectPayload.complexity,
-    change_count: 0,
-    avg_experience: projectPayload.avg_experience,
-    technology_score: projectPayload.technology_score,
-  }, projectPayload.created_by);
-
-  return response.effort?.predictedHours || 0;
-}
-
 async function createDraft(user, draftData) {
   assertPmUser(user);
   return projectRepository.createDraft(user.userId, await applyDerivedPlanning(draftData));
@@ -306,14 +354,23 @@ async function createProject(user, projectPayload) {
 
 async function submitProject(user, projectData, draftId = null, comment = '') {
   assertPmUser(user);
+  const ownerId = user.userId;
   const payload = await applyDerivedPlanning(normalizeProjectPayload(projectData), { requireResourceLoading: true });
   validateResourceDates(payload);
   const derivedPlanning = deriveResourcePlanning(payload);
-  const technologyScore = normalizeNumber(payload.technology.integration_count, 0);
   const avgExperience = calculateAverageExperience(payload.teamComposition.rows);
 
   const finalPayload = {
     ...payload,
+    baselineTracking: {
+      ...(payload.baselineTracking || {}),
+      ai: extractAiBaselineFromPayload(payload),
+      pm: {
+        effort: Number(derivedPlanning.plannedEffort.toFixed(2)),
+        budget: Number(derivedPlanning.budget.toFixed(2)),
+        teamSize: Number(derivedPlanning.estimatedTeamSize.toFixed(2)),
+      },
+    },
     teamComposition: {
       ...payload.teamComposition,
       rows: derivedPlanning.rows,
@@ -325,13 +382,6 @@ async function submitProject(user, projectData, draftId = null, comment = '') {
       base_resource_cost: Number(derivedPlanning.baseResourceCost.toFixed(2)),
       budget: Number(derivedPlanning.budget.toFixed(2)),
     },
-    predicted_hours: await predictProjectHours({
-      team_size: normalizeNumber(derivedPlanning.estimatedTeamSize, 1),
-      complexity: normalizeNumber(payload.technology.complexity, 1),
-      avg_experience: normalizeNumber(avgExperience, 0),
-      technology_score: technologyScore,
-      created_by: ownerId,
-    }),
     _legacy: {
       name: payload.basicInfo.project_name || 'Untitled Project',
       business_unit: payload.basicInfo.client_name || 'Unknown Client',
@@ -340,7 +390,7 @@ async function submitProject(user, projectData, draftId = null, comment = '') {
       team_size: normalizeNumber(derivedPlanning.estimatedTeamSize, 1),
       estimated_hours: normalizeNumber(derivedPlanning.plannedEffort, 0),
       avg_experience: normalizeNumber(avgExperience, 0),
-      technology_score: technologyScore,
+      technology_score: normalizeNumber(payload.technology.integration_count, 0),
       created_by: ownerId,
     },
   };
@@ -377,6 +427,170 @@ async function submitProject(user, projectData, draftId = null, comment = '') {
     draftId: projectId,
     ...finalPayload,
   };
+}
+
+function normalizeCompletionPayload(payload = {}) {
+  const resourceLoading = Array.isArray(payload.resourceLoading) ? payload.resourceLoading : [];
+  const actuals = payload.actuals || payload.financialActuals || {};
+  const groundMetrics = payload.groundMetrics || payload.metrics || {};
+  const finalResourceLoading = resourceLoading.map((row) => {
+    const count = requireNonNegativeNumber(row.count, 'Final resource count', { required: true });
+    const rate = requireNonNegativeNumber(row.rate ?? row.ratePerDay, 'Final resource rate', { required: true });
+    const effort = requireNonNegativeNumber(row.effort, 'Final resource effort', { required: true });
+    return {
+      role: String(row.role || '').trim(),
+      location: String(row.location || row.locationType || '').trim(),
+      count,
+      rate,
+      effort,
+      actualCost: Number((count * rate * effort).toFixed(2)),
+    };
+  });
+  const resourceCost = finalResourceLoading.reduce((sum, row) => sum + row.actualCost, 0);
+  const actualEffort = finalResourceLoading.reduce((sum, row) => sum + (row.count * row.effort), 0);
+  const actualTeamSize = finalResourceLoading.reduce((sum, row) => sum + row.count, 0);
+  const managementCost = requireNonNegativeNumber(
+    actuals.managementCost ?? actuals.management_cost,
+    'Management cost spent',
+  );
+  const contingencyCost = requireNonNegativeNumber(
+    actuals.contingencyCost ?? actuals.contingency_cost,
+    'Contingency cost spent',
+  );
+  const actualCrVolatility = groundMetrics.actualCrVolatility ?? groundMetrics.actual_cr_volatility ?? '';
+  const riskLevelIndicators = groundMetrics.riskLevelIndicators ?? groundMetrics.risk_level_indicators ?? '';
+
+  return {
+    finalResourceLoading,
+    managementCost: Number(managementCost.toFixed(2)),
+    contingencyCost: Number(contingencyCost.toFixed(2)),
+    resourceCost: Number(resourceCost.toFixed(2)),
+    fullProjectCost: Number((resourceCost + managementCost + contingencyCost).toFixed(2)),
+    actualEffort: Number(actualEffort.toFixed(2)),
+    actualTeamSize: Number(actualTeamSize.toFixed(2)),
+    dependencyCount: normalizeNumber(groundMetrics.dependencyCount ?? groundMetrics.dependency_count, null),
+    requirementStabilityIndex: normalizeNumber(
+      groundMetrics.requirementStabilityIndex ?? groundMetrics.requirement_stability_index,
+      null,
+    ),
+    actualCrVolatility: String(actualCrVolatility || '').trim() || null,
+    riskLevelIndicators: Array.isArray(riskLevelIndicators)
+      ? riskLevelIndicators
+      : String(riskLevelIndicators || '').split(',').map((item) => item.trim()).filter(Boolean),
+  };
+}
+
+function validateCompletionPayload(completion) {
+  if (!completion.finalResourceLoading.length) {
+    const error = new Error('At least one final resource loading row is required');
+    error.status = 400;
+    throw error;
+  }
+
+  completion.finalResourceLoading.forEach((row, index) => {
+    if (!row.role) {
+      const error = new Error(`Final resource row ${index + 1} role is required`);
+      error.status = 400;
+      throw error;
+    }
+    if (!row.location) {
+      const error = new Error(`Final resource row ${index + 1} location is required`);
+      error.status = 400;
+      throw error;
+    }
+    if (row.count <= 0 || row.rate < 0 || row.effort <= 0) {
+      const error = new Error(`Final resource row ${index + 1} must have positive count and effort, and non-negative rate`);
+      error.status = 400;
+      throw error;
+    }
+  });
+}
+
+async function completeProject(projectId, user, payload) {
+  assertPmUser(user);
+  await projectRepository.ensureProjectCompletionTables();
+
+  const completion = normalizeCompletionPayload(payload);
+  validateCompletionPayload(completion);
+  const comment = String(payload.comment || 'Project completed').trim() || 'Project completed';
+
+  const connection = await pool.promise().getConnection();
+  try {
+    await connection.beginTransaction();
+    const project = await projectRepository.getProjectForCompletion(connection, projectId);
+    if (!project) {
+      const error = new Error('Project not found');
+      error.status = 404;
+      throw error;
+    }
+
+    if (
+      Number(project.ownerId) !== Number(user.userId)
+      && Number(project.submittedByUserId) !== Number(user.userId)
+    ) {
+      const error = new Error('Access forbidden for this project');
+      error.status = 403;
+      throw error;
+    }
+
+    if (String(project.workflowStatus || '').toUpperCase() !== 'APPROVED') {
+      const error = new Error('Only approved projects can be completed');
+      error.status = 400;
+      throw error;
+    }
+
+    const completionRecord = await projectRepository.insertProjectCompletion(connection, {
+      projectId,
+      sourceDraftId: project.sourceDraftId,
+      completedByUserId: user.userId,
+      payload,
+      ...completion,
+    });
+    console.info('Storing project completion actuals', {
+      projectId,
+      actualEffort: completion.actualEffort,
+      actualBudget: completion.fullProjectCost,
+      actualTeamSize: completion.actualTeamSize,
+    });
+    const actualsUpdated = await projectRepository.updateProjectActuals(connection, projectId, {
+      actualEffort: completion.actualEffort,
+      actualBudget: completion.fullProjectCost,
+      actualTeamSize: completion.actualTeamSize,
+    });
+    if (!actualsUpdated) {
+      const error = new Error('Project completion actuals could not be stored');
+      error.status = 409;
+      throw error;
+    }
+    const marked = await projectRepository.markProjectComplete(
+      connection,
+      project.sourceDraftId,
+      projectId,
+      user,
+      comment,
+    );
+    if (!marked) {
+      const error = new Error('Project is no longer available for completion');
+      error.status = 409;
+      throw error;
+    }
+
+    await connection.commit();
+    return {
+      ...completionRecord,
+      projectId,
+      sourceDraftId: project.sourceDraftId,
+      status: 'COMPLETE',
+      fullProjectCost: completion.fullProjectCost,
+      actualEffort: completion.actualEffort,
+      actualTeamSize: completion.actualTeamSize,
+    };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 }
 
 async function getProject(projectId) {
@@ -513,4 +727,5 @@ module.exports = {
   createProject,
   submitProject,
   transitionProject,
+  completeProject,
 };

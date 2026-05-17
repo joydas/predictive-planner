@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CAlert, CButton, CFormInput, CFormSelect, CFormTextarea, CSpinner } from '@coreui/react';
 import { getMlRecommendation } from '../../../services/projectService';
 import { deriveResourcePlanning, formatCurrency, getRateForRole } from '../../../utils/resourcePlanning';
@@ -16,6 +16,13 @@ const roleAliases = {
 
 const displayRole = (role) => String(role || '').replace(/_/g, ' ');
 
+const normalizeRoleLabel = (label) =>
+  String(label || '')
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
 const TeamCompositionStep = ({
   data,
   deliveryDetails,
@@ -29,18 +36,120 @@ const TeamCompositionStep = ({
 }) => {
   const [recommendationError, setRecommendationError] = useState('');
   const [loadingRecommendation, setLoadingRecommendation] = useState(false);
-  const roles = masterData.roles || [];
-  const rateCards = masterData.rateCards || financial.rateCards || [];
-  const derived = deriveResourcePlanning({ rows: data.rows, financial, rateCards });
+  const rateCards = useMemo(
+    () => masterData.rateCards || financial.rateCards || [],
+    [financial.rateCards, masterData.rateCards],
+  );
+  const roleOptions = useMemo(() => {
+    const roles = (masterData.roles || []).map((role) => ({
+      ...role,
+      roleId: role.roleId != null ? String(role.roleId) : '',
+    })).filter((role) => role.roleId && role.roleName);
 
-  const resolveRole = (roleId) => roles.find((role) => String(role.roleId) === String(roleId));
-  const resolveRate = (roleId, locationType) => getRateForRole(roleId, locationType, rateCards);
+    if (roles.length) {
+      return roles;
+    }
+
+    return Object.values(rateCards.reduce((acc, card) => {
+        const cardRoleId = card.roleId != null ? String(card.roleId) : '';
+        if (cardRoleId && card.roleName && !acc[cardRoleId]) {
+          acc[cardRoleId] = {
+            roleId: cardRoleId,
+            roleName: card.roleName,
+          };
+        }
+        return acc;
+      }, {}));
+  }, [masterData.roles, rateCards]);
+  const derived = deriveResourcePlanning({ rows: data.rows, financial, rateCards });
+  const seededEmptyDraftRowRef = useRef(false);
+
+  const resolveRole = useCallback((roleId) => {
+    const id = roleId != null ? String(roleId) : '';
+    return roleOptions.find((role) => String(role.roleId) === id);
+  }, [roleOptions]);
+  const resolveRate = useCallback(
+    (roleId, locationType) => getRateForRole(roleId, locationType, rateCards),
+    [rateCards],
+  );
+
+  const findRoleOption = useCallback((roleLabel) => {
+    const normalized = normalizeRoleLabel(roleLabel);
+    const directMatch = roleOptions.find((role) => normalizeRoleLabel(role.roleName) === normalized);
+    if (directMatch) {
+      return directMatch;
+    }
+
+    const aliasMatch = Object.entries(roleAliases).find(
+      ([alias]) => normalizeRoleLabel(alias) === normalized,
+    );
+    if (aliasMatch) {
+      return roleOptions.find(
+        (role) => normalizeRoleLabel(role.roleName) === normalizeRoleLabel(aliasMatch[1]),
+      );
+    }
+
+    return null;
+  }, [roleOptions]);
+
+  useEffect(() => {
+    if (!roleOptions.length || !data.rows.length) {
+      return;
+    }
+
+    const normalizedRows = data.rows.map((row) => {
+      const currentRoleId = row.roleId || '';
+      const currentRole = row.role || '';
+      const matchedRole = currentRoleId
+        ? resolveRole(currentRoleId)
+        : findRoleOption(currentRole);
+
+      if (!matchedRole) {
+        return {
+          ...row,
+          roleId: currentRoleId != null ? String(currentRoleId) : '',
+        };
+      }
+
+      const matchedRoleId = String(matchedRole.roleId);
+
+      return {
+        ...row,
+        roleId: matchedRoleId,
+        role: currentRole || matchedRole.roleName,
+        ratePerDay: row.ratePerDay || resolveRate(matchedRoleId, row.locationType || 'ONSITE'),
+      };
+    });
+
+    const rowsChanged = JSON.stringify(normalizedRows) !== JSON.stringify(data.rows);
+    if (rowsChanged) {
+      setTeamRows(normalizedRows);
+    }
+  }, [data.rows, findRoleOption, resolveRate, resolveRole, roleOptions.length, setTeamRows]);
 
   const withProjectDates = (row) => ({
     ...row,
     startDate: row.startDate || deliveryDetails.start_date || '',
     endDate: row.endDate || deliveryDetails.planned_end_date || '',
   });
+
+  useEffect(() => {
+    if (seededEmptyDraftRowRef.current || data.rows.length) {
+      return;
+    }
+
+    seededEmptyDraftRowRef.current = true;
+    setTeamRows([{
+      roleId: '',
+      role: '',
+      locationType: 'ONSITE',
+      count: 1,
+      allocationPercent: 100,
+      startDate: deliveryDetails.start_date || '',
+      endDate: deliveryDetails.planned_end_date || '',
+      ratePerDay: '',
+    }]);
+  }, [data.rows.length, deliveryDetails.planned_end_date, deliveryDetails.start_date, setTeamRows]);
 
   const updateRow = (index, field, value) => {
     const updatedRows = data.rows.map((row, rowIndex) => {
@@ -63,7 +172,7 @@ const TeamCompositionStep = ({
   };
 
   const addRow = () => {
-    const fallbackRole = roles[0] || {};
+    const fallbackRole = roleOptions[0] || {};
     const locationType = 'ONSITE';
     setTeamRows([
       ...data.rows,
@@ -84,13 +193,13 @@ const TeamCompositionStep = ({
     setTeamRows(data.rows.filter((_, rowIndex) => rowIndex !== index));
   };
 
-  const applyRecommendedTeam = (recommendedTeam) => {
-    const rows = Object.entries(recommendedTeam || {})
+  const buildRecommendedRows = (recommendedTeam) => (
+    Object.entries(recommendedTeam || {})
       .filter(([, count]) => Number(count) > 0)
       .map(([roleName, count]) => {
         const normalizedRole = roleAliases[roleName] || roleAliases[displayRole(roleName)] || displayRole(roleName);
-        const selectedRole = roles.find((role) => role.roleName === normalizedRole)
-          || roles.find((role) => role.roleName.toLowerCase() === normalizedRole.toLowerCase())
+        const selectedRole = roleOptions.find((role) => role.roleName === normalizedRole)
+          || roleOptions.find((role) => role.roleName.toLowerCase() === normalizedRole.toLowerCase())
           || {};
         const locationType = 'OFFSHORE';
         return {
@@ -103,23 +212,38 @@ const TeamCompositionStep = ({
           endDate: deliveryDetails.planned_end_date || '',
           ratePerDay: selectedRole.roleId ? resolveRate(selectedRole.roleId, locationType) : '',
         };
-      });
-
-    if (rows.length) {
-      setTeamRows(rows);
-    }
-  };
+      })
+  );
 
   const handleGetRecommendation = async () => {
     setLoadingRecommendation(true);
     setRecommendationError('');
     try {
       const result = await getMlRecommendation(projectData);
+      const recommendedRows = buildRecommendedRows(result.staffing?.recommendedTeam);
+      const recommendedPlanning = deriveResourcePlanning({
+        rows: recommendedRows,
+        financial,
+        rateCards,
+      });
+      const recommendedEffort = Number(recommendedPlanning.planned_effort || 0);
+      const aiEffort = recommendedRows.length
+        ? recommendedEffort
+        : Number(result.effort?.predictedHours ?? 0);
       updateMlRecommendation({
-        recommendation: result,
+        recommendation: {
+          ...result,
+          baselineSnapshot: {
+            effort: Number(aiEffort.toFixed(2)),
+            budget: Number(recommendedPlanning.budget.toFixed(2)),
+            teamSize: Number(recommendedPlanning.estimated_team_size.toFixed(2)),
+          },
+        },
         acceptedAt: new Date().toISOString(),
       });
-      applyRecommendedTeam(result.staffing?.recommendedTeam);
+      if (recommendedRows.length) {
+        setTeamRows(recommendedRows);
+      }
     } catch (error) {
       setRecommendationError(error.message || 'Unable to get ML recommendation');
     } finally {
@@ -151,10 +275,6 @@ const TeamCompositionStep = ({
               </div>
             </div>
             <div>
-              <strong>ML Predicted Effort</strong>
-              <div>{Math.round(recommendation.effort?.predictedHours || 0)} hours</div>
-            </div>
-            <div>
               <strong>ML Predicted Risk</strong>
               <div>{recommendation.risk?.riskLevel || 'Unknown'}</div>
             </div>
@@ -181,13 +301,13 @@ const TeamCompositionStep = ({
           return (
             <div key={index} className="resource-loading-row">
               <CFormSelect
-                value={row.roleId}
+                value={row.roleId != null ? String(row.roleId) : ''}
                 onChange={(event) => updateRow(index, 'roleId', event.target.value)}
                 invalid={!!errors[`role_${index}`]}
               >
                 <option value="">Select role</option>
-                {roles.map((role) => (
-                  <option key={role.roleId} value={role.roleId}>{role.roleName}</option>
+                {roleOptions.map((role) => (
+                  <option key={role.roleId} value={String(role.roleId)}>{role.roleName}</option>
                 ))}
               </CFormSelect>
               <CFormSelect
