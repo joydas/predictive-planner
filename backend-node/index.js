@@ -114,6 +114,7 @@ app.use('/api/cr', crRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/crs', crRoutes);
 app.use('/api/master-data', masterDataRoutes);
+
 app.use('/api/operational-dashboard', operationalDashboardRoutes);
 app.get('/api/analytics/variance-dashboard', authenticateToken, analyticsController.varianceDashboard);
 app.use('/api/analytics', analyticsRoutes);
