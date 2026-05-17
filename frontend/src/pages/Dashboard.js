@@ -1,380 +1,351 @@
-import React, { useEffect, useState } from 'react';
-import { CCard, CCardBody, CCardHeader, CCol, CRow, CSpinner, CAlert } from '@coreui/react';
-import { Bar, Pie } from 'react-chartjs-2';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-} from 'chart.js';
-import { NODE_API_URL } from '../config';
+  CAlert,
+  CBadge,
+  CButton,
+  CCard,
+  CCardBody,
+  CCardHeader,
+  CCol,
+  CFormInput,
+  CRow,
+  CSpinner,
+} from '@coreui/react';
+import { getOperationalDashboard } from '../services/operationalDashboardService';
+import TablePagination from '../components/dataTable/TablePagination';
+import { formatDisplayDate, formatGridDateTime } from '../utils/dateFormat';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler);
+const numberFormatter = new Intl.NumberFormat('en-US', {
+  maximumFractionDigits: 0,
+});
+
+const currencyFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 0,
+});
+
+const formatNumber = (value) => numberFormatter.format(Number(value || 0));
+const formatCurrency = (value) => currencyFormatter.format(Number(value || 0));
+
+const statusColor = {
+  APPROVED: 'success',
+  COMPLETE: 'secondary',
+  CLOSED: 'secondary',
+  SUBMITTED: 'warning',
+  RETURNED: 'danger',
+  REJECTED: 'dark',
+  DRAFT: 'info',
+};
+
+const actionColor = {
+  'Pending Approval': 'warning',
+  'Returned for Rework': 'danger',
+  'Pending Submission': 'info',
+  'Pending Completion': 'primary',
+  'CR Pending': 'warning',
+  'Action Required': 'danger',
+};
+
+function StatusBadge({ value }) {
+  const normalized = String(value || '-').toUpperCase();
+  return (
+    <CBadge color={statusColor[normalized] || 'secondary'} shape="rounded-pill">
+      {normalized}
+    </CBadge>
+  );
+}
+
+function ActionBadges({ actions = [] }) {
+  return (
+    <div className="operational-badge-list">
+      {actions.map((action) => (
+        <CBadge key={action} color={actionColor[action] || 'secondary'} shape="rounded-pill">
+          {action}
+        </CBadge>
+      ))}
+    </div>
+  );
+}
+
+function KpiTile({ label, value, meta }) {
+  return (
+    <CCol xs={12} sm={6} xl className="mb-3">
+      <CCard className="operational-kpi h-100">
+        <CCardBody>
+          <div className="operational-kpi-label">{label}</div>
+          <div className="operational-kpi-value">{value}</div>
+          {meta && <div className="operational-kpi-meta">{meta}</div>}
+        </CCardBody>
+      </CCard>
+    </CCol>
+  );
+}
+
+function EmptyRow({ colSpan, label }) {
+  return (
+    <tr>
+      <td colSpan={colSpan} className="text-center text-muted py-4">
+        {label}
+      </td>
+    </tr>
+  );
+}
 
 const Dashboard = () => {
-  const [projects, setProjects] = useState([]);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeProjectsPage, setActiveProjectsPage] = useState(1);
+  const [activeProjectsPageSize, setActiveProjectsPageSize] = useState(10);
+  const [workflowPage, setWorkflowPage] = useState(1);
+  const [workflowPageSize, setWorkflowPageSize] = useState(10);
+  const [activeProjectsSearchInput, setActiveProjectsSearchInput] = useState('');
+  const [workflowSearchInput, setWorkflowSearchInput] = useState('');
+  const [activeProjectsSearch, setActiveProjectsSearch] = useState('');
+  const [workflowSearch, setWorkflowSearch] = useState('');
+
+  const query = useMemo(() => ({
+    activeProjectsPage,
+    activeProjectsPageSize,
+    workflowPage,
+    workflowPageSize,
+    activeProjectsSearch,
+    workflowSearch,
+  }), [
+    activeProjectsPage,
+    activeProjectsPageSize,
+    workflowPage,
+    workflowPageSize,
+    activeProjectsSearch,
+    workflowSearch,
+  ]);
 
   useEffect(() => {
-    fetchProjects();
-  }, []);
-
-  const fetchProjects = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${NODE_API_URL}/projects`);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+    let mounted = true;
+    async function fetchDashboard() {
+      try {
+        setLoading(true);
+        const result = await getOperationalDashboard(query);
+        if (mounted) {
+          setData(result);
+          setError(null);
+        }
+      } catch (err) {
+        if (mounted) {
+          console.error('Error fetching operational dashboard:', err);
+          setError('Failed to load operational dashboard data.');
+        }
+      } finally {
+        if (mounted) setLoading(false);
       }
-
-      const data = await response.json();
-      setProjects(data);
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching projects:', err);
-      setError('Failed to load dashboard data. Please try again later.');
-    } finally {
-      setLoading(false);
     }
+
+    fetchDashboard();
+    return () => {
+      mounted = false;
+    };
+  }, [query]);
+
+  const submitActiveProjectSearch = (event) => {
+    event.preventDefault();
+    setActiveProjectsPage(1);
+    setActiveProjectsSearch(activeProjectsSearchInput.trim());
   };
 
-  // Calculate metrics
-  const totalProjects = projects.length;
-
-  const totalEstimatedEffort = projects.reduce((sum, project) => sum + Number(project.estimated_hours || 0), 0);
-
-  // Dummy resource utilization (can be replaced with real data later)
-  const resourceUtilization = 78; // percentage
-
-  // Trend indicators (dummy values for now - can be calculated from historical data)
-  const trends = {
-    totalProjects: 12, // +12% from last month
-    effort: 5,
-    activeProjects: -8,
-    utilization: 3     // +3% increase
+  const submitWorkflowSearch = (event) => {
+    event.preventDefault();
+    setWorkflowPage(1);
+    setWorkflowSearch(workflowSearchInput.trim());
   };
 
-  // Bar chart data: derived effort by project
-  const barChartData = {
-    labels: projects.slice(0, 10).map((p) => p.name || 'Project'),
-    datasets: [
-      {
-        label: 'Derived Effort',
-        data: projects.slice(0, 10).map((p) => p.estimated_hours || 0),
-        backgroundColor: 'rgba(21, 108, 194, 0.7)',
-        borderColor: 'rgba(44, 62, 80, 1)',
-        borderWidth: 1,
-        borderRadius: 4,
-      },
-    ],
-  };
-
-  // Pie chart data: Business Unit distribution
-  const businessUnits = {};
-  projects.forEach((p) => {
-    const unit = p.business_unit || 'Unknown';
-    businessUnits[unit] = (businessUnits[unit] || 0) + 1;
-  });
-
-  const pieChartData = {
-    labels: Object.keys(businessUnits),
-    datasets: [
-      {
-        data: Object.values(businessUnits),
-        backgroundColor: [
-          '#82cda2',
-          '#34495e',
-          '#7f8c8d',
-          '#95a5a6',
-          '#bdc3c7',
-          '#ecf0f1',
-        ],
-        borderColor: '#ffffff',
-        borderWidth: 2,
-      },
-    ],
-  };
-
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: true,
-    plugins: {
-      legend: {
-        position: 'bottom',
-        labels: {
-          font: { size: 12 },
-          padding: 15,
-        },
-      },
-      tooltip: {
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        padding: 12,
-        titleFont: { size: 14 },
-        bodyFont: { size: 12 },
-      },
-    },
-  };
-
-  const barChartOptions = {
-    ...chartOptions,
-    scales: {
-      y: {
-        beginAtZero: true,
-        grid: { color: 'rgba(0, 0, 0, 0.05)' },
-      },
-      x: {
-        grid: { display: false },
-      },
-    },
-  };
-
-  if (loading) {
+  if (loading && !data) {
     return (
       <div className="fade-in">
-        <CRow className="mb-4">
-          <CCol xs={12}>
-            <h1 className="mb-4 page-title" style={{
-              background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              fontWeight: '700'
-            }}>
-              Dashboard Overview
-            </h1>
-          </CCol>
-        </CRow>
-        <CRow>
-          <CCol xs={12} className="text-center">
-            <CCard>
-              <CCardBody className="py-5">
-                <CSpinner color="primary" size="lg" />
-                <p className="mt-3 text-muted">Loading dashboard data...</p>
-              </CCardBody>
-            </CCard>
-          </CCol>
-        </CRow>
+        <h1 className="page-title text-gradient-primary">Operational Dashboard</h1>
+        <CCard>
+          <CCardBody className="text-center py-5">
+            <CSpinner color="primary" />
+            <p className="mt-3 text-muted">Loading operational dashboard...</p>
+          </CCardBody>
+        </CCard>
       </div>
     );
   }
 
-  if (error) {
+  if (error && !data) {
     return (
       <div className="fade-in">
-        <CRow className="mb-4">
-          <CCol xs={12}>
-            <h1 className="mb-4 page-title" style={{
-              background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              fontWeight: '700'
-            }}>
-              Dashboard Overview
-            </h1>
-          </CCol>
-        </CRow>
-        <CRow>
-          <CCol xs={12}>
-            <CAlert color="danger">
-              <strong>Error:</strong> {error}
-            </CAlert>
-          </CCol>
-        </CRow>
+        <h1 className="page-title text-gradient-primary">Operational Dashboard</h1>
+        <CAlert color="danger">{error}</CAlert>
       </div>
     );
   }
+
+  const kpis = data?.kpis || {};
+  const activeProjects = data?.activeProjects || { items: [], page: 1, pageSize: 10, totalRecords: 0, totalPages: 1 };
+  const workflowQueue = data?.workflowQueue || { items: [], page: 1, pageSize: 10, totalRecords: 0, totalPages: 1 };
+  const crSnapshot = data?.crSnapshot || {};
 
   return (
-    <div className="fade-in">
-      <CRow className="mb-4">
-        <CCol xs={12}>
-          <h1 className="mb-4 page-title" style={{
-            background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
-            fontWeight: '700'
-          }}>
-            Dashboard Overview
-          </h1>
-        </CCol>
+    <div className="fade-in operational-dashboard">
+      <div className="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-2 mb-4">
+        <div>
+          <h1 className="page-title text-gradient-primary mb-1">Operational Dashboard</h1>
+          <div className="text-muted">Execution visibility, pending actions, and active governance.</div>
+        </div>
+        {loading && <CSpinner color="primary" size="sm" />}
+      </div>
+
+      {error && <CAlert color="danger">{error}</CAlert>}
+
+      <CRow className="operational-kpi-row">
+        <KpiTile label="Approved Projects" value={formatNumber(kpis.approvedProjects)} />
+        <KpiTile label="Completed Projects" value={formatNumber(kpis.completedProjects)} />
+        <KpiTile label="Total Active Projects" value={formatNumber(kpis.activeProjects)} />
+        <KpiTile label="Total Planned Effort" value={`${formatNumber(kpis.totalPlannedEffort)}h`} meta="Current plan" />
+        <KpiTile label="Total Resource Count" value={formatNumber(kpis.totalResourceCount)} meta="Planned team size" />
       </CRow>
 
-      {/* KPI Cards */}
-      <CRow className="mb-4 section-gap">
-        <CCol md={3} className="mb-3">
-          <CCard className="border-0 shadow-sm h-100 kpi-card" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
-            <CCardBody className="p-3">
-              <div className="d-flex justify-content-between align-items-center mb-2">
-                <div>
-                  <div className="card-title">TOTAL PROJECTS</div>
-                  <div className="card-value">{totalProjects}</div>
-                </div>
-                <div style={{ fontSize: '1.5rem', opacity: 0.8 }}>📊</div>
-              </div>
-              <div className="d-flex align-items-center">
-                <span className={`badge ${trends.totalProjects >= 0 ? 'bg-success' : 'bg-danger'} me-2`} style={{ fontSize: '0.7rem' }}>
-                  {trends.totalProjects >= 0 ? '↗' : '↘'} {Math.abs(trends.totalProjects)}%
-                </span>
-                <small className="opacity-75" style={{ fontSize: '0.7rem' }}>vs last month</small>
-              </div>
-            </CCardBody>
-          </CCard>
-        </CCol>
+      <CCard className="operational-section">
+        <CCardHeader>
+          <div className="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-2">
+            <strong>My Active Projects</strong>
+            <form className="operational-search" onSubmit={submitActiveProjectSearch}>
+              <CFormInput
+                size="sm"
+                value={activeProjectsSearchInput}
+                placeholder="Search projects"
+                onChange={(event) => setActiveProjectsSearchInput(event.target.value)}
+              />
+              <CButton size="sm" color="primary" type="submit">Search</CButton>
+            </form>
+          </div>
+        </CCardHeader>
+        <CCardBody className="p-0">
+          <div className="table-responsive">
+            <table className="table table-sm operational-table">
+              <thead>
+                <tr>
+                  <th>Project Name</th>
+                  <th>Client</th>
+                  <th>Technology</th>
+                  <th>Current Status</th>
+                  <th>Planned End Date</th>
+                  <th className="text-end">Current Planned Effort</th>
+                  <th className="text-end">Current Planned Budget</th>
+                  <th className="text-end">Current Planned Team Size</th>
+                  <th className="text-end">Approved CR Count</th>
+                  <th>Pending Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activeProjects.items.length === 0 ? (
+                  <EmptyRow colSpan={10} label="No active approved projects found." />
+                ) : activeProjects.items.map((project) => (
+                  <tr key={project.projectId}>
+                    <td className="fw-semibold">{project.projectName}</td>
+                    <td>{project.clientName}</td>
+                    <td>{project.technology}</td>
+                    <td><StatusBadge value={project.currentStatus} /></td>
+                    <td>{formatDisplayDate(project.plannedEndDate)}</td>
+                    <td className="text-end">{formatNumber(project.currentPlannedEffort)}h</td>
+                    <td className="text-end">{formatCurrency(project.currentPlannedBudget)}</td>
+                    <td className="text-end">{formatNumber(project.currentPlannedTeamSize)}</td>
+                    <td className="text-end">{formatNumber(project.approvedCrCount)}</td>
+                    <td><ActionBadges actions={project.pendingActions} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <TablePagination
+            page={activeProjects.page}
+            pageSize={activeProjects.pageSize}
+            totalRecords={activeProjects.totalRecords}
+            totalPages={activeProjects.totalPages}
+            onPageChange={setActiveProjectsPage}
+            onPageSizeChange={(size) => {
+              setActiveProjectsPage(1);
+              setActiveProjectsPageSize(size);
+            }}
+          />
+        </CCardBody>
+      </CCard>
 
-        <CCol md={3} className="mb-3">
-          <CCard className="border-0 shadow-sm h-100 kpi-card" style={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', color: 'white' }}>
-            <CCardBody className="p-3">
-              <div className="d-flex justify-content-between align-items-center mb-2">
-                <div>
-                  <div className="card-title">TOTAL EFFORT</div>
-                  <div className="card-value">{totalEstimatedEffort.toFixed(0)}h</div>
-                </div>
-                <div style={{ fontSize: '1.5rem', opacity: 0.8 }}>📈</div>
-              </div>
-              <div className="d-flex align-items-center">
-                <span className={`badge ${trends.effort >= 0 ? 'bg-success' : 'bg-danger'} me-2`} style={{ fontSize: '0.7rem' }}>
-                  {trends.effort >= 0 ? '↗' : '↘'} {Math.abs(trends.effort)}%
-                </span>
-                <small className="opacity-75" style={{ fontSize: '0.7rem' }}>vs last month</small>
-              </div>
-            </CCardBody>
-          </CCard>
-        </CCol>
+      <CCard className="operational-section">
+        <CCardHeader>
+          <div className="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-2">
+            <strong>Pending Approvals / Returns</strong>
+            <form className="operational-search" onSubmit={submitWorkflowSearch}>
+              <CFormInput
+                size="sm"
+                value={workflowSearchInput}
+                placeholder="Search workflow items"
+                onChange={(event) => setWorkflowSearchInput(event.target.value)}
+              />
+              <CButton size="sm" color="primary" type="submit">Search</CButton>
+            </form>
+          </div>
+        </CCardHeader>
+        <CCardBody className="p-0">
+          <div className="table-responsive">
+            <table className="table table-sm operational-table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Name</th>
+                  <th>Submitted By</th>
+                  <th>Current Status</th>
+                  <th>Last Updated</th>
+                  <th>Pending Since</th>
+                  <th>Action Required</th>
+                </tr>
+              </thead>
+              <tbody>
+                {workflowQueue.items.length === 0 ? (
+                  <EmptyRow colSpan={7} label="No pending workflow items found." />
+                ) : workflowQueue.items.map((item) => (
+                  <tr key={`${item.type}-${item.id}`}>
+                    <td>{item.type}</td>
+                    <td className="fw-semibold">{item.name}</td>
+                    <td>{item.submittedBy}</td>
+                    <td><StatusBadge value={item.currentStatus} /></td>
+                    <td>{formatGridDateTime(item.lastUpdated)}</td>
+                    <td>{formatGridDateTime(item.pendingSince)}</td>
+                    <td><ActionBadges actions={[item.actionRequired]} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <TablePagination
+            page={workflowQueue.page}
+            pageSize={workflowQueue.pageSize}
+            totalRecords={workflowQueue.totalRecords}
+            totalPages={workflowQueue.totalPages}
+            onPageChange={setWorkflowPage}
+            onPageSizeChange={(size) => {
+              setWorkflowPage(1);
+              setWorkflowPageSize(size);
+            }}
+          />
+        </CCardBody>
+      </CCard>
 
-        <CCol md={3} className="mb-3">
-          <CCard className="border-0 shadow-sm h-100 kpi-card" style={{ background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', color: 'white' }}>
-            <CCardBody className="p-3">
-              <div className="d-flex justify-content-between align-items-center mb-2">
-                <div>
-                  <div className="card-title">ACTIVE PROJECTS</div>
-                  <div className="card-value">{totalProjects}</div>
-                </div>
-                <div style={{ fontSize: '1.5rem', opacity: 0.8 }}>🚨</div>
-              </div>
-              <div className="d-flex align-items-center">
-                <span className={`badge ${trends.activeProjects >= 0 ? 'bg-success' : 'bg-danger'} me-2`} style={{ fontSize: '0.7rem' }}>
-                  {trends.activeProjects >= 0 ? '↗' : '↘'} {Math.abs(trends.activeProjects)}%
-                </span>
-                <small className="opacity-75" style={{ fontSize: '0.7rem' }}>vs last month</small>
-              </div>
-            </CCardBody>
-          </CCard>
-        </CCol>
-
-        <CCol md={3} className="mb-3">
-          <CCard className="border-0 shadow-sm h-100 kpi-card" style={{ background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', color: 'white' }}>
-            <CCardBody className="p-3">
-              <div className="d-flex justify-content-between align-items-center mb-2">
-                <div>
-                  <div className="card-title">RESOURCE UTILIZATION</div>
-                  <div className="card-value">{resourceUtilization}%</div>
-                </div>
-                <div style={{ fontSize: '1.5rem', opacity: 0.8 }}>👥</div>
-              </div>
-              <div className="d-flex align-items-center">
-                <span className={`badge ${trends.utilization >= 0 ? 'bg-success' : 'bg-danger'} me-2`} style={{ fontSize: '0.7rem' }}>
-                  {trends.utilization >= 0 ? '↗' : '↘'} {Math.abs(trends.utilization)}%
-                </span>
-                <small className="opacity-75" style={{ fontSize: '0.7rem' }}>vs last month</small>
-              </div>
-            </CCardBody>
-          </CCard>
-        </CCol>
-      </CRow>
-
-      {/* Charts */}
-      <CRow className="mb-4 section-gap">
-        <CCol lg={6} className="mb-4">
-          <CCard className="border-0 shadow-sm">
-            <CCardHeader className="border-bottom">
-              <strong>Derived Effort By Project</strong>
-            </CCardHeader>
-            <CCardBody>
-              {projects.length > 0 ? (
-                <div style={{ height: '350px' }}>
-                  <Bar data={barChartData} options={barChartOptions} />
-                </div>
-              ) : (
-                <p className="text-muted text-center py-5">No projects to display</p>
-              )}
-            </CCardBody>
-          </CCard>
-        </CCol>
-
-        <CCol lg={6} className="mb-4">
-          <CCard className="border-0 shadow-sm">
-            <CCardHeader className="border-bottom">
-              <strong>Business Unit Distribution</strong>
-            </CCardHeader>
-            <CCardBody>
-              {Object.keys(businessUnits).length > 0 ? (
-                <div style={{ height: '350px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                  <div style={{ width: '80%', height: '100%' }}>
-                    <Pie data={pieChartData} options={chartOptions} />
-                  </div>
-                </div>
-              ) : (
-                <p className="text-muted text-center py-5">No projects to display</p>
-              )}
-            </CCardBody>
-          </CCard>
-        </CCol>
-      </CRow>
-
-      <CRow className="section-gap">
-        <CCol md={8}>
-          <CCard>
-            <CCardHeader>
-              <strong>Recent Activity</strong>
-            </CCardHeader>
-            <CCardBody>
-              <div className="text-center py-5">
-                <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>📈</div>
-                <h5>Analytics Dashboard</h5>
-                <p className="text-muted">Charts and analytics will be displayed here</p>
-              </div>
-            </CCardBody>
-          </CCard>
-        </CCol>
-        <CCol md={4}>
-          <CCard>
-            <CCardHeader>
-              <strong>Quick Actions</strong>
-            </CCardHeader>
-            <CCardBody>
-              <div className="d-grid gap-3">
-                <button className="btn btn-primary smaller-button">
-                  <span style={{ marginRight: '0.5rem' }}>➕</span>
-                  Create New Project
-                </button>
-                <button className="btn btn-success smaller-button">
-                  <span style={{ marginRight: '0.5rem' }}>👥</span>
-                  View Team
-                </button>
-                <button className="btn btn-warning smaller-button">
-                  <span style={{ marginRight: '0.5rem' }}>📋</span>
-                  Generate Report
-                </button>
-                <button className="btn btn-secondary smaller-button">
-                  <span style={{ marginRight: '0.5rem' }}>⚙️</span>
-                  Settings
-                </button>
-              </div>
-            </CCardBody>
-          </CCard>
-        </CCol>
-      </CRow>
+      <CCard className="operational-section">
+        <CCardHeader><strong>CR Snapshot</strong></CCardHeader>
+        <CCardBody>
+          <CRow className="g-3">
+            <KpiTile label="Total CR Count" value={formatNumber(crSnapshot.totalCrCount)} />
+            <KpiTile label="Approved CR Count" value={formatNumber(crSnapshot.approvedCrCount)} />
+            <KpiTile label="Pending CR Count" value={formatNumber(crSnapshot.pendingCrCount)} />
+            <KpiTile label="Rejected / Returned CR Count" value={formatNumber(crSnapshot.rejectedReturnedCrCount)} />
+            <KpiTile label="Cumulative CR Effort Impact" value={`${formatNumber(crSnapshot.cumulativeCrEffortImpact)}h`} />
+            <KpiTile label="Cumulative CR Budget Impact" value={formatCurrency(crSnapshot.cumulativeCrBudgetImpact)} />
+          </CRow>
+        </CCardBody>
+      </CCard>
     </div>
   );
 };

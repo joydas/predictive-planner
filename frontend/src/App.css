@@ -401,3 +401,79 @@ tbody td {
 .analytics-dashboard .table td {
   white-space: nowrap;
 }
+
+.operational-dashboard .card:hover {
+  transform: none;
+}
+
+.operational-kpi-row {
+  row-gap: 0.75rem;
+}
+
+.operational-kpi {
+  border-left: 4px solid #321fdb !important;
+}
+
+.operational-kpi .card-body {
+  min-height: 96px;
+}
+
+.operational-kpi-label {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.operational-kpi-value {
+  color: #0f172a;
+  font-size: 1.55rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-top: 0.35rem;
+  overflow-wrap: anywhere;
+}
+
+.operational-kpi-meta {
+  color: #64748b;
+  font-size: 0.78rem;
+  margin-top: 0.2rem;
+}
+
+.operational-section {
+  margin-top: 1rem;
+}
+
+.operational-search {
+  display: flex;
+  gap: 0.5rem;
+  min-width: min(100%, 340px);
+}
+
+.operational-search .form-control {
+  min-width: 0;
+}
+
+.operational-table {
+  min-width: 1120px;
+}
+
+.operational-table th,
+.operational-table td {
+  white-space: nowrap;
+}
+
+.operational-badge-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  min-width: 10rem;
+}
+
+@media (max-width: 991.98px) {
+  .operational-search {
+    width: 100%;
+  }
+}
