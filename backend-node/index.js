@@ -10,6 +10,7 @@ const crRoutes = require("./src/routes/cr.routes");
 const crController = require("./src/controllers/cr.controller");
 const masterDataRoutes = require("./src/routes/masterData.routes");
 const analyticsRoutes = require("./src/routes/analytics.routes");
+const analyticsController = require("./src/controllers/analytics.controller");
 const resourceRoutes = require("./src/routes/resource.routes");
 const projectRepository = require("./src/repositories/project.repository");
 const { authenticateToken } = require("./src/middleware/auth.middleware");
@@ -112,6 +113,7 @@ app.use('/api/cr', crRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/crs', crRoutes);
 app.use('/api/master-data', masterDataRoutes);
+app.get('/api/analytics/variance-dashboard', authenticateToken, analyticsController.varianceDashboard);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/resources', resourceRoutes);
 

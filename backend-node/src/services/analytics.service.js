@@ -7,5 +7,6 @@ module.exports = {
   getMlAccuracy: () => analyticsRepository.getMlAccuracy(),
   getProjectRisk: () => analyticsRepository.getProjectRisk(),
   getCrTrends: () => analyticsRepository.getCrTrends(),
+  getVarianceDashboard: (user, query) => analyticsRepository.getVarianceDashboard(user, query),
   recordActualOutcome: (payload) => mlPredictionService.recordActualOutcome(payload),
 };

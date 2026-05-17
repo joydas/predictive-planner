@@ -9,10 +9,22 @@ const getHeaders = () => ({
 });
 
 async function handleResponse(response) {
-  const data = await response.json();
+  const contentType = response.headers.get('content-type') || '';
+  const data = contentType.includes('application/json')
+    ? await response.json()
+    : { message: await response.text() };
+
   if (!response.ok) {
-    throw new Error(data.message || 'Analytics request failed');
+    const message = String(data.message || '').startsWith('<!DOCTYPE')
+      ? 'Analytics API endpoint is unavailable. Restart or deploy the Node backend with the latest analytics route.'
+      : data.message;
+    throw new Error(message || 'Analytics request failed');
   }
+
+  if (!contentType.includes('application/json')) {
+    throw new Error('Analytics API returned a non-JSON response. Check the Node API URL and backend route.');
+  }
+
   return data;
 }
 
@@ -34,4 +46,15 @@ export function getProjectRisk() {
 
 export function getCrTrends() {
   return fetch(`${API_BASE_URL}/cr-trends`, { headers: getHeaders() }).then(handleResponse);
+}
+
+export function getVarianceDashboard(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      query.set(key, value);
+    }
+  });
+  const suffix = query.toString() ? `?${query.toString()}` : '';
+  return fetch(`${API_BASE_URL}/variance-dashboard${suffix}`, { headers: getHeaders() }).then(handleResponse);
 }

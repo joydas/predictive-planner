@@ -2,6 +2,27 @@ const { pool } = require('../config/db.config');
 
 const db = pool.promise();
 
+const TABLE_SORT_COLUMNS = {
+  projectName: 'p.project_name',
+  client: 'p.client_name',
+  technology: 'p.technology_stack',
+  pmName: 'pm.user_name',
+  accountManagerName: 'am.user_name',
+  aiBaselineEffort: 'p.ai_baseline_effort',
+  pmBaselineEffort: 'p.pm_baseline_effort',
+  currentPlannedEffort: 'p.current_planned_effort',
+  actualEffort: 'p.actual_effort',
+  aiBaselineBudget: 'p.ai_baseline_budget',
+  pmBaselineBudget: 'p.pm_baseline_budget',
+  currentPlannedBudget: 'p.current_planned_budget',
+  actualBudget: 'p.actual_budget',
+  aiBaselineTeamSize: 'p.ai_baseline_team_size',
+  pmBaselineTeamSize: 'p.pm_baseline_team_size',
+  currentPlannedTeamSize: 'p.current_planned_team_size',
+  actualTeamSize: 'p.actual_team_size',
+  approvedAt: 'p.approved_at',
+};
+
 async function getPmSummary(userId) {
   const [[projectCounts], [mlUsage], [overrideRows], [crRows]] = await Promise.all([
     db.query(
@@ -207,6 +228,95 @@ async function getCrTrends() {
   return rows.reverse();
 }
 
+async function getVarianceDashboard(user, options = {}) {
+  const role = String(user.role || '').toUpperCase();
+  if (!['PM', 'ACCOUNT_MANAGER', 'AM'].includes(role)) {
+    const error = new Error('Variance analytics is available for PM and Account Manager roles');
+    error.status = 403;
+    throw error;
+  }
+
+  const page = Math.max(1, Number(options.page) || 1);
+  const pageSize = Math.min(100, Math.max(5, Number(options.pageSize) || 10));
+  const offset = (page - 1) * pageSize;
+  const search = String(options.search || '').trim();
+  const sortColumn = TABLE_SORT_COLUMNS[options.sortBy] || 'p.approved_at';
+  const sortOrder = String(options.sortOrder || '').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+  const scope = buildVarianceScope(user);
+  const searchClause = search
+    ? ` AND (
+        p.project_name LIKE ?
+        OR p.client_name LIKE ?
+        OR p.technology_stack LIKE ?
+        OR pm.user_name LIKE ?
+        OR am.user_name LIKE ?
+      )`
+    : '';
+  const searchParams = search ? Array(5).fill(`%${search}%`) : [];
+
+  const scopedBaseFrom = `
+    FROM project p
+    INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
+    LEFT JOIN app_user pm ON pm.user_id = p.owner_id
+    LEFT JOIN app_user am ON am.user_id = p.approved_by_user_id
+    WHERE pd.workflow_status IN ('APPROVED', 'COMPLETE')
+      AND ${scope.sql}
+  `;
+  const tableBaseFrom = `
+    ${scopedBaseFrom}
+      ${searchClause}
+  `;
+
+  const [allRowsResult, countRowsResult, tableRowsResult] = await Promise.all([
+    db.query(
+      `
+        SELECT ${varianceSelectFields()}
+        ${scopedBaseFrom}
+        ORDER BY p.project_name ASC, p.project_id ASC
+      `,
+      scope.params,
+    ),
+    db.query(
+      `
+        SELECT COUNT(*) AS totalRecords
+        ${tableBaseFrom}
+      `,
+      [...scope.params, ...searchParams],
+    ),
+    db.query(
+      `
+        SELECT ${varianceSelectFields()}
+        ${tableBaseFrom}
+        ORDER BY ${sortColumn} ${sortOrder}, p.project_id DESC
+        LIMIT ? OFFSET ?
+      `,
+      [...scope.params, ...searchParams, pageSize, offset],
+    ),
+  ]);
+
+  const chartRows = allRowsResult[0].map(mapVarianceRow);
+  const tableRows = tableRowsResult[0].map(mapVarianceRow);
+  const totalRecords = Number(countRowsResult[0][0]?.totalRecords || 0);
+
+  return {
+    scope: {
+      role,
+      userId: user.userId,
+    },
+    widgets: buildVarianceWidgets(chartRows),
+    table: {
+      items: tableRows,
+      page,
+      pageSize,
+      totalRecords,
+      totalPages: Math.max(1, Math.ceil(totalRecords / pageSize)),
+      sortBy: options.sortBy || 'approvedAt',
+      sortOrder,
+      search,
+    },
+  };
+}
+
 function parseJson(value) {
   if (!value) return {};
   if (typeof value === 'object') return value;
@@ -231,10 +341,163 @@ function calculateHealth(row) {
   return 'GREEN';
 }
 
+function buildVarianceScope(user) {
+  const role = String(user.role || '').toUpperCase();
+  if (role === 'PM') {
+    return {
+      sql: '(p.owner_id = ? OR pd.submitted_by_user_id = ?)',
+      params: [user.userId, user.userId],
+    };
+  }
+  return {
+    sql: 'p.approved_by_user_id = ?',
+    params: [user.userId],
+  };
+}
+
+function varianceSelectFields() {
+  return `
+    p.project_id AS projectId,
+    p.project_name AS projectName,
+    p.client_name AS client,
+    p.technology_stack AS technology,
+    pm.user_name AS pmName,
+    am.user_name AS accountManagerName,
+    p.ai_baseline_effort AS aiBaselineEffort,
+    p.pm_baseline_effort AS pmBaselineEffort,
+    p.current_planned_effort AS currentPlannedEffort,
+    p.actual_effort AS actualEffort,
+    p.ai_baseline_budget AS aiBaselineBudget,
+    p.pm_baseline_budget AS pmBaselineBudget,
+    p.current_planned_budget AS currentPlannedBudget,
+    p.actual_budget AS actualBudget,
+    p.ai_baseline_team_size AS aiBaselineTeamSize,
+    p.pm_baseline_team_size AS pmBaselineTeamSize,
+    p.current_planned_team_size AS currentPlannedTeamSize,
+    p.actual_team_size AS actualTeamSize,
+    COALESCE(p.total_cr_effort_impact, 0) AS totalCrEffortImpact,
+    COALESCE(p.total_cr_budget_impact, 0) AS totalCrBudgetImpact,
+    COALESCE(p.total_cr_team_impact, 0) AS totalCrTeamImpact,
+    p.approved_at AS approvedAt
+  `;
+}
+
+function mapVarianceRow(row) {
+  const mapped = {
+    projectId: row.projectId,
+    projectName: row.projectName,
+    client: row.client,
+    technology: row.technology,
+    pmName: row.pmName,
+    accountManagerName: row.accountManagerName,
+    aiBaselineEffort: toNullableNumber(row.aiBaselineEffort),
+    pmBaselineEffort: toNullableNumber(row.pmBaselineEffort),
+    currentPlannedEffort: toNullableNumber(row.currentPlannedEffort),
+    actualEffort: toNullableNumber(row.actualEffort),
+    aiBaselineBudget: toNullableNumber(row.aiBaselineBudget),
+    pmBaselineBudget: toNullableNumber(row.pmBaselineBudget),
+    currentPlannedBudget: toNullableNumber(row.currentPlannedBudget),
+    actualBudget: toNullableNumber(row.actualBudget),
+    aiBaselineTeamSize: toNullableNumber(row.aiBaselineTeamSize),
+    pmBaselineTeamSize: toNullableNumber(row.pmBaselineTeamSize),
+    currentPlannedTeamSize: toNullableNumber(row.currentPlannedTeamSize),
+    actualTeamSize: toNullableNumber(row.actualTeamSize),
+    totalCrEffortImpact: toNullableNumber(row.totalCrEffortImpact),
+    totalCrBudgetImpact: toNullableNumber(row.totalCrBudgetImpact),
+    totalCrTeamImpact: toNullableNumber(row.totalCrTeamImpact),
+    approvedAt: row.approvedAt,
+  };
+
+  mapped.effortVariancePercent = calculateVariancePercent(mapped.actualEffort, mapped.pmBaselineEffort);
+  mapped.budgetVariancePercent = calculateVariancePercent(mapped.actualBudget, mapped.pmBaselineBudget);
+  mapped.teamSizeVariancePercent = calculateVariancePercent(mapped.actualTeamSize, mapped.pmBaselineTeamSize);
+  mapped.varianceSeverity = calculateVarianceSeverity([
+    mapped.effortVariancePercent,
+    mapped.budgetVariancePercent,
+    mapped.teamSizeVariancePercent,
+  ]);
+
+  return mapped;
+}
+
+function buildVarianceWidgets(rows) {
+  const labels = rows.map((row) => row.projectName || `Project ${row.projectId}`);
+  return {
+    effortVariance: {
+      labels,
+      datasets: [{ label: 'Effort Variance %', data: rows.map((row) => row.effortVariancePercent) }],
+    },
+    costVariance: {
+      labels,
+      datasets: [{ label: 'Cost Variance %', data: rows.map((row) => row.budgetVariancePercent) }],
+    },
+    teamSizeVariance: {
+      labels,
+      datasets: [{ label: 'Team Size Variance %', data: rows.map((row) => row.teamSizeVariancePercent) }],
+    },
+    aiVsActual: {
+      labels: ['Effort', 'Budget', 'Team Size'],
+      datasets: [
+        {
+          label: 'AI Predicted',
+          data: [
+            sumValues(rows, 'aiBaselineEffort'),
+            sumValues(rows, 'aiBaselineBudget'),
+            sumValues(rows, 'aiBaselineTeamSize'),
+          ],
+        },
+        {
+          label: 'Actual',
+          data: [
+            sumValues(rows, 'actualEffort'),
+            sumValues(rows, 'actualBudget'),
+            sumValues(rows, 'actualTeamSize'),
+          ],
+        },
+      ],
+    },
+  };
+}
+
+function calculateVariancePercent(actual, baseline) {
+  const actualValue = Number(actual);
+  const baselineValue = Number(baseline);
+  if (!Number.isFinite(actualValue) || !Number.isFinite(baselineValue) || baselineValue === 0) {
+    return null;
+  }
+  return Number((((actualValue - baselineValue) / baselineValue) * 100).toFixed(2));
+}
+
+function calculateVarianceSeverity(values) {
+  const maxVariance = values
+    .filter((value) => value !== null && Number.isFinite(Number(value)))
+    .reduce((max, value) => Math.max(max, Math.abs(Number(value))), 0);
+
+  if (maxVariance <= 10) return 'NORMAL';
+  if (maxVariance <= 20) return 'MEDIUM';
+  if (maxVariance <= 40) return 'HIGH';
+  return 'URGENT';
+}
+
+function toNullableNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function sumValues(rows, key) {
+  const total = rows.reduce((sum, row) => {
+    const value = Number(row[key]);
+    return Number.isFinite(value) ? sum + value : sum;
+  }, 0);
+  return Number(total.toFixed(2));
+}
+
 module.exports = {
   getPmSummary,
   getAmSummary,
   getMlAccuracy,
   getProjectRisk,
   getCrTrends,
+  getVarianceDashboard,
 };

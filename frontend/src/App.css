@@ -376,3 +376,28 @@ tbody td {
   padding: 0.25rem 0.5rem;
   border-radius: 0.375rem;
 }
+
+.analytics-chart-card .card-body {
+  min-height: 260px;
+}
+
+.analytics-chart-frame {
+  height: 220px;
+  width: 100%;
+}
+
+.analytics-chart-placeholder {
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.analytics-dashboard .table-responsive {
+  max-height: 62vh;
+}
+
+.analytics-dashboard .table th,
+.analytics-dashboard .table td {
+  white-space: nowrap;
+}
