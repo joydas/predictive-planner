@@ -193,8 +193,8 @@ const TeamCompositionStep = ({
     setTeamRows(data.rows.filter((_, rowIndex) => rowIndex !== index));
   };
 
-  const applyRecommendedTeam = (recommendedTeam) => {
-    const rows = Object.entries(recommendedTeam || {})
+  const buildRecommendedRows = (recommendedTeam) => (
+    Object.entries(recommendedTeam || {})
       .filter(([, count]) => Number(count) > 0)
       .map(([roleName, count]) => {
         const normalizedRole = roleAliases[roleName] || roleAliases[displayRole(roleName)] || displayRole(roleName);
@@ -212,23 +212,35 @@ const TeamCompositionStep = ({
           endDate: deliveryDetails.planned_end_date || '',
           ratePerDay: selectedRole.roleId ? resolveRate(selectedRole.roleId, locationType) : '',
         };
-      });
-
-    if (rows.length) {
-      setTeamRows(rows);
-    }
-  };
+      })
+  );
 
   const handleGetRecommendation = async () => {
     setLoadingRecommendation(true);
     setRecommendationError('');
     try {
       const result = await getMlRecommendation(projectData);
+      const recommendedRows = buildRecommendedRows(result.staffing?.recommendedTeam);
+      const recommendedPlanning = deriveResourcePlanning({
+        rows: recommendedRows,
+        financial,
+        rateCards,
+      });
+      const aiEffort = Number(result.effort?.predictedHours ?? recommendedPlanning.planned_effort ?? 0);
       updateMlRecommendation({
-        recommendation: result,
+        recommendation: {
+          ...result,
+          baselineSnapshot: {
+            effort: Number(aiEffort.toFixed(2)),
+            budget: Number(recommendedPlanning.budget.toFixed(2)),
+            teamSize: Number(recommendedPlanning.estimated_team_size.toFixed(2)),
+          },
+        },
         acceptedAt: new Date().toISOString(),
       });
-      applyRecommendedTeam(result.staffing?.recommendedTeam);
+      if (recommendedRows.length) {
+        setTeamRows(recommendedRows);
+      }
     } catch (error) {
       setRecommendationError(error.message || 'Unable to get ML recommendation');
     } finally {

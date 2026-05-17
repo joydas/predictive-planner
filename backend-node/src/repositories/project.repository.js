@@ -155,6 +155,45 @@ function parseDraftData(rawDraftData) {
   return {};
 }
 
+function normalizeNumber(value, fallback = 0) {
+  if (value === '' || value === null || value === undefined) return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function sumObjectValues(value = {}) {
+  return Object.values(value || {}).reduce((sum, next) => sum + normalizeNumber(next, 0), 0);
+}
+
+function extractAiBaseline(data = {}) {
+  const existing = data.baselineTracking?.ai || data.mlRecommendation?.aiBaseline || {};
+  const recommendation = data.mlRecommendation?.recommendation || {};
+  const snapshot = recommendation.baselineSnapshot || {};
+  const recommendedTeam = recommendation.staffing?.recommendedTeam || {};
+  const hasRecommendedTeam = Object.keys(recommendedTeam).length > 0;
+  const effort = snapshot.effort
+    ?? snapshot.plannedEffort
+    ?? existing.effort
+    ?? existing.ai_baseline_effort
+    ?? recommendation.effort?.predictedHours
+    ?? null;
+  const budget = snapshot.budget
+    ?? existing.budget
+    ?? existing.ai_baseline_budget
+    ?? null;
+  const teamSize = snapshot.teamSize
+    ?? snapshot.estimatedTeamSize
+    ?? existing.teamSize
+    ?? existing.ai_baseline_team_size
+    ?? (hasRecommendedTeam ? sumObjectValues(recommendedTeam) : null);
+
+  return {
+    effort: effort === null || effort === undefined ? null : normalizeNumber(effort, null),
+    budget: budget === null || budget === undefined ? null : normalizeNumber(budget, null),
+    teamSize: teamSize === null || teamSize === undefined ? null : normalizeNumber(teamSize, null),
+  };
+}
+
 function mapDraftDataToProject(row) {
   const draftData = parseDraftData(row.draftData);
   const legacy = draftData._legacy || {};
@@ -493,6 +532,21 @@ async function getProjectById(projectId) {
            ap.project_code AS projectCode,
            ap.owner_id AS ownerId,
            ap.approved_data AS draftData,
+           ap.ai_baseline_effort AS aiBaselineEffort,
+           ap.ai_baseline_budget AS aiBaselineBudget,
+           ap.ai_baseline_team_size AS aiBaselineTeamSize,
+           ap.pm_baseline_effort AS pmBaselineEffort,
+           ap.pm_baseline_budget AS pmBaselineBudget,
+           ap.pm_baseline_team_size AS pmBaselineTeamSize,
+           ap.current_planned_effort AS currentPlannedEffort,
+           ap.current_planned_budget AS currentPlannedBudget,
+           ap.current_planned_team_size AS currentPlannedTeamSize,
+           ap.actual_effort AS actualEffort,
+           ap.actual_budget AS actualBudget,
+           ap.actual_team_size AS actualTeamSize,
+           ap.total_cr_effort_impact AS totalCrEffortImpact,
+           ap.total_cr_budget_impact AS totalCrBudgetImpact,
+           ap.total_cr_team_impact AS totalCrTeamImpact,
            CASE WHEN pd.workflow_status = 'COMPLETE' THEN 'COMPLETE' ELSE 'APPROVED' END AS status,
            CASE WHEN pd.workflow_status = 'COMPLETE' THEN 'COMPLETE' ELSE 'APPROVED' END AS workflowStatus,
            pd.submitted_by_user_id AS submittedByUserId,
@@ -511,7 +565,37 @@ async function getProjectById(projectId) {
   if (!rows.length) {
     return null;
   }
-  return mapDraftDataToProject(rows[0]);
+  const project = mapDraftDataToProject(rows[0]);
+  return {
+    ...project,
+    baselineTracking: {
+      ai: {
+        effort: rows[0].aiBaselineEffort,
+        budget: rows[0].aiBaselineBudget,
+        teamSize: rows[0].aiBaselineTeamSize,
+      },
+      pm: {
+        effort: rows[0].pmBaselineEffort,
+        budget: rows[0].pmBaselineBudget,
+        teamSize: rows[0].pmBaselineTeamSize,
+      },
+      current: {
+        effort: rows[0].currentPlannedEffort,
+        budget: rows[0].currentPlannedBudget,
+        teamSize: rows[0].currentPlannedTeamSize,
+      },
+      actual: {
+        effort: rows[0].actualEffort,
+        budget: rows[0].actualBudget,
+        teamSize: rows[0].actualTeamSize,
+      },
+      crImpact: {
+        effort: rows[0].totalCrEffortImpact,
+        budget: rows[0].totalCrBudgetImpact,
+        teamSize: rows[0].totalCrTeamImpact,
+      },
+    },
+  };
 }
 
 async function getProjectForCompletion(connection, projectId) {
@@ -584,6 +668,25 @@ async function insertProjectCompletion(connection, completion) {
   }
 
   return { completionId: result.insertId };
+}
+
+async function updateProjectActuals(connection, projectId, actuals) {
+  const [result] = await connection.query(
+    `
+      UPDATE project
+      SET actual_effort = ?,
+          actual_budget = ?,
+          actual_team_size = ?
+      WHERE project_id = ?
+    `,
+    [
+      normalizeNumber(actuals.actualEffort, 0),
+      normalizeNumber(actuals.actualBudget, 0),
+      normalizeNumber(actuals.actualTeamSize, 0),
+      projectId,
+    ],
+  );
+  return result.affectedRows > 0;
 }
 
 async function markProjectComplete(connection, draftId, projectId, user, comment) {
@@ -672,13 +775,27 @@ async function insertApprovedProject(connection, draft, approvedByUserId) {
   const basic = data.basicInfo || {};
   const technology = data.technology || {};
   const financial = data.financial || {};
+  const aiBaseline = extractAiBaseline(data);
+  const pmBaseline = {
+    effort: normalizeNumber(financial.planned_effort, 0),
+    budget: normalizeNumber(financial.budget, 0),
+    teamSize: normalizeNumber(financial.estimated_team_size, 0),
+  };
+  console.info('Initializing project baselines', {
+    draftId: draft.draftId,
+    aiBaseline,
+    pmBaseline,
+  });
   const [result] = await connection.query(
     `
       INSERT INTO project
         (source_draft_id, owner_id, project_name, client_name, industry, project_type, delivery_model,
          technology_stack, complexity, estimated_team_size, planned_effort, budget, predicted_hours,
+         ai_baseline_effort, ai_baseline_budget, ai_baseline_team_size,
+         pm_baseline_effort, pm_baseline_budget, pm_baseline_team_size,
+         current_planned_effort, current_planned_budget, current_planned_team_size,
          approved_data, approved_by_user_id, approved_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     `,
     [
       draft.draftId,
@@ -689,11 +806,20 @@ async function insertApprovedProject(connection, draft, approvedByUserId) {
       basic.project_type || '',
       basic.delivery_model || '',
       technology.technology_stack || '',
-      Number(technology.complexity) || 0,
-      Number(financial.estimated_team_size) || 0,
-      Number(financial.planned_effort) || 0,
-      Number(financial.budget) || 0,
+      normalizeNumber(technology.complexity, 0),
+      pmBaseline.teamSize,
+      pmBaseline.effort,
+      pmBaseline.budget,
       0,
+      aiBaseline.effort,
+      aiBaseline.budget,
+      aiBaseline.teamSize,
+      pmBaseline.effort,
+      pmBaseline.budget,
+      pmBaseline.teamSize,
+      pmBaseline.effort,
+      pmBaseline.budget,
+      pmBaseline.teamSize,
       JSON.stringify(data),
       approvedByUserId,
     ],
@@ -766,6 +892,7 @@ module.exports = {
   ensureDraftTable,
   getProjectForCompletion,
   insertProjectCompletion,
+  updateProjectActuals,
   insertApprovedProject,
   insertProjectTeamSnapshots,
   markProjectComplete,

@@ -21,6 +21,9 @@ const CR_SELECT = `
   cr.schedule_impact_days AS scheduleImpactDays,
   cr.estimated_effort_hours AS estimatedEffortHours,
   cr.estimated_cost_impact AS estimatedCostImpact,
+  cr.effort_impact AS effortImpact,
+  cr.budget_impact AS budgetImpact,
+  cr.team_size_impact AS teamSizeImpact,
   cr.dependency_impact AS dependencyImpact,
   cr.environments_affected AS environmentsAffected,
   cr.additional_pm_count AS additionalPmCount,
@@ -54,6 +57,9 @@ const writableColumns = `
   schedule_impact_days = ?,
   estimated_effort_hours = ?,
   estimated_cost_impact = ?,
+  effort_impact = ?,
+  budget_impact = ?,
+  team_size_impact = ?,
   dependency_impact = ?,
   environments_affected = ?,
   additional_pm_count = ?,
@@ -79,6 +85,9 @@ function payloadValues(crData) {
     crData.scheduleImpactDays,
     crData.estimatedEffortHours,
     crData.estimatedCostImpact,
+    crData.effortImpact,
+    crData.budgetImpact,
+    crData.teamSizeImpact,
     crData.dependencyImpact,
     crData.environmentsAffected,
     crData.additionalPmCount,
@@ -141,6 +150,51 @@ async function getChangeRequestById(crId) {
   );
 
   return rows[0] || null;
+}
+
+async function getChangeRequestForUpdate(connection, crId) {
+  const [rows] = await connection.query(
+    `
+      SELECT ${CR_SELECT}
+      FROM change_request cr
+      INNER JOIN project p ON p.project_id = cr.project_id
+      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
+      WHERE cr.cr_id = ?
+      LIMIT 1
+      FOR UPDATE
+    `,
+    [crId],
+  );
+
+  return rows[0] || null;
+}
+
+async function accumulateApprovedCrImpact(connection, changeRequest) {
+  const effortImpact = Number(changeRequest.effortImpact || 0);
+  const budgetImpact = Number(changeRequest.budgetImpact || 0);
+  const teamSizeImpact = Number(changeRequest.teamSizeImpact || 0);
+  const [result] = await connection.query(
+    `
+      UPDATE project
+      SET current_planned_effort = COALESCE(current_planned_effort, 0) + ?,
+          current_planned_budget = COALESCE(current_planned_budget, 0) + ?,
+          current_planned_team_size = COALESCE(current_planned_team_size, 0) + ?,
+          total_cr_effort_impact = COALESCE(total_cr_effort_impact, 0) + ?,
+          total_cr_budget_impact = COALESCE(total_cr_budget_impact, 0) + ?,
+          total_cr_team_impact = COALESCE(total_cr_team_impact, 0) + ?
+      WHERE project_id = ?
+    `,
+    [
+      effortImpact,
+      budgetImpact,
+      teamSizeImpact,
+      effortImpact,
+      budgetImpact,
+      teamSizeImpact,
+      changeRequest.projectId,
+    ],
+  );
+  return result.affectedRows > 0;
 }
 
 async function getChangeRequestsByProject(projectId) {
@@ -320,7 +374,9 @@ module.exports = {
   createDraft,
   ensureCrSchema,
   findCrsForPm,
+  accumulateApprovedCrImpact,
   getChangeRequestById,
+  getChangeRequestForUpdate,
   getChangeRequestsByProject,
   updateDraft,
 };

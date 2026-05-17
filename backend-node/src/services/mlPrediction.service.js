@@ -28,6 +28,13 @@ async function callMl(endpoint, payload) {
   return response.data;
 }
 
+function sumStaffing(staffing = {}) {
+  return Object.values(staffing || {}).reduce((sum, next) => {
+    const value = Number(next || 0);
+    return Number.isFinite(value) ? sum + value : sum;
+  }, 0);
+}
+
 async function getProjectRecommendations(projectData, userId) {
   const [staffing, effort, risk] = await Promise.all([
     callMl('/predict/staffing', projectData),
@@ -39,6 +46,11 @@ async function getProjectRecommendations(projectData, userId) {
     staffing,
     effort,
     risk,
+    baselineSnapshot: {
+      effort: Number(effort.predictedHours || 0),
+      budget: null,
+      teamSize: sumStaffing(staffing.recommendedTeam || {}),
+    },
     explanation: [
       ...(staffing.explanation || []),
       ...(effort.explanation || []),

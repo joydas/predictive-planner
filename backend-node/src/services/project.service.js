@@ -137,6 +137,38 @@ function calculateAverageExperience(teamComposition) {
   return validValues.reduce((sum, next) => sum + next, 0) / validValues.length;
 }
 
+function sumObjectValues(value = {}) {
+  return Object.values(value || {}).reduce((sum, next) => sum + normalizeNumber(next, 0), 0);
+}
+
+function extractAiBaselineFromPayload(payload = {}) {
+  const existing = payload.baselineTracking?.ai || payload.mlRecommendation?.aiBaseline || {};
+  const recommendation = payload.mlRecommendation?.recommendation || {};
+  const snapshot = recommendation.baselineSnapshot || {};
+  const recommendedTeam = recommendation.staffing?.recommendedTeam || {};
+  const hasRecommendedTeam = Object.keys(recommendedTeam).length > 0;
+  const effort = snapshot.effort
+    ?? snapshot.plannedEffort
+    ?? existing.effort
+    ?? recommendation.effort?.predictedHours
+    ?? null;
+  const budget = snapshot.budget ?? existing.budget ?? null;
+  const teamSize = snapshot.teamSize
+    ?? snapshot.estimatedTeamSize
+    ?? existing.teamSize
+    ?? (hasRecommendedTeam ? sumObjectValues(recommendedTeam) : null);
+
+  if (effort === null && budget === null && teamSize === null) {
+    return existing;
+  }
+
+  return {
+    effort: effort === null || effort === undefined ? null : normalizeNumber(effort, null),
+    budget: budget === null || budget === undefined ? null : normalizeNumber(budget, null),
+    teamSize: teamSize === null || teamSize === undefined ? null : normalizeNumber(teamSize, null),
+  };
+}
+
 function normalizeProjectPayload(payload) {
   if (payload && payload.basicInfo) {
     return payload;
@@ -313,6 +345,15 @@ async function submitProject(user, projectData, draftId = null, comment = '') {
 
   const finalPayload = {
     ...payload,
+    baselineTracking: {
+      ...(payload.baselineTracking || {}),
+      ai: extractAiBaselineFromPayload(payload),
+      pm: {
+        effort: Number(derivedPlanning.plannedEffort.toFixed(2)),
+        budget: Number(derivedPlanning.budget.toFixed(2)),
+        teamSize: Number(derivedPlanning.estimatedTeamSize.toFixed(2)),
+      },
+    },
     teamComposition: {
       ...payload.teamComposition,
       rows: derivedPlanning.rows,
@@ -389,6 +430,8 @@ function normalizeCompletionPayload(payload = {}) {
     };
   });
   const resourceCost = finalResourceLoading.reduce((sum, row) => sum + row.actualCost, 0);
+  const actualEffort = finalResourceLoading.reduce((sum, row) => sum + (row.count * row.effort), 0);
+  const actualTeamSize = finalResourceLoading.reduce((sum, row) => sum + row.count, 0);
   const managementCost = normalizeNumber(actuals.managementCost ?? actuals.management_cost, 0);
   const contingencyCost = normalizeNumber(actuals.contingencyCost ?? actuals.contingency_cost, 0);
   const actualCrVolatility = groundMetrics.actualCrVolatility ?? groundMetrics.actual_cr_volatility ?? '';
@@ -400,6 +443,8 @@ function normalizeCompletionPayload(payload = {}) {
     contingencyCost: Number(contingencyCost.toFixed(2)),
     resourceCost: Number(resourceCost.toFixed(2)),
     fullProjectCost: Number((resourceCost + managementCost + contingencyCost).toFixed(2)),
+    actualEffort: Number(actualEffort.toFixed(2)),
+    actualTeamSize: Number(actualTeamSize.toFixed(2)),
     dependencyCount: normalizeNumber(groundMetrics.dependencyCount ?? groundMetrics.dependency_count, null),
     requirementStabilityIndex: normalizeNumber(
       groundMetrics.requirementStabilityIndex ?? groundMetrics.requirement_stability_index,
@@ -478,6 +523,17 @@ async function completeProject(projectId, user, payload) {
       payload,
       ...completion,
     });
+    console.info('Storing project completion actuals', {
+      projectId,
+      actualEffort: completion.actualEffort,
+      actualBudget: completion.fullProjectCost,
+      actualTeamSize: completion.actualTeamSize,
+    });
+    await projectRepository.updateProjectActuals(connection, projectId, {
+      actualEffort: completion.actualEffort,
+      actualBudget: completion.fullProjectCost,
+      actualTeamSize: completion.actualTeamSize,
+    });
     const marked = await projectRepository.markProjectComplete(
       connection,
       project.sourceDraftId,
@@ -498,6 +554,8 @@ async function completeProject(projectId, user, payload) {
       sourceDraftId: project.sourceDraftId,
       status: 'COMPLETE',
       fullProjectCost: completion.fullProjectCost,
+      actualEffort: completion.actualEffort,
+      actualTeamSize: completion.actualTeamSize,
     };
   } catch (error) {
     await connection.rollback();

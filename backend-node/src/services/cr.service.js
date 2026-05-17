@@ -1,3 +1,4 @@
+const { pool } = require('../config/db.config');
 const crRepository = require('../repositories/cr.repository');
 const projectRepository = require('../repositories/project.repository');
 const workflowService = require('../workflow/workflow.service');
@@ -13,6 +14,27 @@ function normalizeCrPayload(payload = {}) {
   const teamImpact = payload.teamImpact || payload;
   const financial = payload.financial || payload.financialImpact || payload;
 
+  const effortImpact = normalizeNumber(
+    impact.effortImpact ?? impact.effort_impact ?? impact.estimatedEffortHours ?? impact.estimated_effort_hours,
+  );
+  const budgetImpact = normalizeNumber(
+    financial.budgetImpact ?? financial.budget_impact ?? payload.budgetImpact ?? payload.budget_impact,
+    null,
+  );
+  const teamSizeImpact = normalizeNumber(
+    teamImpact.teamSizeImpact ?? teamImpact.team_size_impact ?? payload.teamSizeImpact ?? payload.team_size_impact,
+    null,
+  );
+  const additionalPmCount = normalizeNumber(teamImpact.additionalPmCount ?? teamImpact.additional_pm_count);
+  const additionalDevCount = normalizeNumber(teamImpact.additionalDevCount ?? teamImpact.additional_dev_count);
+  const additionalQaCount = normalizeNumber(teamImpact.additionalQaCount ?? teamImpact.additional_qa_count);
+  const additionalDevOpsCount = normalizeNumber(teamImpact.additionalDevOpsCount ?? teamImpact.additional_devops_count);
+  const additionalArchitectCount = normalizeNumber(teamImpact.additionalArchitectCount ?? teamImpact.additional_architect_count);
+  const estimatedCostImpact = normalizeNumber(impact.estimatedCostImpact ?? impact.estimated_cost_impact);
+  const additionalBudget = normalizeNumber(financial.additionalBudget ?? financial.additional_budget);
+  const additionalLicensingCost = normalizeNumber(financial.additionalLicensingCost ?? financial.additional_licensing_cost);
+  const infrastructureCostImpact = normalizeNumber(financial.infrastructureCostImpact ?? financial.infrastructure_cost_impact);
+
   return {
     projectId: Number(basic.project_id || basic.projectId || payload.project_id || payload.projectId),
     title: String(basic.title || basic.crTitle || '').trim(),
@@ -22,18 +44,25 @@ function normalizeCrPayload(payload = {}) {
     priority: String(basic.priority || '').trim(),
     affectedModule: String(basic.affectedModule || basic.affected_module || '').trim(),
     scheduleImpactDays: normalizeNumber(impact.scheduleImpactDays ?? impact.schedule_impact_days),
-    estimatedEffortHours: normalizeNumber(impact.estimatedEffortHours ?? impact.estimated_effort_hours),
-    estimatedCostImpact: normalizeNumber(impact.estimatedCostImpact ?? impact.estimated_cost_impact),
+    estimatedEffortHours: effortImpact,
+    estimatedCostImpact,
+    effortImpact,
+    budgetImpact: budgetImpact === null
+      ? estimatedCostImpact + additionalBudget + additionalLicensingCost + infrastructureCostImpact
+      : budgetImpact,
+    teamSizeImpact: teamSizeImpact === null
+      ? additionalPmCount + additionalDevCount + additionalQaCount + additionalDevOpsCount + additionalArchitectCount
+      : teamSizeImpact,
     dependencyImpact: String(impact.dependencyImpact || impact.dependency_impact || '').trim(),
     environmentsAffected: String(impact.environmentsAffected || impact.environments_affected || '').trim(),
-    additionalPmCount: normalizeNumber(teamImpact.additionalPmCount ?? teamImpact.additional_pm_count),
-    additionalDevCount: normalizeNumber(teamImpact.additionalDevCount ?? teamImpact.additional_dev_count),
-    additionalQaCount: normalizeNumber(teamImpact.additionalQaCount ?? teamImpact.additional_qa_count),
-    additionalDevOpsCount: normalizeNumber(teamImpact.additionalDevOpsCount ?? teamImpact.additional_devops_count),
-    additionalArchitectCount: normalizeNumber(teamImpact.additionalArchitectCount ?? teamImpact.additional_architect_count),
-    additionalBudget: normalizeNumber(financial.additionalBudget ?? financial.additional_budget),
-    additionalLicensingCost: normalizeNumber(financial.additionalLicensingCost ?? financial.additional_licensing_cost),
-    infrastructureCostImpact: normalizeNumber(financial.infrastructureCostImpact ?? financial.infrastructure_cost_impact),
+    additionalPmCount,
+    additionalDevCount,
+    additionalQaCount,
+    additionalDevOpsCount,
+    additionalArchitectCount,
+    additionalBudget,
+    additionalLicensingCost,
+    infrastructureCostImpact,
   };
 }
 
@@ -247,13 +276,43 @@ async function transitionChangeRequest(crId, user, actionType, comment) {
     throw error;
   }
 
-  return workflowService.transitionWorkflow({
-    entityType: 'CR',
-    entityId: crId,
-    user,
-    actionType,
-    comment,
-  });
+  if (String(actionType || '').toUpperCase() !== 'APPROVE') {
+    return workflowService.transitionWorkflow({
+      entityType: 'CR',
+      entityId: crId,
+      user,
+      actionType,
+      comment,
+    });
+  }
+
+  const connection = await pool.promise().getConnection();
+  try {
+    await connection.beginTransaction();
+    const lockedChangeRequest = await crRepository.getChangeRequestForUpdate(connection, crId);
+    const transition = await workflowService.transitionWorkflowInTransaction(connection, {
+      entityType: 'CR',
+      entityId: crId,
+      user,
+      actionType,
+      comment,
+    });
+    console.info('Accumulating approved CR impact', {
+      crId,
+      projectId: lockedChangeRequest.projectId,
+      effortImpact: lockedChangeRequest.effortImpact,
+      budgetImpact: lockedChangeRequest.budgetImpact,
+      teamSizeImpact: lockedChangeRequest.teamSizeImpact,
+    });
+    await crRepository.accumulateApprovedCrImpact(connection, lockedChangeRequest);
+    await connection.commit();
+    return transition;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 }
 
 module.exports = {
