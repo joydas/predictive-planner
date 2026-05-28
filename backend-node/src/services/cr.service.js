@@ -34,7 +34,7 @@ function normalizeCrPayload(payload = {}) {
   const effortImpact = normalizeNumber(
     impact.effortImpact ?? impact.effort_impact ?? impact.estimatedEffortHours ?? impact.estimated_effort_hours,
   );
-  const budgetImpact = normalizeNumber(
+  const explicitBudgetImpact = normalizeNumber(
     financial.budgetImpact ?? financial.budget_impact ?? payload.budgetImpact ?? payload.budget_impact,
     null,
   );
@@ -47,8 +47,14 @@ function normalizeCrPayload(payload = {}) {
   const additionalQaCount = normalizeNumber(teamImpact.additionalQaCount ?? teamImpact.additional_qa_count);
   const additionalDevOpsCount = normalizeNumber(teamImpact.additionalDevOpsCount ?? teamImpact.additional_devops_count);
   const additionalArchitectCount = normalizeNumber(teamImpact.additionalArchitectCount ?? teamImpact.additional_architect_count);
-  const estimatedCostImpact = normalizeNumber(impact.estimatedCostImpact ?? impact.estimated_cost_impact);
-  const additionalBudget = normalizeNumber(financial.additionalBudget ?? financial.additional_budget);
+  const legacyEstimatedCostImpact = normalizeNumber(impact.estimatedCostImpact ?? impact.estimated_cost_impact, null);
+  const additionalBudget = normalizeNumber(
+    financial.additionalBudget
+      ?? financial.additional_budget
+      ?? explicitBudgetImpact
+      ?? legacyEstimatedCostImpact,
+  );
+  const estimatedCostImpact = legacyEstimatedCostImpact ?? 0;
   const additionalLicensingCost = normalizeNumber(financial.additionalLicensingCost ?? financial.additional_licensing_cost);
   const infrastructureCostImpact = normalizeNumber(financial.infrastructureCostImpact ?? financial.infrastructure_cost_impact);
 
@@ -64,9 +70,7 @@ function normalizeCrPayload(payload = {}) {
     estimatedEffortHours: effortImpact,
     estimatedCostImpact,
     effortImpact,
-    budgetImpact: budgetImpact === null
-      ? estimatedCostImpact + additionalBudget + additionalLicensingCost + infrastructureCostImpact
-      : budgetImpact,
+    budgetImpact: explicitBudgetImpact ?? additionalBudget,
     teamSizeImpact: teamSizeImpact === null
       ? additionalPmCount + additionalDevCount + additionalQaCount + additionalDevOpsCount + additionalArchitectCount
       : teamSizeImpact,

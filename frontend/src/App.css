@@ -55,13 +55,13 @@
 .app-sidebar-brand {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  min-height: 64px;
-  padding: 0 1rem !important;
+  gap: var(--spacer-2);
+  min-height: 52px;
+  padding: 0 var(--spacer-3) !important;
 }
 
 .app-sidebar-header {
-  gap: 0.75rem;
+  gap: var(--spacer-2);
 }
 
 .app-sidebar-header .app-sidebar-brand {
@@ -75,8 +75,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 1.75rem;
+  height: 1.75rem;
   border-radius: 0.5rem;
   background: rgba(255, 255, 255, 0.14);
   color: #fff;
@@ -95,7 +95,7 @@
 .app-sidebar-link {
   display: flex !important;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--spacer-2);
 }
 
 .app-sidebar-icon {
@@ -125,8 +125,8 @@
 .app-layout.is-desktop .app-sidebar.sidebar.collapsed .app-sidebar-link {
   justify-content: center;
   gap: 0;
-  padding-left: 0.75rem;
-  padding-right: 0.75rem;
+  padding-left: var(--spacer-2);
+  padding-right: var(--spacer-2);
 }
 
 .app-layout.is-desktop .app-sidebar.sidebar.collapsed .app-sidebar-icon {
@@ -136,18 +136,18 @@
 .app-sidebar-footer {
   margin-top: auto;
   justify-content: flex-end;
-  padding: 0.75rem 1rem !important;
+  padding: var(--spacer-2) var(--spacer-3) !important;
 }
 
 .app-sidebar-footer-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--spacer);
   border: none;
   background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.9);
   border-radius: 0.5rem;
-  padding: 0.5rem 0.75rem !important;
+  padding: var(--spacer) var(--spacer-2) !important;
 }
 
 .app-sidebar-footer-toggle:hover {
@@ -236,13 +236,13 @@ h1, h2, h3, h4, h5, h6 {
 table {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 1rem;
+  margin-bottom: var(--spacer-3);
 }
 
 thead th {
   background-color: #1e293b;
   color: white;
-  padding: 8px 12px;
+  padding: var(--compact-table-cell-y) var(--compact-table-cell-x);
   text-align: left;
   font-weight: 600;
 }
@@ -256,7 +256,7 @@ tbody tr:hover {
 }
 
 tbody td {
-  padding: 8px 12px;
+  padding: var(--compact-table-cell-y) var(--compact-table-cell-x);
   border-bottom: 1px solid #e2e8f0;
 }
 
@@ -275,7 +275,7 @@ tbody td {
 }
 
 .card-body {
-  padding: 1rem;
+  padding: var(--compact-card-padding);
 }
 
 /* Action buttons in tables */
@@ -304,64 +304,64 @@ tbody td {
   font-size: 0.75rem;
   font-weight: 500;
   color: rgba(59, 94, 172, 0.8);
-  margin-bottom: 0.25rem;
+  margin-bottom: var(--spacer);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .kpi-card .card-value {
-  font-size: 2rem;
+  font-size: 1.65rem;
   font-weight: 700;
   color: white;
   line-height: 1;
 }
 
 .section-gap {
-  margin-bottom: 1rem !important;
+  margin-bottom: var(--compact-section-gap) !important;
 }
 
 .kpi-card .card-body {
-  padding: 0.75rem !important;
+  padding: var(--compact-card-padding-sm) !important;
 }
 
 .number-cell {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
 }
 
 /* Tighten overall spacing */
 .card-body {
-  padding: 0.75rem !important;
+  padding: var(--compact-card-padding-sm) !important;
 }
 
 .card-header {
-  padding: 0.75rem 1rem !important;
+  padding: var(--spacer-2) var(--spacer-3) !important;
   margin-bottom: 0 !important;
 }
 
 .table th, .table td {
-  padding: 0.5rem 0.75rem !important;
+  padding: var(--compact-table-cell-y) var(--compact-table-cell-x) !important;
 }
 
 .mb-4 {
-  margin-bottom: 1rem !important;
+  margin-bottom: var(--compact-section-gap) !important;
 }
 
 .mb-3 {
-  margin-bottom: 0.75rem !important;
+  margin-bottom: var(--spacer-2) !important;
 }
 
 .gap-3 {
-  gap: 0.75rem !important;
+  gap: var(--spacer-2) !important;
 }
 
 .p-3 {
-  padding: 0.75rem !important;
+  padding: var(--spacer-2) !important;
 }
 
 .py-5 {
-  padding-top: 1.5rem !important;
-  padding-bottom: 1.5rem !important;
+  padding-top: var(--spacer-4) !important;
+  padding-bottom: var(--spacer-4) !important;
 }
 
 /* Risk badges */
@@ -372,22 +372,22 @@ tbody td {
 
 .badge {
   font-weight: 600;
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   padding: 0.25rem 0.5rem;
   border-radius: 0.375rem;
 }
 
 .analytics-chart-card .card-body {
-  min-height: 260px;
+  min-height: 212px;
 }
 
 .analytics-chart-frame {
-  height: 220px;
+  height: 178px;
   width: 100%;
 }
 
 .analytics-chart-placeholder {
-  min-height: 220px;
+  min-height: 178px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -407,7 +407,7 @@ tbody td {
 }
 
 .operational-kpi-row {
-  row-gap: 0.75rem;
+  row-gap: var(--spacer-2);
 }
 
 .operational-kpi {
@@ -415,7 +415,7 @@ tbody td {
 }
 
 .operational-kpi .card-body {
-  min-height: 96px;
+  min-height: 76px;
 }
 
 .operational-kpi-label {
@@ -429,26 +429,26 @@ tbody td {
 
 .operational-kpi-value {
   color: #0f172a;
-  font-size: 1.55rem;
+  font-size: 1.3rem;
   font-weight: 700;
   line-height: 1.2;
-  margin-top: 0.35rem;
+  margin-top: var(--spacer);
   overflow-wrap: anywhere;
 }
 
 .operational-kpi-meta {
   color: #64748b;
   font-size: 0.78rem;
-  margin-top: 0.2rem;
+  margin-top: 0.125rem;
 }
 
 .operational-section {
-  margin-top: 1rem;
+  margin-top: var(--compact-section-gap);
 }
 
 .operational-search {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--spacer);
   min-width: min(100%, 340px);
 }
 
@@ -468,7 +468,7 @@ tbody td {
 .operational-badge-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: var(--spacer);
   min-width: 10rem;
 }
 

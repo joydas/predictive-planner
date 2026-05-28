@@ -37,7 +37,7 @@ const CreateProject = () => {
     if (!formData.technology) errors.technology = 'Technology is required';
     if (!formData.complexity || Number(formData.complexity) < 1 || Number(formData.complexity) > 10) errors.complexity = 'Complexity must be between 1 and 10';
     if (!formData.teamSize || Number(formData.teamSize) <= 0) errors.teamSize = 'Team size must be greater than zero';
-    if (!formData.estimatedHours || Number(formData.estimatedHours) <= 0) errors.estimatedHours = 'Estimated hours must be greater than zero';
+    if (!formData.estimatedHours || Number(formData.estimatedHours) <= 0) errors.estimatedHours = 'Estimated effort (PD) must be greater than zero';
     if (!formData.avgExperience || Number(formData.avgExperience) < 0) errors.avgExperience = 'Average experience is required';
     if (!formData.technologyScore || Number(formData.technologyScore) < 0) errors.technologyScore = 'Technology score is required';
 
@@ -271,7 +271,7 @@ const CreateProject = () => {
                   </CCol>
                   <CCol md={6}>
                     <label htmlFor="estimatedHours" className="form-label">
-                      Estimated Hours <span style={{ color: '#f5576c' }}>*</span>
+                      Estimated Effort (PD) <span style={{ color: '#f5576c' }}>*</span>
                     </label>
                     <CFormInput
                       type="number"
@@ -279,7 +279,7 @@ const CreateProject = () => {
                       name="estimatedHours"
                       value={formData.estimatedHours}
                       onChange={handleInputChange}
-                      placeholder="Estimated hours"
+                      placeholder="Estimated effort in person days"
                       min="1"
                       step="10"
                       invalid={!!formErrors.estimatedHours}
@@ -387,7 +387,7 @@ const CreateProject = () => {
                   <strong>Team Size:</strong> Consider project complexity and technology stack
                 </div>
                 <div className="p-2 border rounded">
-                  <strong>Hours:</strong> Include buffer time for unexpected challenges
+                  <strong>Effort (PD):</strong> Include buffer time for unexpected challenges
                 </div>
                 {/* <div className="p-2 border rounded">
                   <strong>Description:</strong> Be specific about deliverables and constraints

@@ -67,6 +67,15 @@ const CreateCRPage = () => {
     ];
   }, [initialCr, projects]);
 
+  const handleSubmitted = ({ crId: submittedCrId, message }) => {
+    navigate(`/crs/${submittedCrId}`, {
+      replace: true,
+      state: {
+        workflowNotice: message || 'Change request submitted successfully.',
+      },
+    });
+  };
+
   if (isAccountManager) {
     return null;
   }
@@ -86,7 +95,7 @@ const CreateCRPage = () => {
         projects={effectiveProjects}
         initialCr={initialCr}
         projectId={effectiveProjectId}
-        onSubmitted={(submittedCrId) => navigate(`/crs/${submittedCrId}`)}
+        onSubmitted={handleSubmitted}
       />
     </div>
   );

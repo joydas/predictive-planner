@@ -7,9 +7,9 @@ import TableToolbar from '../../components/dataTable/TableToolbar';
 import { listProjects } from '../../services/projectService';
 import authService from '../../services/authService';
 import { formatDisplayDateTime } from '../../utils/dateUtils';
+import { listIndustries } from '../../services/masterDataService';
 
 const statusOptions = ['DRAFT', 'SUBMITTED', 'RETURNED', 'APPROVED', 'COMPLETE', 'REJECTED'].map((value) => ({ value, label: value }));
-const industryOptions = ['Banking', 'Healthcare', 'Retail', 'Technology', 'Manufacturing'].map((value) => ({ value, label: value }));
 const deliveryModelOptions = ['Agile', 'Waterfall', 'Hybrid', 'Scrum', 'Kanban'].map((value) => ({ value, label: value }));
 
 const statusColors = {
@@ -32,6 +32,25 @@ const ProjectListPage = () => {
   const [sort, setSort] = useState({ sortBy: 'updatedAt', sortOrder: 'DESC' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [industryOptions, setIndustryOptions] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    listIndustries()
+      .then((result) => {
+        if (!active) return;
+        setIndustryOptions((result.items || []).map((industry) => ({
+          value: industry.industryName,
+          label: industry.industryName,
+        })));
+      })
+      .catch(() => {
+        if (active) setIndustryOptions([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {

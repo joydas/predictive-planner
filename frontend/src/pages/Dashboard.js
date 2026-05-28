@@ -203,7 +203,7 @@ const Dashboard = () => {
         <KpiTile label="Approved Projects" value={formatNumber(kpis.approvedProjects)} />
         <KpiTile label="Completed Projects" value={formatNumber(kpis.completedProjects)} />
         <KpiTile label="Total Active Projects" value={formatNumber(kpis.activeProjects)} />
-        <KpiTile label="Total Planned Effort" value={`${formatNumber(kpis.totalPlannedEffort)}h`} meta="Current plan" />
+        <KpiTile label="Total Planned Effort (PD)" value={formatNumber(kpis.totalPlannedEffort)} meta="Current plan in person days" />
         <KpiTile label="Total Resource Count" value={formatNumber(kpis.totalResourceCount)} meta="Planned team size" />
       </CRow>
 
@@ -232,7 +232,7 @@ const Dashboard = () => {
                   <th>Technology</th>
                   <th>Current Status</th>
                   <th>Planned End Date</th>
-                  <th className="text-end">Current Planned Effort</th>
+                  <th className="text-end">Current Planned Effort (PD)</th>
                   <th className="text-end">Current Planned Budget</th>
                   <th className="text-end">Current Planned Team Size</th>
                   <th className="text-end">Approved CR Count</th>
@@ -249,7 +249,7 @@ const Dashboard = () => {
                     <td>{project.technology}</td>
                     <td><StatusBadge value={project.currentStatus} /></td>
                     <td>{formatDisplayDate(project.plannedEndDate)}</td>
-                    <td className="text-end">{formatNumber(project.currentPlannedEffort)}h</td>
+                    <td className="text-end">{formatNumber(project.currentPlannedEffort)}</td>
                     <td className="text-end">{formatCurrency(project.currentPlannedBudget)}</td>
                     <td className="text-end">{formatNumber(project.currentPlannedTeamSize)}</td>
                     <td className="text-end">{formatNumber(project.approvedCrCount)}</td>
@@ -341,8 +341,8 @@ const Dashboard = () => {
             <KpiTile label="Approved CR Count" value={formatNumber(crSnapshot.approvedCrCount)} />
             <KpiTile label="Pending CR Count" value={formatNumber(crSnapshot.pendingCrCount)} />
             <KpiTile label="Rejected / Returned CR Count" value={formatNumber(crSnapshot.rejectedReturnedCrCount)} />
-            <KpiTile label="Cumulative CR Effort Impact" value={`${formatNumber(crSnapshot.cumulativeCrEffortImpact)}h`} />
-            <KpiTile label="Cumulative CR Budget Impact" value={formatCurrency(crSnapshot.cumulativeCrBudgetImpact)} />
+            <KpiTile label="Cumulative CR Effort Impact (PD)" value={formatNumber(crSnapshot.cumulativeCrEffortImpact)} />
+            <KpiTile label="Cumulative CR Additional Budget Impact" value={formatCurrency(crSnapshot.cumulativeCrBudgetImpact)} />
           </CRow>
         </CCardBody>
       </CCard>

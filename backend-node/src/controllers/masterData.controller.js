@@ -10,6 +10,17 @@ async function getPlanningMasterData(req, res) {
   }
 }
 
+async function listIndustries(req, res) {
+  try {
+    const industries = await masterDataRepository.listIndustries();
+    return res.json({ items: industries });
+  } catch (error) {
+    console.error('Industry master data retrieval failed:', error);
+    return res.status(500).json({ message: 'Failed to load industries' });
+  }
+}
+
 module.exports = {
   getPlanningMasterData,
+  listIndustries,
 };

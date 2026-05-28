@@ -5,6 +5,25 @@ async function ensureDraftTable() {
 }
 
 async function ensureApprovedProjectTables() {
+  const [columns] = await db.promise().query(
+    `
+      SELECT COLUMN_NAME AS columnName
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'project'
+        AND COLUMN_NAME = 'industry_code'
+      LIMIT 1
+    `,
+  );
+
+  if (!columns.length) {
+    await db.promise().query(`
+      ALTER TABLE project
+      ADD COLUMN industry_code VARCHAR(50) NULL AFTER industry,
+      ADD INDEX idx_project_industry_code (industry_code)
+    `);
+  }
+
   return true;
 }
 
@@ -410,7 +429,7 @@ async function findProjectsForPm(filters) {
              COALESCE(ap.project_code, CONCAT('PRJ-', LPAD(ap.project_id, 6, '0'))) AS projectCode,
              ap.project_name AS projectName,
              ap.client_name AS clientName,
-             ap.industry AS industry,
+             COALESCE(NULLIF(ap.industry, ''), ap.industry_code) AS industry,
              ap.delivery_model AS deliveryModel,
              CASE WHEN p.workflow_status = 'COMPLETE' THEN 'COMPLETE' ELSE 'APPROVED' END AS currentStatus,
              ap.created_at AS createdAt,
@@ -471,7 +490,7 @@ async function findApprovedProjectsAvailableForCr(user) {
              COALESCE(ap.project_code, CONCAT('PRJ-', LPAD(ap.project_id, 6, '0'))) AS projectCode,
              ap.project_name AS projectName,
              ap.client_name AS clientName,
-             ap.industry,
+             COALESCE(NULLIF(ap.industry, ''), ap.industry_code) AS industry,
              ap.delivery_model AS deliveryModel,
              CASE WHEN pd.workflow_status = 'COMPLETE' THEN 'COMPLETE' ELSE 'APPROVED' END AS currentStatus,
              'APPROVED_PROJECT' AS recordType,
@@ -789,13 +808,13 @@ async function insertApprovedProject(connection, draft, approvedByUserId) {
   const [result] = await connection.query(
     `
       INSERT INTO project
-        (source_draft_id, owner_id, project_name, client_name, industry, project_type, delivery_model,
+        (source_draft_id, owner_id, project_name, client_name, industry, industry_code, project_type, delivery_model,
          technology_stack, complexity, estimated_team_size, planned_effort, budget, predicted_hours,
          ai_baseline_effort, ai_baseline_budget, ai_baseline_team_size,
          pm_baseline_effort, pm_baseline_budget, pm_baseline_team_size,
          current_planned_effort, current_planned_budget, current_planned_team_size,
          approved_data, approved_by_user_id, approved_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     `,
     [
       draft.draftId,
@@ -803,6 +822,7 @@ async function insertApprovedProject(connection, draft, approvedByUserId) {
       basic.project_name || 'Untitled Project',
       basic.client_name || '',
       basic.industry || '',
+      basic.industry_code || basic.industryCode || '',
       basic.project_type || '',
       basic.delivery_model || '',
       technology.technology_stack || '',

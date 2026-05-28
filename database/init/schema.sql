@@ -50,6 +50,19 @@ CREATE TABLE md_rate_card (
   CONSTRAINT fk_md_rate_card_role FOREIGN KEY (role_id) REFERENCES md_role(role_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE md_industry (
+  industry_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  industry_code VARCHAR(50) NOT NULL,
+  industry_name VARCHAR(100) NOT NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (industry_id),
+  UNIQUE KEY uq_md_industry_code (industry_code),
+  UNIQUE KEY uq_md_industry_name (industry_name),
+  INDEX idx_md_industry_active_name (is_active, industry_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE project_drafts (
   draft_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   owner_id BIGINT UNSIGNED NOT NULL,
@@ -96,6 +109,7 @@ CREATE TABLE project (
   project_name VARCHAR(255) NOT NULL,
   client_name VARCHAR(255) NULL,
   industry VARCHAR(100) NULL,
+  industry_code VARCHAR(50) NULL,
   project_type VARCHAR(100) NULL,
   delivery_model VARCHAR(100) NULL,
   technology_stack VARCHAR(255) NULL,
@@ -127,6 +141,7 @@ CREATE TABLE project (
   PRIMARY KEY (project_id),
   UNIQUE KEY uq_project_source_draft (source_draft_id),
   INDEX idx_project_owner_id (owner_id),
+  INDEX idx_project_industry_code (industry_code),
   INDEX idx_project_approved_at (approved_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

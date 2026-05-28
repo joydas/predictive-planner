@@ -227,6 +227,8 @@ const CR_SORT_COLUMNS = {
   priority: 'cr.priority',
   scheduleImpactDays: 'cr.schedule_impact_days',
   estimatedCostImpact: 'cr.estimated_cost_impact',
+  additionalBudget: 'cr.additional_budget',
+  budgetImpact: 'cr.budget_impact',
 };
 
 function buildCrListWhere(filters) {
@@ -297,6 +299,8 @@ function mapCrListRow(row) {
     currentStatus: row.currentStatus || 'DRAFT',
     scheduleImpactDays: row.scheduleImpactDays ?? 0,
     estimatedCostImpact: row.estimatedCostImpact ?? 0,
+    additionalBudget: row.additionalBudget ?? row.budgetImpact ?? row.estimatedCostImpact ?? 0,
+    budgetImpact: row.budgetImpact ?? row.additionalBudget ?? row.estimatedCostImpact ?? 0,
     latestComment: row.latestComment || '-',
     updatedAt: row.updatedAt,
     createdAt: row.createdAt,
@@ -339,6 +343,8 @@ async function findCrsForPm(filters) {
              cr.workflow_status AS currentStatus,
              cr.schedule_impact_days AS scheduleImpactDays,
              cr.estimated_cost_impact AS estimatedCostImpact,
+             cr.additional_budget AS additionalBudget,
+             cr.budget_impact AS budgetImpact,
              cr.latest_comment AS latestComment,
              cr.created_at AS createdAt,
              cr.updated_at AS updatedAt

@@ -89,14 +89,14 @@ const AnalyticsOverview = () => {
         </CBadge>
       ),
     },
-    { key: 'effortVariancePercent', label: 'Effort Variance %', render: percentCell('effortVariancePercent') },
+    { key: 'effortVariancePercent', label: 'Effort Variance % (PD)', render: percentCell('effortVariancePercent') },
     { key: 'budgetVariancePercent', label: 'Budget Variance %', render: percentCell('budgetVariancePercent') },
     { key: 'teamSizeVariancePercent', label: 'Team Size Variance %', render: percentCell('teamSizeVariancePercent') },
     //{ key: 'accountManagerName', label: 'Account Manager Name', sortKey: 'accountManagerName' },
-    { key: 'aiBaselineEffort', label: 'AI Baseline Effort', sortKey: 'aiBaselineEffort', render: numberCell('aiBaselineEffort') },
-    { key: 'pmBaselineEffort', label: 'PM Baseline Effort', sortKey: 'pmBaselineEffort', render: numberCell('pmBaselineEffort') },
-    { key: 'currentPlannedEffort', label: 'Current Planned Effort', sortKey: 'currentPlannedEffort', render: numberCell('currentPlannedEffort') },
-    { key: 'actualEffort', label: 'Actual Effort', sortKey: 'actualEffort', render: numberCell('actualEffort') },
+    { key: 'aiBaselineEffort', label: 'AI Baseline Effort (PD)', sortKey: 'aiBaselineEffort', render: numberCell('aiBaselineEffort') },
+    { key: 'pmBaselineEffort', label: 'PM Baseline Effort (PD)', sortKey: 'pmBaselineEffort', render: numberCell('pmBaselineEffort') },
+    { key: 'currentPlannedEffort', label: 'Current Planned Effort (PD)', sortKey: 'currentPlannedEffort', render: numberCell('currentPlannedEffort') },
+    { key: 'actualEffort', label: 'Actual Effort (PD)', sortKey: 'actualEffort', render: numberCell('actualEffort') },
     { key: 'aiBaselineBudget', label: 'AI Baseline Budget', sortKey: 'aiBaselineBudget', render: currencyCell('aiBaselineBudget') },
     { key: 'pmBaselineBudget', label: 'PM Baseline Budget', sortKey: 'pmBaselineBudget', render: currencyCell('pmBaselineBudget') },
     { key: 'currentPlannedBudget', label: 'Current Planned Budget', sortKey: 'currentPlannedBudget', render: currencyCell('currentPlannedBudget') },
@@ -139,7 +139,7 @@ const AnalyticsOverview = () => {
 
       <CRow className="mb-4 g-4">
         <CCol xs={12} lg={4}>
-          <ChartCard title="Effort Variance" data={varianceChart(widgets.effortVariance, '#2f80ed')} loading={loading} />
+          <ChartCard title="Effort Variance (PD)" data={varianceChart(widgets.effortVariance, '#2f80ed')} options={effortVarianceOptions} loading={loading} />
         </CCol>
         <CCol xs={12} lg={4}>
           <ChartCard title="Cost Variance" data={varianceChart(widgets.costVariance, '#d64550')} loading={loading} />
@@ -148,7 +148,7 @@ const AnalyticsOverview = () => {
           <ChartCard title="Team Size Variance" data={varianceChart(widgets.teamSizeVariance, '#f9b115')} loading={loading} />
         </CCol>
         <CCol xs={12} lg={4}>
-          <ChartCard title="AI vs Actual Effort" data={comparisonMetricChart(widgets, 'effort')} options={comparisonOptions} loading={loading} />
+          <ChartCard title="AI vs Actual Effort (PD)" data={comparisonMetricChart(widgets, 'effort')} options={effortComparisonOptions} loading={loading} />
         </CCol>
         <CCol xs={12} lg={4}>
           <ChartCard title="AI vs Actual Budget" data={comparisonMetricChart(widgets, 'budget')} options={comparisonOptions} loading={loading} />
@@ -207,9 +207,41 @@ const chartOptions = {
   maintainAspectRatio: false,
   plugins: {
     legend: { position: 'bottom' },
+    tooltip: {
+      callbacks: {
+        label: (context) => `${context.dataset.label || 'Value'}: ${formatPercent(context.parsed.y)}`,
+      },
+    },
   },
   scales: {
     y: {
+      title: {
+        display: true,
+        text: 'Variance (%)',
+      },
+      ticks: {
+        callback: (value) => `${value}%`,
+      },
+    },
+  },
+};
+
+const effortVarianceOptions = {
+  ...chartOptions,
+  plugins: {
+    ...chartOptions.plugins,
+    tooltip: {
+      callbacks: {
+        label: (context) => `${context.dataset.label || 'Effort Variance'}: ${formatPercent(context.parsed.y)} based on PD`,
+      },
+    },
+  },
+  scales: {
+    y: {
+      title: {
+        display: true,
+        text: 'Effort Variance (% of PD)',
+      },
       ticks: {
         callback: (value) => `${value}%`,
       },
@@ -219,10 +251,45 @@ const chartOptions = {
 
 const comparisonOptions = {
   ...chartOptions,
+  plugins: {
+    ...chartOptions.plugins,
+    tooltip: {
+      callbacks: {
+        label: (context) => `${context.dataset.label || 'Value'}: ${compactNumber(context.parsed.y)}`,
+      },
+    },
+  },
   scales: {
     y: {
+      title: {
+        display: true,
+        text: 'Value',
+      },
       ticks: {
         callback: (value) => compactNumber(value),
+      },
+    },
+  },
+};
+
+const effortComparisonOptions = {
+  ...comparisonOptions,
+  plugins: {
+    ...comparisonOptions.plugins,
+    tooltip: {
+      callbacks: {
+        label: (context) => `${context.dataset.label || 'Effort'}: ${formatNumber(context.parsed.y)} PD`,
+      },
+    },
+  },
+  scales: {
+    y: {
+      title: {
+        display: true,
+        text: 'Effort (PD)',
+      },
+      ticks: {
+        callback: (value) => `${compactNumber(value)} PD`,
       },
     },
   },

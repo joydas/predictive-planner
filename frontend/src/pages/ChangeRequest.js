@@ -112,9 +112,9 @@ const ChangeRequest = () => {
     }
 
     if (!formData.impactHours || Number(formData.impactHours) === 0) {
-      errors.impactHours = 'Impact hours is required';
+      errors.impactHours = 'Effort impact (PD) is required';
     } else if (Number(formData.impactHours) < -1000 || Number(formData.impactHours) > 1000) {
-      errors.impactHours = 'Impact hours must be between -1000 and 1000';
+      errors.impactHours = 'Effort impact (PD) must be between -1000 and 1000';
     }
 
     if (!formData.comment.trim()) {
@@ -159,11 +159,13 @@ const ChangeRequest = () => {
         comment: formData.comment.trim(),
       });
 
-      setApiMessage(data.message || 'Change request created successfully');
-      setShowSuccess(true);
+      resetForm();
       await loadChangeRequests();
       if (data.crId) {
-        await loadCrDetails(data.crId);
+        navigate(`/crs/${data.crId}`, {
+          replace: true,
+          state: { workflowNotice: data.message || 'Change request submitted successfully.' },
+        });
       }
     } catch (error) {
       setSubmitError(error.message || 'Submission failed. Please try again.');
@@ -177,18 +179,15 @@ const ChangeRequest = () => {
     if (!selectedCr) return;
     setWorkflowLoading(true);
     try {
-      const result = await transitionChangeRequest(selectedCr.crId, action, comment);
-      setWorkflowHistory(result.workflowHistory || []);
-      setSelectedCr((current) => ({
-        ...current,
-        workflowStatus: result.transition.toStatus,
-        status: result.transition.toStatus,
-        latestComment: result.transition.latestComment,
-      }));
+      await transitionChangeRequest(selectedCr.crId, action, comment);
+      await loadCrDetails(selectedCr.crId);
       await loadChangeRequests();
+      setApiMessage('');
+      setShowSuccess(false);
       setSubmitError('');
     } catch (error) {
       setSubmitError(error.message || 'Workflow transition failed');
+      throw error;
     } finally {
       setWorkflowLoading(false);
     }
@@ -255,7 +254,7 @@ const ChangeRequest = () => {
                     <div className="fw-semibold">{valueOrDash(selectedCr.severity)}</div>
                   </CCol>
                   <CCol md={6}>
-                    <div className="text-muted small">Impact Hours</div>
+                    <div className="text-muted small">Effort Impact (PD)</div>
                     <div className="fw-semibold">{valueOrDash(selectedCr.impactHours)}</div>
                   </CCol>
                   <CCol md={6}>
@@ -307,7 +306,7 @@ const ChangeRequest = () => {
 
                   <div className="mb-4">
                     <label htmlFor="impactHours" className="form-label">
-                      Impact Hours <span style={{ color: '#f5576c' }}>*</span>
+                      Effort Impact (PD) <span style={{ color: '#f5576c' }}>*</span>
                     </label>
                     <CFormInput
                       type="number"

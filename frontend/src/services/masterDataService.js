@@ -23,3 +23,11 @@ export async function getPlanningMasterData() {
   });
   return handleResponse(response);
 }
+
+export async function listIndustries() {
+  const response = await fetch(`${API_BASE_URL}/industries`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+  return handleResponse(response);
+}

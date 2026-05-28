@@ -7,7 +7,7 @@ import {
   CRow,
   CSpinner,
 } from '@coreui/react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import WorkflowPanel from '../components/WorkflowPanel';
 import { getProject, transitionProject } from '../services/projectService';
 import authService from '../services/authService';
@@ -82,11 +82,13 @@ const deriveDisplayResourcePlanning = (rows = [], financial = {}, deliveryDetail
 const ProjectDetails = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [project, setProject] = useState(null);
   const [workflowHistory, setWorkflowHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
+  const [workflowNotice, setWorkflowNotice] = useState(location.state?.workflowNotice || '');
 
   const loadProject = useCallback(async () => {
     try {
@@ -106,23 +108,39 @@ const ProjectDetails = () => {
     loadProject();
   }, [loadProject]);
 
+  useEffect(() => {
+    if (!location.state?.workflowNotice) return;
+
+    setWorkflowNotice(location.state.workflowNotice);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate]);
+
+  useEffect(() => {
+    if (!workflowNotice) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setWorkflowNotice('');
+    }, 6000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [workflowNotice]);
+
   const handleWorkflowAction = async (action, comment) => {
     setActionLoading(true);
     try {
       const result = await transitionProject(projectId, action, comment);
-      setWorkflowHistory(result.workflowHistory || []);
-      setProject((current) => ({
-        ...current,
-        workflowStatus: result.transition.toStatus,
-        status: result.transition.toStatus,
-        latestComment: result.transition.latestComment,
-      }));
       if (result.transition.publishedProjectId) {
-        navigate(`/projects/view/${result.transition.publishedProjectId}`);
+        navigate(`/projects/view/${result.transition.publishedProjectId}`, {
+          state: { workflowNotice: 'Project approved and latest baseline loaded.' },
+        });
+        return;
       }
+      await loadProject();
+      setWorkflowNotice(action === 'submit' ? 'Project submitted successfully. Latest workflow state loaded.' : 'Workflow action completed. Latest project state loaded.');
       setError('');
     } catch (err) {
       setError(err.message || 'Workflow transition failed');
+      throw err;
     } finally {
       setActionLoading(false);
     }
@@ -182,6 +200,7 @@ const ProjectDetails = () => {
         </CCol>
       </CRow>
 
+      {workflowNotice && <CAlert color="success">{workflowNotice}</CAlert>}
       {error && <CAlert color="danger">{error}</CAlert>}
       {isEditableForPm && (
         <CAlert color={status === 'REJECTED' ? 'danger' : 'warning'}>
@@ -249,7 +268,7 @@ const ProjectDetails = () => {
                           <th>Start</th>
                           <th>End</th>
                           <th>Rate / Day</th>
-                          <th>Effort</th>
+                          <th>Effort (PD)</th>
                           <th>Cost</th>
                         </tr>
                       </thead>
@@ -291,7 +310,7 @@ const ProjectDetails = () => {
                 <DetailItem label="Management reserve %" value={financial.management_reserve_percent} />
                 <DetailItem label="Contingency reserve %" value={financial.contingency_reserve_percent} />
                 <DetailItem label="Derived budget" value={formatCurrency(displayDeliveryBudget)} />
-                <DetailItem label="Derived effort" value={displayPlannedEffort} />
+                <DetailItem label="Derived Effort (PD)" value={displayPlannedEffort} />
                 <DetailItem label="Derived team size" value={displayPlanning.estimated_team_size || financial.estimated_team_size || project.team_size} />
               </CCol>
             </CRow>

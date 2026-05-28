@@ -30,7 +30,7 @@ const steps = [
   { key: 'review', label: 'Review & Submit' },
 ];
 
-const ProjectWizard = ({ loading, mode = 'create' }) => {
+const ProjectWizard = ({ loading, mode = 'create', onSubmitted }) => {
   const {
     state,
     setCurrentStep,
@@ -39,6 +39,7 @@ const ProjectWizard = ({ loading, mode = 'create' }) => {
     setMasterData,
     setDraftId,
     setDraftSaved,
+    resetWizard,
   } = useProjectWizard();
 
   const [stepErrors, setStepErrors] = useState({});
@@ -140,7 +141,12 @@ const ProjectWizard = ({ loading, mode = 'create' }) => {
 
   const stepComponents = useMemo(
     () => [
-      <BasicInfoStep data={state.basicInfo} updateSection={(payload) => updateSection('basicInfo', payload)} errors={stepErrors} />, 
+      <BasicInfoStep
+        data={state.basicInfo}
+        industries={state.masterData.industries}
+        updateSection={(payload) => updateSection('basicInfo', payload)}
+        errors={stepErrors}
+      />, 
       <DeliveryDetailsStep
         data={state.deliveryDetails}
         deliveryModel={state.basicInfo.delivery_model}
@@ -310,6 +316,8 @@ const ProjectWizard = ({ loading, mode = 'create' }) => {
   };
 
   const handleSubmit = async () => {
+    if (savingDraft) return;
+
     const errors = validateSubmit();
     if (!submitComment.trim()) {
       errors.submitComment = 'PM submit comment is required';
@@ -328,11 +336,19 @@ const ProjectWizard = ({ loading, mode = 'create' }) => {
         projectData: draftPayload,
         comment: submitComment.trim(),
       };
-      await submitProject(payload);
-      setSubmissionMessage(mode === 'edit' ? 'Project resubmitted successfully.' : 'Project submitted successfully.');
+      const result = await submitProject(payload);
+      setStepErrors({});
+      setSubmitComment('');
+      resetWizard();
+      onSubmitted?.({
+        projectId: result.projectId || state.draftId,
+        mode,
+        message: mode === 'edit' ? 'Project resubmitted successfully.' : 'Project submitted successfully.',
+      });
       setSubmissionError('');
     } catch (error) {
       setSubmissionError(error.message || 'Unable to submit project');
+      setSubmissionMessage('');
     } finally {
       setSavingDraft(false);
     }

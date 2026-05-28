@@ -47,9 +47,9 @@ const ProjectProgress = () => {
     }
 
     if (!formData.effortSpent || Number(formData.effortSpent) <= 0) {
-      errors.effortSpent = 'Effort spent must be a positive number';
+      errors.effortSpent = 'Effort spent (PD) must be a positive number';
     } else if (Number(formData.effortSpent) > 1000) {
-      errors.effortSpent = 'Effort spent cannot exceed 1000 hours';
+      errors.effortSpent = 'Effort spent (PD) cannot exceed 1000';
     }
 
     if (!formData.tasksCompleted.trim()) {
@@ -190,7 +190,7 @@ const ProjectProgress = () => {
                 <strong>{apiMessage}</strong>
                 {predictedDelay !== null && (
                   <div className="mt-2">
-                    Predicted Final Effort: <strong>{predictedDelay}h</strong>
+                    Predicted Final Effort (PD): <strong>{predictedDelay}</strong>
                   </div>
                 )}
               </CAlert>
@@ -230,7 +230,7 @@ const ProjectProgress = () => {
 
                 <div className="mb-4">
                   <label htmlFor="effortSpent" className="form-label">
-                    Effort Spent (hours) <span style={{ color: '#f5576c' }}>*</span>
+                    Effort Spent (PD) <span style={{ color: '#f5576c' }}>*</span>
                   </label>
                   <CFormInput
                     type="number"
@@ -238,7 +238,7 @@ const ProjectProgress = () => {
                     name="effortSpent"
                     value={formData.effortSpent}
                     onChange={handleInputChange}
-                    placeholder="Enter hours spent on this progress update"
+                    placeholder="Enter person days spent on this progress update"
                     invalid={!!formErrors.effortSpent}
                     disabled={loading}
                     step="0.5"
@@ -250,7 +250,7 @@ const ProjectProgress = () => {
                     </CFormFeedback>
                   )}
                   <small className="text-muted">
-                    Enter the number of hours spent on project work
+                    Enter the number of person days spent on project work
                   </small>
                 </div>
 
@@ -308,7 +308,7 @@ const ProjectProgress = () => {
             <CCardBody>
               <div className="text-center mb-3">
                 <p className="text-muted">
-                  Get an updated prediction of the final effort required for this project based on current progress.
+                  Get an updated prediction of the final effort (PD) required for this project based on current progress.
                 </p>
               </div>
               <div className="d-flex justify-content-center">
@@ -380,7 +380,7 @@ const ProjectProgress = () => {
                   <strong>Date:</strong> Use the actual date when work was performed
                 </div>
                 <div className="p-2 border rounded">
-                  <strong>Effort:</strong> Record actual hours spent, not estimates
+                  <strong>Effort (PD):</strong> Record actual person days spent, not estimates
                 </div>
                 <div className="p-2 border rounded">
                   <strong>Tasks:</strong> Be specific about what was accomplished

@@ -187,7 +187,7 @@ const CompleteProjectPage = () => {
                 <div>Location</div>
                 <div>Count</div>
                 <div>Rate</div>
-                <div>Effort</div>
+                <div>Effort (PD)</div>
                 <div>Cost</div>
                 <div />
               </div>

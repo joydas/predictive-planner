@@ -19,6 +19,7 @@ const initialState = {
     project_name: '',
     client_name: '',
     industry: '',
+    industry_code: '',
     project_type: '',
     delivery_model: '',
     business_criticality: '',
@@ -64,6 +65,7 @@ const initialState = {
     overrideReason: '',
   },
   masterData: {
+    industries: [],
     roles: [],
     skills: [],
     rateCards: [],

@@ -53,6 +53,15 @@ const CreateProjectPage = () => {
   const mode = routeDraftId || searchParams.get('draftId') ? 'edit' : 'create';
   const title = mode === 'edit' ? 'Edit Project' : 'Create Project';
 
+  const handleSubmitted = ({ projectId, message }) => {
+    navigate(`/projects/view/${projectId}`, {
+      replace: true,
+      state: {
+        workflowNotice: message || 'Project submitted successfully.',
+      },
+    });
+  };
+
   if (isAccountManager) {
     return null;
   }
@@ -65,7 +74,7 @@ const CreateProjectPage = () => {
       </div>
       {loadError && <div className="alert alert-danger">{loadError}</div>}
       <ProjectWizardProvider initialDraft={initialDraft}>
-        <ProjectWizard loading={loading} mode={mode} />
+        <ProjectWizard loading={loading} mode={mode} onSubmitted={handleSubmitted} />
       </ProjectWizardProvider>
     </div>
   );

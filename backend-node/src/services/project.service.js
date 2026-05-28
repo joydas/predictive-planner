@@ -236,6 +236,39 @@ function normalizeProjectPayload(payload) {
   };
 }
 
+async function normalizeIndustrySelection(payload) {
+  if (!payload?.basicInfo) return payload;
+
+  const basicInfo = payload.basicInfo || {};
+  const rawCode = String(basicInfo.industry_code || basicInfo.industryCode || '').trim();
+  const rawIndustry = String(basicInfo.industry || '').trim();
+  const industries = await masterDataRepository.listIndustries();
+  const match = industries.find((industry) =>
+    String(industry.industryCode).toLowerCase() === rawCode.toLowerCase()
+    || String(industry.industryName).toLowerCase() === rawIndustry.toLowerCase()
+  );
+
+  if (!match) {
+    return {
+      ...payload,
+      basicInfo: {
+        ...basicInfo,
+        industry: rawIndustry,
+        industry_code: rawCode,
+      },
+    };
+  }
+
+  return {
+    ...payload,
+    basicInfo: {
+      ...basicInfo,
+      industry: match.industryName,
+      industry_code: match.industryCode,
+    },
+  };
+}
+
 function isCompleteResourceRow(row) {
   return Boolean(row?.roleId || row?.role) && Boolean(row?.count) && Number(row.count) > 0;
 }
@@ -250,8 +283,9 @@ function assertPmUser(user) {
 
 async function applyDerivedPlanning(payload, { requireResourceLoading = false } = {}) {
   if (!payload?.basicInfo) return payload;
+  const industryNormalizedPayload = await normalizeIndustrySelection(payload);
   const rateCards = await masterDataRepository.listRateCards();
-  const normalizedRows = normalizeResourceRows(payload).filter((row) =>
+  const normalizedRows = normalizeResourceRows(industryNormalizedPayload).filter((row) =>
     requireResourceLoading || isCompleteResourceRow(row)
   );
   if (requireResourceLoading && normalizedRows.length === 0) {
@@ -260,13 +294,13 @@ async function applyDerivedPlanning(payload, { requireResourceLoading = false } 
     throw error;
   }
   const normalizedPayload = {
-    ...payload,
+    ...industryNormalizedPayload,
     teamComposition: {
-      ...(payload.teamComposition || {}),
+      ...(industryNormalizedPayload.teamComposition || {}),
       rows: normalizedRows,
     },
     financial: {
-      ...(payload.financial || {}),
+      ...(industryNormalizedPayload.financial || {}),
       rateCards,
     },
   };
@@ -279,7 +313,7 @@ async function applyDerivedPlanning(payload, { requireResourceLoading = false } 
       rows: derivedPlanning.rows,
     },
     financial: {
-      ...payload.financial,
+      ...industryNormalizedPayload.financial,
       planned_effort: Number(derivedPlanning.plannedEffort.toFixed(2)),
       estimated_team_size: Number(derivedPlanning.estimatedTeamSize.toFixed(2)),
       base_resource_cost: Number(derivedPlanning.baseResourceCost.toFixed(2)),

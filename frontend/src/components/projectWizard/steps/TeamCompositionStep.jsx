@@ -291,7 +291,7 @@ const TeamCompositionStep = ({
           <div>Start</div>
           <div>End</div>
           <div>Rate</div>
-          <div>Effort</div>
+          <div>Effort (PD)</div>
           <div>Cost</div>
           <div />
         </div>
@@ -388,7 +388,7 @@ const TeamCompositionStep = ({
 
       <div className="derived-summary-grid">
         <div><strong>Base resource cost</strong><span>{formatCurrency(derived.baseResourceCost)}</span></div>
-        <div><strong>Planned effort</strong><span>{derived.planned_effort.toFixed(2)} person-days</span></div>
+        <div><strong>Planned Effort (PD)</strong><span>{derived.planned_effort.toFixed(2)}</span></div>
         <div><strong>Estimated team size</strong><span>{derived.estimated_team_size.toFixed(2)}</span></div>
         <div><strong>Budget with reserves</strong><span>{formatCurrency(derived.budget)}</span></div>
       </div>

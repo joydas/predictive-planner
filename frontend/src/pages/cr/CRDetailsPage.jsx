@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { CAlert, CBadge, CButton, CCol, CRow, CSpinner } from '@coreui/react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import WorkflowPanel from '../../components/WorkflowPanel';
 import { getChangeRequest, transitionChangeRequest } from '../../services/crService';
 import authService from '../../services/authService';
@@ -22,11 +22,13 @@ const DetailItem = ({ label, value }) => <p><strong>{label}:</strong> {valueOrDa
 const CRDetailsPage = () => {
   const { crId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [changeRequest, setChangeRequest] = useState(null);
   const [workflowHistory, setWorkflowHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
+  const [workflowNotice, setWorkflowNotice] = useState(location.state?.workflowNotice || '');
 
   const loadCr = useCallback(async () => {
     try {
@@ -46,20 +48,33 @@ const CRDetailsPage = () => {
     loadCr();
   }, [loadCr]);
 
+  useEffect(() => {
+    if (!location.state?.workflowNotice) return;
+
+    setWorkflowNotice(location.state.workflowNotice);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate]);
+
+  useEffect(() => {
+    if (!workflowNotice) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setWorkflowNotice('');
+    }, 6000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [workflowNotice]);
+
   const handleWorkflowAction = async (action, comment) => {
     setActionLoading(true);
     try {
-      const result = await transitionChangeRequest(crId, action, comment);
-      setWorkflowHistory(result.workflowHistory || []);
-      setChangeRequest((current) => ({
-        ...current,
-        workflowStatus: result.transition.toStatus,
-        status: result.transition.toStatus,
-        latestComment: result.transition.latestComment,
-      }));
+      await transitionChangeRequest(crId, action, comment);
+      await loadCr();
+      setWorkflowNotice(action === 'submit' ? 'Change request submitted successfully. Latest workflow state loaded.' : 'Workflow action completed. Latest change request state loaded.');
       setError('');
     } catch (err) {
       setError(err.message || 'Workflow transition failed');
+      throw err;
     } finally {
       setActionLoading(false);
     }
@@ -102,6 +117,7 @@ const CRDetailsPage = () => {
         </CCol>
       </CRow>
 
+      {workflowNotice && <CAlert color="success">{workflowNotice}</CAlert>}
       {error && <CAlert color="danger">{error}</CAlert>}
       {canEdit && (
         <div className="mb-3">
@@ -129,26 +145,20 @@ const CRDetailsPage = () => {
               <CCol md={6}>
                 <h5>Impact Analysis</h5>
                 <DetailItem label="Schedule impact days" value={changeRequest.scheduleImpactDays} />
-                <DetailItem label="Estimated effort hours" value={changeRequest.estimatedEffortHours} />
-                <DetailItem label="Estimated cost" value={formatCurrency(changeRequest.estimatedCostImpact || 0)} />
+                <DetailItem label="Estimated Effort (PD)" value={changeRequest.estimatedEffortHours} />
+                <DetailItem label="Additional Budget Impact" value={formatCurrency(changeRequest.additionalBudget || changeRequest.budgetImpact || 0)} />
                 <DetailItem label="Dependency impact" value={changeRequest.dependencyImpact} />
                 <DetailItem label="Environments affected" value={changeRequest.environmentsAffected} />
               </CCol>
             </CRow>
             <CRow>
-              <CCol md={6}>
+              <CCol md={12}>
                 <h5>Team Impact</h5>
                 <DetailItem label="Additional PM" value={changeRequest.additionalPmCount} />
                 <DetailItem label="Additional Dev" value={changeRequest.additionalDevCount} />
                 <DetailItem label="Additional QA" value={changeRequest.additionalQaCount} />
                 <DetailItem label="Additional DevOps" value={changeRequest.additionalDevOpsCount} />
                 <DetailItem label="Additional Architect" value={changeRequest.additionalArchitectCount} />
-              </CCol>
-              <CCol md={6}>
-                <h5>Financial Impact</h5>
-                <DetailItem label="Additional budget" value={formatCurrency(changeRequest.additionalBudget || 0)} />
-                <DetailItem label="Licensing cost" value={formatCurrency(changeRequest.additionalLicensingCost || 0)} />
-                <DetailItem label="Infrastructure cost" value={formatCurrency(changeRequest.infrastructureCostImpact || 0)} />
               </CCol>
             </CRow>
             <CRow>

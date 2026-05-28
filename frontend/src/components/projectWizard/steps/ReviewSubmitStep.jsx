@@ -100,7 +100,7 @@ const ReviewSubmitStep = ({ state, onEdit, submitComment, onSubmitCommentChange,
             <p><strong>Management reserve:</strong> {state.financial.management_reserve_percent || 0}%</p>
             <p><strong>Contingency reserve:</strong> {state.financial.contingency_reserve_percent || 0}%</p>
             <p><strong>Derived budget:</strong> {formatCurrency(state.financial.budget || 0)}</p>
-            <p><strong>Derived effort:</strong> {state.financial.planned_effort || empty} person-days</p>
+            <p><strong>Derived Effort (PD):</strong> {state.financial.planned_effort || empty}</p>
             <p><strong>Derived team size:</strong> {state.financial.estimated_team_size || empty}</p>
           </CCol>
           <CCol md={6}>
