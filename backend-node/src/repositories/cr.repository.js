@@ -1,6 +1,8 @@
 const { pool } = require('../config/db.config');
 
 async function ensureCrSchema() {
+  const projectRepository = require('./project.repository');
+  await projectRepository.ensureApprovedProjectTables();
   return true;
 }
 
@@ -173,6 +175,7 @@ async function accumulateApprovedCrImpact(connection, changeRequest) {
   const effortImpact = Number(changeRequest.effortImpact);
   const budgetImpact = Number(changeRequest.budgetImpact);
   const teamSizeImpact = Number(changeRequest.teamSizeImpact);
+  const estimationImpact = Number(changeRequest.estimatedEffortHours ?? changeRequest.effortImpact ?? 0);
   const [result] = await connection.query(
     `
       UPDATE project p
@@ -182,7 +185,9 @@ async function accumulateApprovedCrImpact(connection, changeRequest) {
           p.current_planned_team_size = COALESCE(p.current_planned_team_size, 0) + ?,
           p.total_cr_effort_impact = COALESCE(p.total_cr_effort_impact, 0) + ?,
           p.total_cr_budget_impact = COALESCE(p.total_cr_budget_impact, 0) + ?,
-          p.total_cr_team_impact = COALESCE(p.total_cr_team_impact, 0) + ?
+          p.total_cr_team_impact = COALESCE(p.total_cr_team_impact, 0) + ?,
+          p.actual_final_estimated_value = COALESCE(p.actual_final_estimated_value, p.pm_estimated_value, 0) + ?,
+          p.total_cr_estimation_impact = COALESCE(p.total_cr_estimation_impact, 0) + ?
       WHERE p.project_id = ?
         AND pd.workflow_status = 'APPROVED'
     `,
@@ -193,6 +198,8 @@ async function accumulateApprovedCrImpact(connection, changeRequest) {
       effortImpact,
       budgetImpact,
       teamSizeImpact,
+      estimationImpact,
+      estimationImpact,
       changeRequest.projectId,
     ],
   );

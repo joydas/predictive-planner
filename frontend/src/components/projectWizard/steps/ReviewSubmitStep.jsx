@@ -14,6 +14,11 @@ const sectionSummary = [
 
 const empty = '-';
 
+const numberValue = (value) => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric.toFixed(2) : empty;
+};
+
 const ReviewSubmitStep = ({ state, onEdit, submitComment, onSubmitCommentChange, commentError }) => {
   const isAgile = String(state.basicInfo.delivery_model || '').toLowerCase() === 'agile';
 
@@ -63,6 +68,7 @@ const ReviewSubmitStep = ({ state, onEdit, submitComment, onSubmitCommentChange,
             <p><strong>Industry:</strong> {state.basicInfo.industry || empty}</p>
             <p><strong>Delivery model:</strong> {state.basicInfo.delivery_model || empty}</p>
             <p><strong>Business criticality:</strong> {state.basicInfo.business_criticality || empty}</p>
+            <p><strong>PM estimated value:</strong> {numberValue(state.basicInfo.pm_estimated_value)} PD</p>
           </CCol>
           <CCol md={6}>
             <h5>Delivery & Timeline</h5>
@@ -106,6 +112,7 @@ const ReviewSubmitStep = ({ state, onEdit, submitComment, onSubmitCommentChange,
           <CCol md={6}>
             <h5>ML Recommendation</h5>
             <p><strong>Predicted risk:</strong> {state.mlRecommendation.recommendation?.risk?.riskLevel || empty}</p>
+            <p><strong>AI estimated value:</strong> {numberValue(state.mlRecommendation.recommendation?.estimation?.recommendedValue)} PD</p>
           </CCol>
         </CRow>
         <CRow>

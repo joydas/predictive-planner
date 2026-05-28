@@ -106,6 +106,18 @@ const BasicInfoStep = ({ data, industries = [], updateSection, errors }) => {
             </CFormSelect>
             {errors.business_criticality && <div className="form-error">{errors.business_criticality}</div>}
           </CCol>
+          <CCol md={4}>
+            <label className="form-label">PM Estimated Value (PD)</label>
+            <CFormInput
+              type="number"
+              min="0"
+              step="0.01"
+              value={data.pm_estimated_value}
+              onChange={handleChange('pm_estimated_value')}
+              invalid={!!errors.pm_estimated_value}
+            />
+            {errors.pm_estimated_value && <div className="form-error">{errors.pm_estimated_value}</div>}
+          </CCol>
         </CRow>
       </CForm>
     </div>

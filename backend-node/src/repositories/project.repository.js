@@ -5,25 +5,48 @@ async function ensureDraftTable() {
 }
 
 async function ensureApprovedProjectTables() {
+  await addColumnIfMissing('project', 'industry_code', `
+    ALTER TABLE project
+    ADD COLUMN industry_code VARCHAR(50) NULL AFTER industry,
+    ADD INDEX idx_project_industry_code (industry_code)
+  `);
+  await addColumnIfMissing('project', 'pm_estimated_value', `
+    ALTER TABLE project
+    ADD COLUMN pm_estimated_value DECIMAL(12,2) NULL DEFAULT NULL AFTER predicted_hours
+  `);
+  await addColumnIfMissing('project', 'ai_estimated_value', `
+    ALTER TABLE project
+    ADD COLUMN ai_estimated_value DECIMAL(12,2) NULL DEFAULT NULL AFTER pm_estimated_value
+  `);
+  await addColumnIfMissing('project', 'actual_final_estimated_value', `
+    ALTER TABLE project
+    ADD COLUMN actual_final_estimated_value DECIMAL(12,2) NULL DEFAULT NULL AFTER actual_team_size
+  `);
+  await addColumnIfMissing('project', 'total_cr_estimation_impact', `
+    ALTER TABLE project
+    ADD COLUMN total_cr_estimation_impact DECIMAL(12,2) NOT NULL DEFAULT 0 AFTER total_cr_team_impact
+  `);
+
+  return true;
+}
+
+async function addColumnIfMissing(tableName, columnName, alterSql) {
   const [columns] = await db.promise().query(
     `
       SELECT COLUMN_NAME AS columnName
       FROM INFORMATION_SCHEMA.COLUMNS
       WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = 'project'
-        AND COLUMN_NAME = 'industry_code'
+        AND TABLE_NAME = ?
+        AND COLUMN_NAME = ?
       LIMIT 1
     `,
+    [tableName, columnName],
   );
 
-  if (!columns.length) {
-    await db.promise().query(`
-      ALTER TABLE project
-      ADD COLUMN industry_code VARCHAR(50) NULL AFTER industry,
-      ADD INDEX idx_project_industry_code (industry_code)
-    `);
+  if (columns.length) {
+    return false;
   }
-
+  await db.promise().query(alterSql);
   return true;
 }
 
@@ -43,6 +66,7 @@ async function ensureProjectCompletionTables() {
       requirement_stability_index DECIMAL(10,2) NULL DEFAULT NULL,
       actual_cr_volatility VARCHAR(50) NULL DEFAULT NULL,
       risk_level_indicators JSON NULL,
+      actual_final_estimated_value DECIMAL(12,2) NULL DEFAULT NULL,
       completion_payload JSON NOT NULL,
       completed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (completion_id),
@@ -69,6 +93,11 @@ async function ensureProjectCompletionTables() {
       MODIFY actual_cr_volatility VARCHAR(50) NULL DEFAULT NULL
     `);
   }
+
+  await addColumnIfMissing('project_completion_history', 'actual_final_estimated_value', `
+    ALTER TABLE project_completion_history
+    ADD COLUMN actual_final_estimated_value DECIMAL(12,2) NULL DEFAULT NULL AFTER risk_level_indicators
+  `);
 
   await db.promise().query(`
     CREATE TABLE IF NOT EXISTS project_completion_resource_loading (
@@ -182,6 +211,27 @@ function normalizeNumber(value, fallback = 0) {
 
 function sumObjectValues(value = {}) {
   return Object.values(value || {}).reduce((sum, next) => sum + normalizeNumber(next, 0), 0);
+}
+
+function extractPmEstimatedValue(data = {}) {
+  return normalizeNumber(
+    data.basicInfo?.pm_estimated_value
+      ?? data.basicInfo?.pmEstimatedValue
+      ?? data.estimation?.pmEstimatedValue,
+    0,
+  );
+}
+
+function extractAiEstimatedValue(data = {}) {
+  const existing = data.baselineTracking?.estimation || data.estimation || {};
+  const recommendation = data.mlRecommendation?.recommendation || {};
+  return normalizeNumber(
+    recommendation.estimation?.recommendedValue
+      ?? recommendation.estimation?.estimatedValue
+      ?? existing.aiEstimatedValue
+      ?? existing.ai_estimated_value,
+    null,
+  );
 }
 
 function extractAiBaseline(data = {}) {
@@ -554,6 +604,8 @@ async function getProjectById(projectId) {
            ap.ai_baseline_effort AS aiBaselineEffort,
            ap.ai_baseline_budget AS aiBaselineBudget,
            ap.ai_baseline_team_size AS aiBaselineTeamSize,
+           ap.pm_estimated_value AS pmEstimatedValue,
+           ap.ai_estimated_value AS aiEstimatedValue,
            ap.pm_baseline_effort AS pmBaselineEffort,
            ap.pm_baseline_budget AS pmBaselineBudget,
            ap.pm_baseline_team_size AS pmBaselineTeamSize,
@@ -563,9 +615,11 @@ async function getProjectById(projectId) {
            ap.actual_effort AS actualEffort,
            ap.actual_budget AS actualBudget,
            ap.actual_team_size AS actualTeamSize,
+           ap.actual_final_estimated_value AS actualFinalEstimatedValue,
            ap.total_cr_effort_impact AS totalCrEffortImpact,
            ap.total_cr_budget_impact AS totalCrBudgetImpact,
            ap.total_cr_team_impact AS totalCrTeamImpact,
+           ap.total_cr_estimation_impact AS totalCrEstimationImpact,
            CASE WHEN pd.workflow_status = 'COMPLETE' THEN 'COMPLETE' ELSE 'APPROVED' END AS status,
            CASE WHEN pd.workflow_status = 'COMPLETE' THEN 'COMPLETE' ELSE 'APPROVED' END AS workflowStatus,
            pd.submitted_by_user_id AS submittedByUserId,
@@ -592,6 +646,12 @@ async function getProjectById(projectId) {
         effort: rows[0].aiBaselineEffort,
         budget: rows[0].aiBaselineBudget,
         teamSize: rows[0].aiBaselineTeamSize,
+      },
+      estimation: {
+        pmEstimatedValue: rows[0].pmEstimatedValue,
+        aiEstimatedValue: rows[0].aiEstimatedValue,
+        actualFinalEstimatedValue: rows[0].actualFinalEstimatedValue,
+        totalCrEstimationImpact: rows[0].totalCrEstimationImpact,
       },
       pm: {
         effort: rows[0].pmBaselineEffort,
@@ -625,6 +685,7 @@ async function getProjectForCompletion(connection, projectId) {
              ap.owner_id AS ownerId,
              ap.project_name AS projectName,
              ap.project_code AS projectCode,
+             ap.actual_final_estimated_value AS actualFinalEstimatedValue,
              pd.submitted_by_user_id AS submittedByUserId,
              pd.approved_by_user_id AS approvedByUserId,
              pd.workflow_status AS workflowStatus
@@ -645,8 +706,8 @@ async function insertProjectCompletion(connection, completion) {
         (project_id, source_draft_id, completed_by_user_id, final_resource_loading,
          management_cost, contingency_cost, resource_cost, full_project_cost,
          dependency_count, requirement_stability_index, actual_cr_volatility,
-         risk_level_indicators, completion_payload)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         risk_level_indicators, actual_final_estimated_value, completion_payload)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     [
       completion.projectId,
@@ -661,6 +722,7 @@ async function insertProjectCompletion(connection, completion) {
       completion.requirementStabilityIndex,
       completion.actualCrVolatility,
       JSON.stringify(completion.riskLevelIndicators),
+      completion.actualFinalEstimatedValue,
       JSON.stringify(completion.payload),
     ],
   );
@@ -695,13 +757,15 @@ async function updateProjectActuals(connection, projectId, actuals) {
       UPDATE project
       SET actual_effort = ?,
           actual_budget = ?,
-          actual_team_size = ?
+          actual_team_size = ?,
+          actual_final_estimated_value = ?
       WHERE project_id = ?
     `,
     [
       normalizeNumber(actuals.actualEffort, 0),
       normalizeNumber(actuals.actualBudget, 0),
       normalizeNumber(actuals.actualTeamSize, 0),
+      normalizeNumber(actuals.actualFinalEstimatedValue, 0),
       projectId,
     ],
   );
@@ -795,6 +859,8 @@ async function insertApprovedProject(connection, draft, approvedByUserId) {
   const technology = data.technology || {};
   const financial = data.financial || {};
   const aiBaseline = extractAiBaseline(data);
+  const pmEstimatedValue = extractPmEstimatedValue(data);
+  const aiEstimatedValue = extractAiEstimatedValue(data);
   const pmBaseline = {
     effort: normalizeNumber(financial.planned_effort, 0),
     budget: normalizeNumber(financial.budget, 0),
@@ -810,11 +876,12 @@ async function insertApprovedProject(connection, draft, approvedByUserId) {
       INSERT INTO project
         (source_draft_id, owner_id, project_name, client_name, industry, industry_code, project_type, delivery_model,
          technology_stack, complexity, estimated_team_size, planned_effort, budget, predicted_hours,
+         pm_estimated_value, ai_estimated_value, actual_final_estimated_value,
          ai_baseline_effort, ai_baseline_budget, ai_baseline_team_size,
          pm_baseline_effort, pm_baseline_budget, pm_baseline_team_size,
          current_planned_effort, current_planned_budget, current_planned_team_size,
          approved_data, approved_by_user_id, approved_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     `,
     [
       draft.draftId,
@@ -831,6 +898,9 @@ async function insertApprovedProject(connection, draft, approvedByUserId) {
       pmBaseline.effort,
       pmBaseline.budget,
       0,
+      pmEstimatedValue,
+      aiEstimatedValue,
+      pmEstimatedValue,
       aiBaseline.effort,
       aiBaseline.budget,
       aiBaseline.teamSize,

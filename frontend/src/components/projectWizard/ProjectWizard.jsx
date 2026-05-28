@@ -192,6 +192,9 @@ const ProjectWizard = ({ loading, mode = 'create', onSubmitted }) => {
         if (!state.basicInfo.project_type.trim()) errors.project_type = 'Project type is required';
         if (!state.basicInfo.delivery_model.trim()) errors.delivery_model = 'Delivery model is required';
         if (!state.basicInfo.business_criticality.trim()) errors.business_criticality = 'Business criticality is required';
+        if (state.basicInfo.pm_estimated_value === '' || Number(state.basicInfo.pm_estimated_value) <= 0) {
+          errors.pm_estimated_value = 'PM estimated value must be greater than zero';
+        }
         break;
       case 1:
         if (!state.deliveryDetails.start_date) errors.start_date = 'Start date is required';

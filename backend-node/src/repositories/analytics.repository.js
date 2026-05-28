@@ -1,4 +1,5 @@
 const { pool } = require('../config/db.config');
+const projectRepository = require('./project.repository');
 
 const db = pool.promise();
 
@@ -12,6 +13,9 @@ const TABLE_SORT_COLUMNS = {
   pmBaselineEffort: 'p.pm_baseline_effort',
   currentPlannedEffort: 'p.current_planned_effort',
   actualEffort: 'p.actual_effort',
+  pmEstimatedValue: 'p.pm_estimated_value',
+  aiEstimatedValue: 'p.ai_estimated_value',
+  actualFinalEstimatedValue: 'p.actual_final_estimated_value',
   aiBaselineBudget: 'p.ai_baseline_budget',
   pmBaselineBudget: 'p.pm_baseline_budget',
   currentPlannedBudget: 'p.current_planned_budget',
@@ -229,6 +233,7 @@ async function getCrTrends() {
 }
 
 async function getVarianceDashboard(user, options = {}) {
+  await projectRepository.ensureApprovedProjectTables();
   const role = String(user.role || '').toUpperCase();
   if (!['PM', 'ACCOUNT_MANAGER', 'AM'].includes(role)) {
     const error = new Error('Variance analytics is available for PM and Account Manager roles');
@@ -367,6 +372,9 @@ function varianceSelectFields() {
     p.pm_baseline_effort AS pmBaselineEffort,
     p.current_planned_effort AS currentPlannedEffort,
     p.actual_effort AS actualEffort,
+    p.pm_estimated_value AS pmEstimatedValue,
+    p.ai_estimated_value AS aiEstimatedValue,
+    p.actual_final_estimated_value AS actualFinalEstimatedValue,
     p.ai_baseline_budget AS aiBaselineBudget,
     p.pm_baseline_budget AS pmBaselineBudget,
     p.current_planned_budget AS currentPlannedBudget,
@@ -394,6 +402,9 @@ function mapVarianceRow(row) {
     pmBaselineEffort: toNullableNumber(row.pmBaselineEffort),
     currentPlannedEffort: toNullableNumber(row.currentPlannedEffort),
     actualEffort: toNullableNumber(row.actualEffort),
+    pmEstimatedValue: toNullableNumber(row.pmEstimatedValue),
+    aiEstimatedValue: toNullableNumber(row.aiEstimatedValue),
+    actualFinalEstimatedValue: toNullableNumber(row.actualFinalEstimatedValue),
     aiBaselineBudget: toNullableNumber(row.aiBaselineBudget),
     pmBaselineBudget: toNullableNumber(row.pmBaselineBudget),
     currentPlannedBudget: toNullableNumber(row.currentPlannedBudget),
@@ -409,10 +420,14 @@ function mapVarianceRow(row) {
   };
 
   mapped.effortVariancePercent = calculateVariancePercent(mapped.actualEffort, mapped.pmBaselineEffort);
+  mapped.estimationVariancePercent = calculateVariancePercent(mapped.aiEstimatedValue, mapped.pmEstimatedValue);
+  mapped.finalEstimationVariancePercent = calculateVariancePercent(mapped.actualFinalEstimatedValue, mapped.pmEstimatedValue);
   mapped.budgetVariancePercent = calculateVariancePercent(mapped.actualBudget, mapped.pmBaselineBudget);
   mapped.teamSizeVariancePercent = calculateVariancePercent(mapped.actualTeamSize, mapped.pmBaselineTeamSize);
   mapped.varianceSeverity = calculateVarianceSeverity([
     mapped.effortVariancePercent,
+    mapped.estimationVariancePercent,
+    mapped.finalEstimationVariancePercent,
     mapped.budgetVariancePercent,
     mapped.teamSizeVariancePercent,
   ]);
@@ -425,6 +440,19 @@ function buildVarianceWidgets(rows) {
   const aiVsActualEffort = buildAiVsActualWidget('Effort', rows, 'aiBaselineEffort', 'actualEffort');
   const aiVsActualBudget = buildAiVsActualWidget('Budget', rows, 'aiBaselineBudget', 'actualBudget');
   const aiVsActualTeamSize = buildAiVsActualWidget('Team Size', rows, 'aiBaselineTeamSize', 'actualTeamSize');
+  const estimationComparison = {
+    labels: ['PM Estimate', 'AI Estimate', 'Actual Final Estimate'],
+    datasets: [
+      {
+        label: 'Estimation',
+        data: [
+          sumValues(rows, 'pmEstimatedValue'),
+          sumValues(rows, 'aiEstimatedValue'),
+          sumValues(rows, 'actualFinalEstimatedValue'),
+        ],
+      },
+    ],
+  };
 
   return {
     effortVariance: {
@@ -442,6 +470,7 @@ function buildVarianceWidgets(rows) {
     aiVsActualEffort,
     aiVsActualBudget,
     aiVsActualTeamSize,
+    estimationComparison,
     aiVsActual: {
       labels: ['Effort', 'Budget', 'Team Size'],
       datasets: [
@@ -499,7 +528,7 @@ function calculateVarianceSeverity(values) {
   if (maxVariance <= 10) return 'NORMAL';
   if (maxVariance <= 20) return 'MEDIUM';
   if (maxVariance <= 40) return 'HIGH';
-  return 'URGENT';
+  return 'CRITICAL';
 }
 
 function toNullableNumber(value) {

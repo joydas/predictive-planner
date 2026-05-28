@@ -307,6 +307,7 @@ async function transitionChangeRequest(crId, user, actionType, comment) {
     });
   }
 
+  await projectRepository.ensureApprovedProjectTables();
   const connection = await pool.promise().getConnection();
   try {
     await connection.beginTransaction();

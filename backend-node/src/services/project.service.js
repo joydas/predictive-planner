@@ -158,6 +158,27 @@ function sumObjectValues(value = {}) {
   return Object.values(value || {}).reduce((sum, next) => sum + normalizeNumber(next, 0), 0);
 }
 
+function extractPmEstimatedValue(payload = {}) {
+  return normalizeNumber(
+    payload.basicInfo?.pm_estimated_value
+      ?? payload.basicInfo?.pmEstimatedValue
+      ?? payload.estimation?.pmEstimatedValue,
+    0,
+  );
+}
+
+function extractAiEstimatedValue(payload = {}) {
+  const existing = payload.baselineTracking?.estimation || payload.estimation || {};
+  const recommendation = payload.mlRecommendation?.recommendation || {};
+  return normalizeNumber(
+    recommendation.estimation?.recommendedValue
+      ?? recommendation.estimation?.estimatedValue
+      ?? existing.aiEstimatedValue
+      ?? existing.ai_estimated_value,
+    null,
+  );
+}
+
 function extractAiBaselineFromPayload(payload = {}) {
   const existing = payload.baselineTracking?.ai || payload.mlRecommendation?.aiBaseline || {};
   const recommendation = payload.mlRecommendation?.recommendation || {};
@@ -198,6 +219,7 @@ function normalizeProjectPayload(payload) {
       industry: '',
       project_type: '',
       delivery_model: '',
+      pm_estimated_value: payload.pm_estimated_value || payload.estimated_value || '',
     },
     deliveryDetails: {
       start_date: '',
@@ -404,6 +426,11 @@ async function submitProject(user, projectData, draftId = null, comment = '') {
         budget: Number(derivedPlanning.budget.toFixed(2)),
         teamSize: Number(derivedPlanning.estimatedTeamSize.toFixed(2)),
       },
+      estimation: {
+        ...(payload.baselineTracking?.estimation || {}),
+        pmEstimatedValue: Number(extractPmEstimatedValue(payload).toFixed(2)),
+        aiEstimatedValue: extractAiEstimatedValue(payload),
+      },
     },
     teamComposition: {
       ...payload.teamComposition,
@@ -502,6 +529,13 @@ function normalizeCompletionPayload(payload = {}) {
     fullProjectCost: Number((resourceCost + managementCost + contingencyCost).toFixed(2)),
     actualEffort: Number(actualEffort.toFixed(2)),
     actualTeamSize: Number(actualTeamSize.toFixed(2)),
+    actualFinalEstimatedValue: normalizeNumber(
+      payload.actualFinalEstimatedValue
+        ?? payload.actual_final_estimated_value
+        ?? actuals.actualFinalEstimatedValue
+        ?? actuals.actual_final_estimated_value,
+      null,
+    ),
     dependencyCount: normalizeNumber(groundMetrics.dependencyCount ?? groundMetrics.dependency_count, null),
     requirementStabilityIndex: normalizeNumber(
       groundMetrics.requirementStabilityIndex ?? groundMetrics.requirement_stability_index,
@@ -542,6 +576,7 @@ function validateCompletionPayload(completion) {
 
 async function completeProject(projectId, user, payload) {
   assertPmUser(user);
+  await projectRepository.ensureApprovedProjectTables();
   await projectRepository.ensureProjectCompletionTables();
 
   const completion = normalizeCompletionPayload(payload);
@@ -573,6 +608,10 @@ async function completeProject(projectId, user, payload) {
       throw error;
     }
 
+    if (completion.actualFinalEstimatedValue === null) {
+      completion.actualFinalEstimatedValue = normalizeNumber(project.actualFinalEstimatedValue, 0);
+    }
+
     const completionRecord = await projectRepository.insertProjectCompletion(connection, {
       projectId,
       sourceDraftId: project.sourceDraftId,
@@ -585,6 +624,7 @@ async function completeProject(projectId, user, payload) {
       actualEffort: completion.actualEffort,
       actualBudget: completion.fullProjectCost,
       actualTeamSize: completion.actualTeamSize,
+      actualFinalEstimatedValue: completion.actualFinalEstimatedValue,
     });
     const actualsUpdated = await projectRepository.updateProjectActuals(connection, projectId, {
       actualEffort: completion.actualEffort,

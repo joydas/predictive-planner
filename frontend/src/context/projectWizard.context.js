@@ -23,6 +23,7 @@ const initialState = {
     project_type: '',
     delivery_model: '',
     business_criticality: '',
+    pm_estimated_value: '',
   },
   deliveryDetails: {
     start_date: '',

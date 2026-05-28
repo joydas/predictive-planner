@@ -21,6 +21,7 @@ const severityColors = {
   MEDIUM: 'warning',
   HIGH: 'danger',
   URGENT: 'dark',
+  CRITICAL: 'dark',
 };
 
 const AnalyticsOverview = () => {
@@ -90,6 +91,8 @@ const AnalyticsOverview = () => {
       ),
     },
     { key: 'effortVariancePercent', label: 'Effort Variance % (PD)', render: percentCell('effortVariancePercent') },
+    { key: 'estimationVariancePercent', label: 'PM vs AI Estimate Variance %', render: percentCell('estimationVariancePercent') },
+    { key: 'finalEstimationVariancePercent', label: 'Final Estimate Variance %', render: percentCell('finalEstimationVariancePercent') },
     { key: 'budgetVariancePercent', label: 'Budget Variance %', render: percentCell('budgetVariancePercent') },
     { key: 'teamSizeVariancePercent', label: 'Team Size Variance %', render: percentCell('teamSizeVariancePercent') },
     //{ key: 'accountManagerName', label: 'Account Manager Name', sortKey: 'accountManagerName' },
@@ -97,6 +100,9 @@ const AnalyticsOverview = () => {
     { key: 'pmBaselineEffort', label: 'PM Baseline Effort (PD)', sortKey: 'pmBaselineEffort', render: numberCell('pmBaselineEffort') },
     { key: 'currentPlannedEffort', label: 'Current Planned Effort (PD)', sortKey: 'currentPlannedEffort', render: numberCell('currentPlannedEffort') },
     { key: 'actualEffort', label: 'Actual Effort (PD)', sortKey: 'actualEffort', render: numberCell('actualEffort') },
+    { key: 'pmEstimatedValue', label: 'PM Estimate (PD)', sortKey: 'pmEstimatedValue', render: numberCell('pmEstimatedValue') },
+    { key: 'aiEstimatedValue', label: 'AI Estimate (PD)', sortKey: 'aiEstimatedValue', render: numberCell('aiEstimatedValue') },
+    { key: 'actualFinalEstimatedValue', label: 'Actual Final Estimate (PD)', sortKey: 'actualFinalEstimatedValue', render: numberCell('actualFinalEstimatedValue') },
     { key: 'aiBaselineBudget', label: 'AI Baseline Budget', sortKey: 'aiBaselineBudget', render: currencyCell('aiBaselineBudget') },
     { key: 'pmBaselineBudget', label: 'PM Baseline Budget', sortKey: 'pmBaselineBudget', render: currencyCell('pmBaselineBudget') },
     { key: 'currentPlannedBudget', label: 'Current Planned Budget', sortKey: 'currentPlannedBudget', render: currencyCell('currentPlannedBudget') },
@@ -155,6 +161,9 @@ const AnalyticsOverview = () => {
         </CCol>
         <CCol xs={12} lg={4}>
           <ChartCard title="AI vs Actual Team Size" data={comparisonMetricChart(widgets, 'teamSize')} options={comparisonOptions} loading={loading} />
+        </CCol>
+        <CCol xs={12} lg={4}>
+          <ChartCard title="PM vs AI vs Final Estimation" data={comparisonChart(widgets.estimationComparison)} options={effortComparisonOptions} loading={loading} />
         </CCol>
       </CRow>
 

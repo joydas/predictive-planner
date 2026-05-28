@@ -55,6 +55,7 @@ const CompleteProjectPage = () => {
   const [masterData, setMasterData] = useState({ roles: [], rateCards: [] });
   const [rows, setRows] = useState([{ ...blankRow }]);
   const [actuals, setActuals] = useState({ managementCost: '', contingencyCost: '' });
+  const [actualFinalEstimatedValue, setActualFinalEstimatedValue] = useState('');
   const [metrics, setMetrics] = useState({
     dependencyCount: '',
     requirementStabilityIndex: '',
@@ -82,6 +83,10 @@ const CompleteProjectPage = () => {
           actualCrVolatility: metricValue(baselineRisks.expected_cr_volatility),
           riskLevelIndicators: metricValue(baselineRisks.risk_level_indicators),
         });
+        setActualFinalEstimatedValue(metricValue(
+          loadedProject?.baselineTracking?.estimation?.actualFinalEstimatedValue
+            ?? loadedProject?.baselineTracking?.estimation?.pmEstimatedValue,
+        ));
         const approvedRows = loadedProject?.draftData?.teamComposition?.rows || [];
         if (approvedRows.length) {
           setRows(approvedRows.map((row) => ({
@@ -146,8 +151,12 @@ const CompleteProjectPage = () => {
     try {
       await completeProject(projectId, {
         resourceLoading: rows,
-        actuals,
+        actuals: {
+          ...actuals,
+          actualFinalEstimatedValue,
+        },
         groundMetrics: metrics,
+        actualFinalEstimatedValue,
         comment,
       });
       navigate(`/projects/view/${projectId}`);
@@ -228,6 +237,28 @@ const CompleteProjectPage = () => {
               <CCol md={6}>
                 <label className="form-label">Contingency Cost Spent</label>
                 <CFormInput type="number" min="0" step="0.01" value={actuals.contingencyCost} onChange={(event) => setActuals((current) => ({ ...current, contingencyCost: event.target.value }))} />
+              </CCol>
+            </CRow>
+
+            <h3>Final Estimation</h3>
+            <CRow className="mb-4">
+              <CCol md={4}>
+                <label className="form-label">PM Estimate (PD)</label>
+                <CFormInput value={metricValue(project?.baselineTracking?.estimation?.pmEstimatedValue)} disabled />
+              </CCol>
+              <CCol md={4}>
+                <label className="form-label">AI Estimate (PD)</label>
+                <CFormInput value={metricValue(project?.baselineTracking?.estimation?.aiEstimatedValue)} disabled />
+              </CCol>
+              <CCol md={4}>
+                <label className="form-label">Actual Final Estimated Value (PD)</label>
+                <CFormInput
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={actualFinalEstimatedValue}
+                  onChange={(event) => setActualFinalEstimatedValue(event.target.value)}
+                />
               </CCol>
             </CRow>
 

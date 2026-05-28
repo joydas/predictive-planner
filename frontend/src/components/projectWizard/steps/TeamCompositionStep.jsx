@@ -16,6 +16,35 @@ const roleAliases = {
 
 const displayRole = (role) => String(role || '').replace(/_/g, ' ');
 
+const calculateVariancePercent = (baseline, comparison) => {
+  const baselineValue = Number(baseline);
+  const comparisonValue = Number(comparison);
+  if (!Number.isFinite(baselineValue) || baselineValue === 0 || !Number.isFinite(comparisonValue)) {
+    return null;
+  }
+  return Number((((comparisonValue - baselineValue) / baselineValue) * 100).toFixed(2));
+};
+
+const varianceSeverity = (variance) => {
+  if (variance === null || variance === undefined) return 'Pending';
+  const absolute = Math.abs(Number(variance));
+  if (absolute <= 10) return 'Normal';
+  if (absolute <= 20) return 'Medium';
+  if (absolute <= 40) return 'High';
+  return 'Critical';
+};
+
+const formatPd = (value) => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? `${numeric.toFixed(2)} PD` : '-';
+};
+
+const formatVariance = (value) => (
+  value === null || value === undefined
+    ? '-'
+    : `${Number(value) > 0 ? '+' : ''}${Number(value).toFixed(2)}%`
+);
+
 const normalizeRoleLabel = (label) =>
   String(label || '')
     .replace(/_/g, ' ')
@@ -230,9 +259,14 @@ const TeamCompositionStep = ({
       const aiEffort = recommendedRows.length
         ? recommendedEffort
         : Number(result.effort?.predictedHours ?? 0);
+      const aiEstimatedValue = Number(result.estimation?.recommendedValue ?? result.effort?.predictedHours ?? 0);
       updateMlRecommendation({
         recommendation: {
           ...result,
+          estimation: {
+            ...(result.estimation || {}),
+            recommendedValue: Number(aiEstimatedValue.toFixed(2)),
+          },
           baselineSnapshot: {
             effort: Number(aiEffort.toFixed(2)),
             budget: Number(recommendedPlanning.budget.toFixed(2)),
@@ -252,6 +286,18 @@ const TeamCompositionStep = ({
   };
 
   const recommendation = mlRecommendation.recommendation;
+  const pmEstimatedValue = Number(projectData?.basicInfo?.pm_estimated_value || 0);
+  const aiEstimatedValue = Number(recommendation?.estimation?.recommendedValue || 0);
+  const currentPlannedEffort = Number(derived.planned_effort || 0);
+  const pmVsMlVariance = recommendation
+    ? calculateVariancePercent(pmEstimatedValue, aiEstimatedValue)
+    : null;
+  const pmVsPlannedVariance = recommendation
+    ? calculateVariancePercent(pmEstimatedValue, currentPlannedEffort)
+    : null;
+  const mlVsPlannedVariance = recommendation
+    ? calculateVariancePercent(aiEstimatedValue, currentPlannedEffort)
+    : null;
 
   return (
     <div className="wizard-step-panel">
@@ -277,6 +323,32 @@ const TeamCompositionStep = ({
             <div>
               <strong>ML Predicted Risk</strong>
               <div>{recommendation.risk?.riskLevel || 'Unknown'}</div>
+            </div>
+          </div>
+          <div className="ml-recommendation-grid mt-3">
+            <div>
+              <strong>PM Estimate</strong>
+              <div>{formatPd(pmEstimatedValue)}</div>
+            </div>
+            <div>
+              <strong>ML Estimate</strong>
+              <div>{formatPd(aiEstimatedValue)}</div>
+            </div>
+            <div>
+              <strong>Planned Effort</strong>
+              <div>{formatPd(currentPlannedEffort)}</div>
+            </div>
+            <div>
+              <strong>PM vs ML</strong>
+              <div>{formatVariance(pmVsMlVariance)} - {varianceSeverity(pmVsMlVariance)}</div>
+            </div>
+            <div>
+              <strong>PM vs Planned</strong>
+              <div>{formatVariance(pmVsPlannedVariance)} - {varianceSeverity(pmVsPlannedVariance)}</div>
+            </div>
+            <div>
+              <strong>ML vs Planned</strong>
+              <div>{formatVariance(mlVsPlannedVariance)} - {varianceSeverity(mlVsPlannedVariance)}</div>
             </div>
           </div>
         </CAlert>

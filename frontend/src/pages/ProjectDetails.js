@@ -180,6 +180,7 @@ const ProjectDetails = () => {
   const displayResourceRows = displayPlanning.rows;
   const displayDeliveryBudget = displayPlanning.budget || parseNumber(financial.budget, 0);
   const displayPlannedEffort = displayPlanning.planned_effort || parseNumber(financial.planned_effort || project.estimated_hours, 0);
+  const estimation = project.baselineTracking?.estimation || {};
 
   return (
     <div className="fade-in">
@@ -243,6 +244,7 @@ const ProjectDetails = () => {
                 <DetailItem label="Project type" value={basicInfo.project_type} />
                 <DetailItem label="Delivery model" value={basicInfo.delivery_model} />
                 <DetailItem label="Business criticality" value={basicInfo.business_criticality} />
+                <DetailItem label="PM estimated value (PD)" value={basicInfo.pm_estimated_value || estimation.pmEstimatedValue} />
               </CCol>
               <CCol md={6}>
                 <h5>Delivery & Timeline</h5>
@@ -251,6 +253,15 @@ const ProjectDetails = () => {
                 <DetailItem label="Sprint length" value={deliveryDetails.sprint_length} />
                 <DetailItem label="Frequency" value={deliveryDetails.release_frequency} />
                 {!isAgile && <DetailItem label="Milestones" value={deliveryDetails.milestone_count} />}
+              </CCol>
+            </CRow>
+            <CRow>
+              <CCol md={12}>
+                <h5>Estimation Lineage</h5>
+                <DetailItem label="PM estimate (PD)" value={estimation.pmEstimatedValue || basicInfo.pm_estimated_value} />
+                <DetailItem label="AI estimate (PD)" value={estimation.aiEstimatedValue} />
+                <DetailItem label="Actual final estimate (PD)" value={estimation.actualFinalEstimatedValue} />
+                <DetailItem label="Approved CR estimation impact (PD)" value={estimation.totalCrEstimationImpact} />
               </CCol>
             </CRow>
             <CRow>
