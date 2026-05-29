@@ -171,7 +171,7 @@ function validateSubmitPayload(crData) {
 }
 
 function canAccessProject(user, project) {
-  const role = String(user.role || '').toUpperCase();
+  const role = String(user.role || '').toUpperCase() === 'AM' ? 'ACCOUNT_MANAGER' : String(user.role || '').toUpperCase();
   const status = String(project.workflowStatus || project.status || '').toUpperCase();
 
   if (role === 'PM') {
@@ -187,7 +187,7 @@ function canAccessProject(user, project) {
 }
 
 function canAccessCr(user, changeRequest) {
-  const role = String(user.role || '').toUpperCase();
+  const role = String(user.role || '').toUpperCase() === 'AM' ? 'ACCOUNT_MANAGER' : String(user.role || '').toUpperCase();
   const status = String(changeRequest.workflowStatus || changeRequest.status || '').toUpperCase();
 
   if (role === 'PM') {
@@ -195,7 +195,8 @@ function canAccessCr(user, changeRequest) {
   }
 
   if (role === 'ACCOUNT_MANAGER') {
-    return status === 'SUBMITTED' || Number(changeRequest.approvedByUserId) === Number(user.userId);
+    return Number(changeRequest.submittedByManagerId) === Number(user.userId)
+      || Number(changeRequest.approvedByUserId) === Number(user.userId);
   }
 
   return false;

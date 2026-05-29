@@ -121,14 +121,18 @@ async function getProject(req, res) {
       return res.status(404).json({ message: 'Project not found' });
     }
 
-    const role = String(req.user.role || '').toUpperCase();
+    const rawRole = String(req.user.role || '').toUpperCase();
+    const role = rawRole === 'AM' ? 'ACCOUNT_MANAGER' : rawRole;
     const status = String(project.workflowStatus || project.status || '').toUpperCase();
     const isPmOwner = role === 'PM' && (
       Number(project.ownerId) === Number(req.user.userId)
       || Number(project.submittedByUserId) === Number(req.user.userId)
     );
     const isAccountManagerReviewer = role === 'ACCOUNT_MANAGER'
-      && (status === 'SUBMITTED' || Number(project.approvedByUserId) === Number(req.user.userId));
+      && (
+        Number(project.submittedByManagerId || project.ownerManagerId) === Number(req.user.userId)
+        || Number(project.approvedByUserId) === Number(req.user.userId)
+      );
 
     if (!isPmOwner && !isAccountManagerReviewer) {
       return res.status(403).json({ message: 'Access forbidden for this project' });

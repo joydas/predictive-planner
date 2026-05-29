@@ -33,7 +33,14 @@ function authorizeRoles(allowedRoles = []) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
+    const role = String(req.user.role || '').toUpperCase();
+    const normalizedRole = role === 'ACCOUNT_MANAGER' ? 'AM' : role;
+    const normalizedAllowedRoles = allowedRoles.map((allowedRole) => {
+      const value = String(allowedRole || '').toUpperCase();
+      return value === 'ACCOUNT_MANAGER' ? 'AM' : value;
+    });
+
+    if (!normalizedAllowedRoles.includes(normalizedRole)) {
       return res.status(403).json({ message: 'Access forbidden for this role' });
     }
 

@@ -9,6 +9,7 @@ import ProjectListPage from './pages/project/ProjectListPage';
 import CRListPage from './pages/cr/CRListPage';
 import CreateCRPage from './pages/cr/CreateCRPage';
 import CRDetailsPage from './pages/cr/CRDetailsPage';
+import UserManagementPage from './pages/admin/UserManagementPage';
 import AnalyticsOverview from './pages/analytics/AnalyticsOverview';
 import PMDashboard from './pages/analytics/PMDashboard';
 import AMDashboard from './pages/analytics/AMDashboard';
@@ -57,6 +58,7 @@ function App() {
           <Route path="crs" element={<CRListPage />} />
           <Route path="crs/create" element={<CreateCRPage />} />
           <Route path="crs/:crId" element={<CRDetailsPage />} />
+          <Route path="admin/users" element={<UserManagementPage />} />
           <Route path="analytics" element={<AnalyticsOverview />} />
           <Route path="analytics/pm" element={<PMDashboard />} />
           <Route path="analytics/am" element={<AMDashboard />} />

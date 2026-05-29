@@ -20,6 +20,7 @@ import {
   cilChevronRight,
   cilFolderOpen,
   cilMenu,
+  cilPeople,
   cilPlus,
   cilReload,
   cilChart,
@@ -42,6 +43,10 @@ const navigationItems = [
   { icon: cilReload, label: 'My CRs', to: '/crs' },
   //{ icon: cilPlus, label: 'Create CR', to: '/crs/create' },
   { icon: cilPlus, label: 'Create Project', to: '/projects/create' },
+];
+
+const adminNavigationItems = [
+  { icon: cilPeople, label: 'Users', to: '/admin/users' },
 ];
 
 const getStoredSidebarCollapsed = () => {
@@ -72,7 +77,14 @@ const DefaultLayout = () => {
   const [mobileSidebarVisible, setMobileSidebarVisible] = useState(false);
 
   const currentUser = authService.getCurrentUser();
-  const isAccountManager = String(currentUser?.role || '').toUpperCase() === 'ACCOUNT_MANAGER';
+  const currentRole = String(currentUser?.role || '').toUpperCase();
+  const isAccountManager = ['ACCOUNT_MANAGER', 'AM'].includes(currentRole);
+  const isAdmin = currentRole === 'ADMIN';
+  const sidebarNavigationItems = isAdmin
+    ? adminNavigationItems
+    : navigationItems.filter(({ to }) => (
+      isAccountManager ? !['/crs/create', '/projects/create'].includes(to) : true
+    ));
   const isSidebarCollapsed = isDesktop && collapsed;
   const sidebarWidth = collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_EXPANDED_WIDTH;
   const sidebarClassName = `app-sidebar border-end${isSidebarCollapsed ? ' collapsed' : ''}`;
@@ -199,9 +211,7 @@ const DefaultLayout = () => {
         </CSidebarHeader>
 
         <CSidebarNav>
-          {navigationItems
-            .filter(({ to }) => isAccountManager ? !['/crs/create', '/projects/create'].includes(to) : true)
-            .map(({ icon, label, to }) => (
+          {sidebarNavigationItems.map(({ icon, label, to }) => (
               <CNavItem key={to}>
                 <CTooltip content={isSidebarCollapsed ? label : ''} placement="right">
                   <CNavLink

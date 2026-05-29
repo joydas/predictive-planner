@@ -196,7 +196,7 @@ const ChangeRequest = () => {
   const role = authService.getUserRole();
   const normalizedRole = String(role || '').toUpperCase();
   const selectedStatus = String(selectedCr?.workflowStatus || selectedCr?.status || '').toUpperCase();
-  const isAccountManager = normalizedRole === 'ACCOUNT_MANAGER';
+  const isAccountManager = ['ACCOUNT_MANAGER', 'AM'].includes(normalizedRole);
   const showCreateForm = !selectedCr && !isAccountManager;
 
   return (

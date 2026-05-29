@@ -23,7 +23,8 @@ const statusColors = {
 
 const CRListPage = () => {
   const navigate = useNavigate();
-  const isAccountManager = String(authService.getUserRole() || '').toUpperCase() === 'ACCOUNT_MANAGER';
+  const currentRole = String(authService.getUserRole() || '').toUpperCase();
+  const isAccountManager = ['ACCOUNT_MANAGER', 'AM'].includes(currentRole);
   const [rows, setRows] = useState([]);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');

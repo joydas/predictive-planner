@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
 const authRoutes = require("./src/routes/auth.routes");
+const adminRoutes = require("./src/routes/admin.routes");
 const authController = require("./src/controllers/auth.controller");
 const projectRoutes = require("./src/routes/project.routes");
 const projectController = require("./src/controllers/project.controller");
@@ -109,6 +110,7 @@ app.get("/", (req, res) => {
 
 // Auth routes are mounted under /api/auth to clearly separate authentication from business APIs
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/project', projectRoutes);
 app.use('/api/cr', crRoutes);
 app.use('/api/projects', projectRoutes);

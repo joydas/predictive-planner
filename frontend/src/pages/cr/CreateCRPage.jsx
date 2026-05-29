@@ -10,7 +10,8 @@ import '../../styles/projectWizard.css';
 const CreateCRPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const isAccountManager = String(authService.getUserRole() || '').toUpperCase() === 'ACCOUNT_MANAGER';
+  const currentRole = String(authService.getUserRole() || '').toUpperCase();
+  const isAccountManager = ['ACCOUNT_MANAGER', 'AM'].includes(currentRole);
   const projectId = searchParams.get('projectId') || '';
   const crId = searchParams.get('crId');
   const [projects, setProjects] = useState([]);

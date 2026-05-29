@@ -148,6 +148,8 @@ async function getDraftById(draftId, ownerId) {
            status,
            workflow_status AS workflowStatus,
            submitted_by_user_id AS submittedByUserId,
+           (SELECT manager_id FROM app_user WHERE user_id = submitted_by_user_id) AS submittedByManagerId,
+           (SELECT manager_id FROM app_user WHERE user_id = owner_id) AS ownerManagerId,
            approved_by_user_id AS approvedByUserId,
            submitted_at AS submittedAt,
            approved_at AS approvedAt,
@@ -277,6 +279,8 @@ function mapDraftDataToProject(row) {
     status: row.status,
     workflowStatus: row.workflowStatus || row.status,
     submittedByUserId: row.submittedByUserId,
+    submittedByManagerId: row.submittedByManagerId,
+    ownerManagerId: row.ownerManagerId,
     approvedByUserId: row.approvedByUserId,
     submittedAt: row.submittedAt,
     approvedAt: row.approvedAt,
@@ -307,6 +311,8 @@ async function findProjects() {
            status,
            workflow_status AS workflowStatus,
            submitted_by_user_id AS submittedByUserId,
+           (SELECT manager_id FROM app_user WHERE user_id = submitted_by_user_id) AS submittedByManagerId,
+           (SELECT manager_id FROM app_user WHERE user_id = owner_id) AS ownerManagerId,
            approved_by_user_id AS approvedByUserId,
            submitted_at AS submittedAt,
            approved_at AS approvedAt,
@@ -335,13 +341,22 @@ const PROJECT_SORT_COLUMNS = {
 };
 
 function buildProjectListWhere(filters) {
-  const actorRole = String(filters.role || '').toUpperCase();
+  const actorRoleRaw = String(filters.role || '').toUpperCase();
+  const actorRole = actorRoleRaw === 'AM' ? 'ACCOUNT_MANAGER' : actorRoleRaw;
   const where = [];
   const params = [];
 
   if (actorRole === 'ACCOUNT_MANAGER') {
-    where.push("(p.workflow_status = 'SUBMITTED' OR (p.workflow_status IN ('APPROVED', 'COMPLETE') AND p.approved_by_user_id = ?))");
-    params.push(filters.userId);
+    where.push(`(
+      EXISTS (
+        SELECT 1
+        FROM app_user assigned_pm
+        WHERE assigned_pm.user_id = COALESCE(p.submitted_by_user_id, p.owner_id)
+          AND assigned_pm.manager_id = ?
+      )
+      OR p.approved_by_user_id = ?
+    )`);
+    params.push(filters.userId, filters.userId);
   } else {
     where.push('(p.submitted_by_user_id = ? OR p.owner_id = ?)');
     params.push(filters.userId, filters.userId);
@@ -520,7 +535,8 @@ async function findProjectsForPm(filters) {
 
 async function findApprovedProjectsAvailableForCr(user) {
   await ensureApprovedProjectTables();
-  const role = String(user.role || '').toUpperCase();
+  const rawRole = String(user.role || '').toUpperCase();
+  const role = rawRole === 'AM' ? 'ACCOUNT_MANAGER' : rawRole;
   const params = [];
   const where = [];
 
@@ -528,8 +544,16 @@ async function findApprovedProjectsAvailableForCr(user) {
     where.push('(ap.owner_id = ? OR pd.submitted_by_user_id = ?)');
     params.push(user.userId, user.userId);
   } else if (role === 'ACCOUNT_MANAGER') {
-    where.push('ap.approved_by_user_id = ?');
-    params.push(user.userId);
+    where.push(`(
+      EXISTS (
+        SELECT 1
+        FROM app_user assigned_pm
+        WHERE assigned_pm.user_id = COALESCE(pd.submitted_by_user_id, ap.owner_id)
+          AND assigned_pm.manager_id = ?
+      )
+      OR ap.approved_by_user_id = ?
+    )`);
+    params.push(user.userId, user.userId);
   } else {
     return [];
   }
@@ -623,6 +647,8 @@ async function getProjectById(projectId) {
            CASE WHEN pd.workflow_status = 'COMPLETE' THEN 'COMPLETE' ELSE 'APPROVED' END AS status,
            CASE WHEN pd.workflow_status = 'COMPLETE' THEN 'COMPLETE' ELSE 'APPROVED' END AS workflowStatus,
            pd.submitted_by_user_id AS submittedByUserId,
+           (SELECT manager_id FROM app_user WHERE user_id = pd.submitted_by_user_id) AS submittedByManagerId,
+           (SELECT manager_id FROM app_user WHERE user_id = ap.owner_id) AS ownerManagerId,
            ap.approved_by_user_id AS approvedByUserId,
            pd.submitted_at AS submittedAt,
            ap.approved_at AS approvedAt,
@@ -810,6 +836,8 @@ async function getDraftProjectById(draftId) {
            status,
            workflow_status AS workflowStatus,
            submitted_by_user_id AS submittedByUserId,
+           (SELECT manager_id FROM app_user WHERE user_id = submitted_by_user_id) AS submittedByManagerId,
+           (SELECT manager_id FROM app_user WHERE user_id = owner_id) AS ownerManagerId,
            approved_by_user_id AS approvedByUserId,
            submitted_at AS submittedAt,
            approved_at AS approvedAt,

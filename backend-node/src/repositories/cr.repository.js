@@ -69,6 +69,7 @@ const CR_SELECT = `
   cr.status,
   cr.workflow_status AS workflowStatus,
   cr.submitted_by_user_id AS submittedByUserId,
+  submitter.manager_id AS submittedByManagerId,
   cr.approved_by_user_id AS approvedByUserId,
   cr.submitted_at AS submittedAt,
   cr.approved_at AS approvedAt,
@@ -263,6 +264,7 @@ async function getChangeRequestById(crId) {
       FROM change_request cr
       INNER JOIN project p ON p.project_id = cr.project_id
       INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
+      LEFT JOIN app_user submitter ON submitter.user_id = cr.submitted_by_user_id
       WHERE cr.cr_id = ?
       LIMIT 1
     `,
@@ -284,6 +286,7 @@ async function getChangeRequestForUpdate(connection, crId) {
       FROM change_request cr
       INNER JOIN project p ON p.project_id = cr.project_id
       INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
+      LEFT JOIN app_user submitter ON submitter.user_id = cr.submitted_by_user_id
       WHERE cr.cr_id = ?
       LIMIT 1
       FOR UPDATE
@@ -409,6 +412,7 @@ async function getChangeRequestsByProject(projectId) {
       FROM change_request cr
       INNER JOIN project p ON p.project_id = cr.project_id
       INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
+      LEFT JOIN app_user submitter ON submitter.user_id = cr.submitted_by_user_id
       WHERE cr.project_id = ?
       ORDER BY cr.updated_at DESC, cr.cr_id DESC
     `,
@@ -434,13 +438,22 @@ const CR_SORT_COLUMNS = {
 };
 
 function buildCrListWhere(filters) {
-  const actorRole = String(filters.role || '').toUpperCase();
+  const rawRole = String(filters.role || '').toUpperCase();
+  const actorRole = rawRole === 'AM' ? 'ACCOUNT_MANAGER' : rawRole;
   const where = [];
   const params = [];
 
   if (actorRole === 'ACCOUNT_MANAGER') {
-    where.push("(cr.workflow_status = 'SUBMITTED' OR (cr.workflow_status = 'APPROVED' AND cr.approved_by_user_id = ?))");
-    params.push(filters.userId);
+    where.push(`(
+      EXISTS (
+        SELECT 1
+        FROM app_user assigned_pm
+        WHERE assigned_pm.user_id = cr.submitted_by_user_id
+          AND assigned_pm.manager_id = ?
+      )
+      OR cr.approved_by_user_id = ?
+    )`);
+    params.push(filters.userId, filters.userId);
   } else {
     where.push('cr.submitted_by_user_id = ?');
     params.push(filters.userId);

@@ -36,7 +36,7 @@ function getAvailableActions(status, role, allowRejectedSubmit) {
     return ['submit'];
   }
 
-  if (normalizedRole === 'ACCOUNT_MANAGER' && normalizedStatus === 'SUBMITTED') {
+  if (['ACCOUNT_MANAGER', 'AM'].includes(normalizedRole) && normalizedStatus === 'SUBMITTED') {
     return ['approve', 'return', 'reject'];
   }
 

@@ -4,11 +4,13 @@ CREATE TABLE app_user (
   email VARCHAR(255) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   role_name VARCHAR(64) NOT NULL,
+  manager_id BIGINT UNSIGNED NULL,
   active_flag TINYINT(1) NOT NULL DEFAULT 1,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (user_id),
-  UNIQUE KEY uq_app_user_email (email)
+  UNIQUE KEY uq_app_user_email (email),
+  INDEX idx_app_user_manager (manager_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE md_role (

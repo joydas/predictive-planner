@@ -4,7 +4,8 @@ const ACTIVE_PROJECT_STATUSES = ['APPROVED'];
 const COMPLETED_PROJECT_STATUSES = ['COMPLETE', 'CLOSED'];
 
 function normalizeRole(user) {
-  return String(user?.role || '').toUpperCase();
+  const role = String(user?.role || '').toUpperCase();
+  return role === 'AM' ? 'ACCOUNT_MANAGER' : role;
 }
 
 function normalizePaging(query, prefix) {
@@ -34,8 +35,16 @@ function visibleApprovedProjectWhere(user, alias = 'p', draftAlias = 'pd') {
 
   if (role === 'ACCOUNT_MANAGER') {
     return {
-      sql: `${alias}.approved_by_user_id = ?`,
-      params: [user.userId],
+      sql: `(
+        ${alias}.approved_by_user_id = ?
+        OR EXISTS (
+          SELECT 1
+          FROM app_user assigned_pm
+          WHERE assigned_pm.user_id = COALESCE(${draftAlias}.submitted_by_user_id, ${alias}.owner_id)
+            AND assigned_pm.manager_id = ?
+        )
+      )`,
+      params: [user.userId, user.userId],
     };
   }
 
@@ -54,8 +63,16 @@ function visibleDraftWorkflowWhere(user, alias = 'pd') {
 
   if (role === 'ACCOUNT_MANAGER') {
     return {
-      sql: `${alias}.workflow_status = 'SUBMITTED'`,
-      params: [],
+      sql: `(
+        ${alias}.workflow_status = 'SUBMITTED'
+        AND EXISTS (
+          SELECT 1
+          FROM app_user assigned_pm
+          WHERE assigned_pm.user_id = COALESCE(${alias}.submitted_by_user_id, ${alias}.owner_id)
+            AND assigned_pm.manager_id = ?
+        )
+      )`,
+      params: [user.userId],
     };
   }
 
@@ -110,14 +127,33 @@ function crVisibilityWhere(
   if (role === 'ACCOUNT_MANAGER') {
     if (includeSubmittedForAm) {
       return {
-        sql: `(${projectAlias}.approved_by_user_id = ? OR ${crAlias}.workflow_status = 'SUBMITTED')`,
-        params: [user.userId],
+        sql: `(
+          ${projectAlias}.approved_by_user_id = ?
+          OR (
+            ${crAlias}.workflow_status = 'SUBMITTED'
+            AND EXISTS (
+              SELECT 1
+              FROM app_user assigned_pm
+              WHERE assigned_pm.user_id = ${crAlias}.submitted_by_user_id
+                AND assigned_pm.manager_id = ?
+            )
+          )
+        )`,
+        params: [user.userId, user.userId],
       };
     }
 
     return {
-      sql: `${projectAlias}.approved_by_user_id = ?`,
-      params: [user.userId],
+      sql: `(
+        ${projectAlias}.approved_by_user_id = ?
+        OR EXISTS (
+          SELECT 1
+          FROM app_user assigned_pm
+          WHERE assigned_pm.user_id = ${crAlias}.submitted_by_user_id
+            AND assigned_pm.manager_id = ?
+        )
+      )`,
+      params: [user.userId, user.userId],
     };
   }
 
