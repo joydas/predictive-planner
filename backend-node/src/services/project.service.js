@@ -158,6 +158,20 @@ function sumObjectValues(value = {}) {
   return Object.values(value || {}).reduce((sum, next) => sum + normalizeNumber(next, 0), 0);
 }
 
+function getCalendarDays(startDate, endDate) {
+  if (!startDate || !endDate) return 0;
+  const start = new Date(`${toDateOnly(startDate)}T00:00:00`);
+  const end = new Date(`${toDateOnly(endDate)}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return 0;
+  return Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+}
+
+function toDateOnly(value) {
+  if (!value) return '';
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+  return String(value).slice(0, 10);
+}
+
 function extractPmEstimatedValue(payload = {}) {
   return normalizeNumber(
     payload.basicInfo?.pm_estimated_value
@@ -510,6 +524,13 @@ function normalizeCompletionPayload(payload = {}) {
   const resourceCost = finalResourceLoading.reduce((sum, row) => sum + row.actualCost, 0);
   const actualEffort = finalResourceLoading.reduce((sum, row) => sum + (row.count * row.effort), 0);
   const actualTeamSize = finalResourceLoading.reduce((sum, row) => sum + row.count, 0);
+  const directActualEffort = payload.actualEffortPd ?? payload.actual_effort_pd ?? actuals.actualEffortPd ?? actuals.actual_effort_pd;
+  const directActualBudget = payload.actualBudget ?? payload.actual_budget ?? actuals.actualBudget ?? actuals.actual_budget;
+  const directActualTeamSize = payload.actualTeamSize ?? payload.actual_team_size ?? actuals.actualTeamSize ?? actuals.actual_team_size;
+  const actualCompletionPercent = requireNonNegativeNumber(
+    payload.actualCompletionPercent ?? payload.actual_completion_percent ?? actuals.actualCompletionPercent ?? actuals.actual_completion_percent,
+    'Actual completion %',
+  );
   const managementCost = requireNonNegativeNumber(
     actuals.managementCost ?? actuals.management_cost,
     'Management cost spent',
@@ -526,9 +547,17 @@ function normalizeCompletionPayload(payload = {}) {
     managementCost: Number(managementCost.toFixed(2)),
     contingencyCost: Number(contingencyCost.toFixed(2)),
     resourceCost: Number(resourceCost.toFixed(2)),
-    fullProjectCost: Number((resourceCost + managementCost + contingencyCost).toFixed(2)),
-    actualEffort: Number(actualEffort.toFixed(2)),
-    actualTeamSize: Number(actualTeamSize.toFixed(2)),
+    fullProjectCost: Number((directActualBudget !== undefined && directActualBudget !== ''
+      ? requireNonNegativeNumber(directActualBudget, 'Actual budget')
+      : resourceCost + managementCost + contingencyCost).toFixed(2)),
+    actualEffort: Number((directActualEffort !== undefined && directActualEffort !== ''
+      ? requireNonNegativeNumber(directActualEffort, 'Actual effort')
+      : actualEffort).toFixed(2)),
+    actualTeamSize: Number((directActualTeamSize !== undefined && directActualTeamSize !== ''
+      ? requireNonNegativeNumber(directActualTeamSize, 'Actual team size')
+      : actualTeamSize).toFixed(2)),
+    actualCompletionPercent: Number(actualCompletionPercent.toFixed(2)),
+    actualCompletionDate: toDateOnly(payload.actualCompletionDate ?? payload.actual_completion_date ?? actuals.actualCompletionDate ?? actuals.actual_completion_date),
     actualFinalEstimatedValue: normalizeNumber(
       payload.actualFinalEstimatedValue
         ?? payload.actual_final_estimated_value
@@ -549,12 +578,6 @@ function normalizeCompletionPayload(payload = {}) {
 }
 
 function validateCompletionPayload(completion) {
-  if (!completion.finalResourceLoading.length) {
-    const error = new Error('At least one final resource loading row is required');
-    error.status = 400;
-    throw error;
-  }
-
   completion.finalResourceLoading.forEach((row, index) => {
     if (!row.role) {
       const error = new Error(`Final resource row ${index + 1} role is required`);
@@ -572,6 +595,110 @@ function validateCompletionPayload(completion) {
       throw error;
     }
   });
+}
+
+function assertProjectOwner(project, user) {
+  if (
+    Number(project.ownerId) !== Number(user.userId)
+    && Number(project.submittedByUserId) !== Number(user.userId)
+  ) {
+    const error = new Error('Access forbidden for this project');
+    error.status = 403;
+    throw error;
+  }
+}
+
+function assertApprovedProject(project) {
+  if (String(project?.workflowStatus || project?.status || '').toUpperCase() !== 'APPROVED') {
+    const error = new Error('Only approved active projects support this action');
+    error.status = 400;
+    throw error;
+  }
+}
+
+function buildProgressContext(project, snapshots = [], selectedSnapshot = null) {
+  const delivery = project?.draftData?.deliveryDetails || {};
+  const current = project?.baselineTracking?.current || {};
+  const estimation = project?.baselineTracking?.estimation || {};
+  const plannedDuration = getCalendarDays(delivery.start_date, delivery.planned_end_date)
+    + normalizeNumber(project?.totalCrScheduleImpactDays, 0);
+  return {
+    project: {
+      projectId: project.projectId,
+      projectCode: project.projectCode,
+      projectName: project.name,
+      workflowStatus: project.workflowStatus,
+    },
+    currentApprovedValues: {
+      plannedEffortPd: current.effort,
+      plannedBudget: current.budget,
+      plannedTeamSize: current.teamSize,
+      plannedDuration,
+      startDate: delivery.start_date,
+      plannedEndDate: delivery.planned_end_date,
+      currentEstimation: estimation.actualFinalEstimatedValue ?? estimation.pmEstimatedValue,
+    },
+    latestSnapshot: snapshots[0] || null,
+    selectedSnapshot,
+    snapshots,
+  };
+}
+
+async function getProjectProgress(projectId, user, snapshotDate = '') {
+  assertPmUser(user);
+  const project = await projectRepository.getProjectById(projectId);
+  if (!project) {
+    const error = new Error('Project not found');
+    error.status = 404;
+    throw error;
+  }
+  assertProjectOwner(project, user);
+  assertApprovedProject(project);
+  const snapshots = await projectRepository.findProgressSnapshots(projectId);
+  const selectedSnapshot = snapshotDate
+    ? await projectRepository.getProgressSnapshotByDate(projectId, snapshotDate)
+    : null;
+  return buildProgressContext(project, snapshots, selectedSnapshot);
+}
+
+async function saveProjectProgress(projectId, user, payload) {
+  assertPmUser(user);
+  const project = await projectRepository.getProjectById(projectId);
+  if (!project) {
+    const error = new Error('Project not found');
+    error.status = 404;
+    throw error;
+  }
+  assertProjectOwner(project, user);
+  assertApprovedProject(project);
+
+  const snapshotDate = toDateOnly(payload.snapshotDate ?? payload.snapshot_date);
+  if (!snapshotDate) {
+    const error = new Error('Snapshot date is required');
+    error.status = 400;
+    throw error;
+  }
+  const actualCompletionPercent = requireNonNegativeNumber(
+    payload.actualCompletionPercent ?? payload.actual_completion_percent,
+    'Actual completion %',
+    { required: true },
+  );
+  if (actualCompletionPercent > 100) {
+    const error = new Error('Actual completion % cannot exceed 100');
+    error.status = 400;
+    throw error;
+  }
+
+  const snapshot = await projectRepository.upsertProgressSnapshot(projectId, user.userId, {
+    snapshotDate,
+    actualEffortPd: requireNonNegativeNumber(payload.actualEffortPd ?? payload.actual_effort_pd, 'Actual effort (PD)', { required: true }),
+    actualBudget: requireNonNegativeNumber(payload.actualBudget ?? payload.actual_budget, 'Actual budget', { required: true }),
+    actualTeamSize: requireNonNegativeNumber(payload.actualTeamSize ?? payload.actual_team_size, 'Actual team size', { required: true }),
+    actualCompletionPercent,
+    remarks: String(payload.remarks || '').trim(),
+  });
+  const snapshots = await projectRepository.findProgressSnapshots(projectId);
+  return buildProgressContext(project, snapshots, snapshot);
 }
 
 async function completeProject(projectId, user, payload) {
@@ -611,6 +738,9 @@ async function completeProject(projectId, user, payload) {
     if (completion.actualFinalEstimatedValue === null) {
       completion.actualFinalEstimatedValue = normalizeNumber(project.actualFinalEstimatedValue, 0);
     }
+    if (!completion.actualCompletionDate) {
+      completion.actualCompletionDate = toDateOnly(new Date());
+    }
 
     const completionRecord = await projectRepository.insertProjectCompletion(connection, {
       projectId,
@@ -630,6 +760,8 @@ async function completeProject(projectId, user, payload) {
       actualEffort: completion.actualEffort,
       actualBudget: completion.fullProjectCost,
       actualTeamSize: completion.actualTeamSize,
+      actualFinalEstimatedValue: completion.actualFinalEstimatedValue,
+      actualCompletionDate: completion.actualCompletionDate,
     });
     if (!actualsUpdated) {
       const error = new Error('Project completion actuals could not be stored');
@@ -795,6 +927,8 @@ module.exports = {
   listProjectsForPm,
   listApprovedProjectsForPm,
   listProjectsAvailableForCr,
+  getProjectProgress,
+  saveProjectProgress,
   getProject,
   getDraftProject,
   getWorkflowHistory,

@@ -191,6 +191,30 @@ async function completeProject(req, res) {
   }
 }
 
+async function getProjectProgress(req, res) {
+  try {
+    const projectId = Number(req.params.id);
+    if (!projectId) return res.status(400).json({ message: 'Project id is required' });
+    const result = await projectService.getProjectProgress(projectId, req.user, req.query.snapshotDate || req.query.snapshot_date || '');
+    return res.json(result);
+  } catch (error) {
+    console.error('Project progress retrieval failed:', error);
+    return res.status(error.status || 500).json({ message: error.message || 'Failed to load project progress' });
+  }
+}
+
+async function saveProjectProgress(req, res) {
+  try {
+    const projectId = Number(req.params.id);
+    if (!projectId) return res.status(400).json({ message: 'Project id is required' });
+    const result = await projectService.saveProjectProgress(projectId, req.user, req.body || {});
+    return res.json({ message: 'Progress snapshot saved', ...result });
+  } catch (error) {
+    console.error('Project progress save failed:', error);
+    return res.status(error.status || 500).json({ message: error.message || 'Failed to save project progress' });
+  }
+}
+
 function projectTransition(actionType) {
   return async (req, res) => {
     try {
@@ -221,6 +245,8 @@ module.exports = {
   getProject,
   getWorkflowHistory,
   getMlRecommendation,
+  getProjectProgress,
+  saveProjectProgress,
   completeProject,
   submitExistingProject: projectTransition('SUBMIT'),
   approveProject: projectTransition('APPROVE'),

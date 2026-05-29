@@ -21,6 +21,14 @@ const statusColors = {
   REJECTED: 'danger',
 };
 
+const severityColors = {
+  'Not Measured': 'secondary',
+  Normal: 'success',
+  Medium: 'warning',
+  High: 'danger',
+  Urgent: 'dark',
+};
+
 const ProjectListPage = () => {
   const navigate = useNavigate();
   const currentRole = String(authService.getUserRole() || '').toUpperCase();
@@ -103,6 +111,11 @@ const ProjectListPage = () => {
     { key: 'industry', label: 'Industry' },
     { key: 'deliveryModel', label: 'Delivery Model' },
     {
+      key: 'severity',
+      label: 'Severity',
+      render: (row) => <CBadge color={severityColors[row.severity] || 'secondary'}>{row.severity || 'Not Measured'}</CBadge>,
+    },
+    {
       key: 'currentStatus',
       label: 'Current Status',
       sortKey: 'status',
@@ -124,6 +137,11 @@ const ProjectListPage = () => {
               {row.canCreateCr && (
                 <CButton color="secondary" variant="outline" size="sm" onClick={() => navigate(`/crs/create?projectId=${row.publishedProjectId || row.projectId}`)}>
                   Create CR
+                </CButton>
+              )}
+              {row.canTrackProgress && !isAccountManager && (
+                <CButton color="info" variant="outline" size="sm" onClick={() => navigate(`/progress/${row.publishedProjectId || row.projectId}`)}>
+                  Progress
                 </CButton>
               )}
               {row.canComplete && !isAccountManager && (

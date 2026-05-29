@@ -94,6 +94,26 @@ export async function completeProject(projectId, payload) {
   return handleResponse(response);
 }
 
+export async function getProjectProgress(projectId, snapshotDate = '') {
+  const searchParams = new URLSearchParams();
+  if (snapshotDate) searchParams.set('snapshotDate', snapshotDate);
+  const suffix = searchParams.toString() ? `?${searchParams.toString()}` : '';
+  const response = await fetch(`${API_BASE_URL}/${projectId}/progress${suffix}`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+  return handleResponse(response);
+}
+
+export async function saveProjectProgress(projectId, payload) {
+  const response = await fetch(`${API_BASE_URL}/${projectId}/progress`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(response);
+}
+
 export async function listProjects(params = {}) {
   const searchParams = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {

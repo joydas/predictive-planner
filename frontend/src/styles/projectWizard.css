@@ -310,6 +310,37 @@
   margin-bottom: var(--spacer);
 }
 
+.cr-impact-preview-grid {
+  display: grid;
+  gap: var(--spacer-2);
+  margin-top: var(--spacer-2);
+  overflow-x: auto;
+}
+
+.cr-impact-preview-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1.1fr) repeat(3, minmax(150px, 1fr));
+  gap: var(--spacer-2);
+  min-width: 720px;
+  align-items: stretch;
+}
+
+.cr-impact-preview-row > div {
+  border: 1px solid #e3e7ee;
+  border-radius: 6px;
+  padding: var(--spacer) var(--spacer-2);
+  background: #fff;
+}
+
+.cr-impact-preview-header {
+  font-weight: 700;
+  color: #303c54;
+}
+
+.cr-impact-preview-header > div {
+  background: #f8f9fa;
+}
+
 .review-list {
   list-style: disc;
   padding-left: var(--spacer-4);
@@ -326,6 +357,7 @@
   .cr-staffing-row-editable,
   .cr-delta-summary-grid,
   .cr-staffing-compare-row,
+  .cr-impact-preview-row,
   .derived-summary-grid {
     grid-template-columns: 1fr;
     min-width: 0;

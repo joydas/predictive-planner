@@ -12,6 +12,7 @@ const getBaselineKey = (row, index) => rowKey('baseline', row, index);
 
 const ImpactAssessmentStep = ({
   data,
+  selectedProject,
   teamImpact,
   financial,
   updateSection,
@@ -179,6 +180,40 @@ const ImpactAssessmentStep = ({
     teamSize: totals.teamSize + parseNumber(row.count, 0),
   }), { effort: 0, cost: 0, teamSize: 0 });
 
+  const currentApprovedValues = selectedProject?.currentApprovedValues || {};
+  const impactPreview = [
+    {
+      metric: 'Effort',
+      current: parseNumber(currentApprovedValues.effort, 0),
+      delta: parseNumber(data.estimatedEffortHours, 0),
+      formatter: (value) => `${formatNumber(value)} PD`,
+    },
+    {
+      metric: 'Budget',
+      current: parseNumber(currentApprovedValues.budget, 0),
+      delta: parseNumber(financial.additionalBudget, 0),
+      formatter: formatCurrency,
+    },
+    {
+      metric: 'Team Size',
+      current: parseNumber(currentApprovedValues.teamSize, 0),
+      delta: parseNumber(summary.teamSize, 0),
+      formatter: formatNumber,
+    },
+    {
+      metric: 'Duration',
+      current: parseNumber(currentApprovedValues.duration, 0),
+      delta: parseNumber(data.scheduleImpactDays, 0),
+      formatter: (value) => `${formatNumber(value)} days`,
+    },
+    {
+      metric: 'Estimation',
+      current: parseNumber(currentApprovedValues.estimation, 0),
+      delta: parseNumber(data.estimatedEffortHours, 0),
+      formatter: (value) => `${formatNumber(value)} PD`,
+    },
+  ];
+
   return (
     <div className="wizard-step-panel">
       <h3>Impact Assessment</h3>
@@ -304,6 +339,31 @@ const ImpactAssessmentStep = ({
           {errors.environmentsAffected && <div className="form-error">{errors.environmentsAffected}</div>}
         </CCol>
       </CRow>
+
+      <div className="cr-staffing-section">
+        <div className="cr-staffing-section-header">
+          <div>
+            <h4>CR Impact Preview</h4>
+            <span>Current approved values, proposed values, and approval deltas.</span>
+          </div>
+        </div>
+        <div className="cr-impact-preview-grid">
+          <div className="cr-impact-preview-row cr-impact-preview-header">
+            <div>Metric</div>
+            <div>Current Approved</div>
+            <div>Proposed</div>
+            <div>Impact Delta</div>
+          </div>
+          {impactPreview.map((row) => (
+            <div className="cr-impact-preview-row" key={row.metric}>
+              <div>{row.metric}</div>
+              <div>{row.formatter(row.current)}</div>
+              <div>{row.formatter(row.current + row.delta)}</div>
+              <div>{row.formatter(row.delta)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };

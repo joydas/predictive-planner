@@ -1,50 +1,22 @@
-DROP PROCEDURE IF EXISTS migrate_admin_user_management;
+ALTER TABLE app_user
+ADD COLUMN IF NOT EXISTS manager_id BIGINT UNSIGNED NULL
+AFTER role_name;
 
-DELIMITER //
+ALTER TABLE app_user
+ADD INDEX IF NOT EXISTS idx_app_user_manager (manager_id);
 
-CREATE PROCEDURE migrate_admin_user_management()
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME = 'app_user'
-      AND COLUMN_NAME = 'manager_id'
-  ) THEN
-    ALTER TABLE app_user
-      ADD COLUMN manager_id BIGINT UNSIGNED NULL AFTER role_name;
-  END IF;
+UPDATE app_user
+SET manager_id = NULL
+WHERE role_name IN ('ADMIN', 'AM', 'ACCOUNT_MANAGER')
+  AND manager_id IS NOT NULL;
 
-  IF NOT EXISTS (
-    SELECT 1
-    FROM INFORMATION_SCHEMA.STATISTICS
-    WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME = 'app_user'
-      AND INDEX_NAME = 'idx_app_user_manager'
-  ) THEN
-    ALTER TABLE app_user
-      ADD INDEX idx_app_user_manager (manager_id);
-  END IF;
-
-  UPDATE app_user
-  SET manager_id = NULL
-  WHERE role_name IN ('ADMIN', 'AM', 'ACCOUNT_MANAGER')
-    AND manager_id IS NOT NULL;
-END//
-
-DELIMITER ;
-
-CALL migrate_admin_user_management();
-
-DROP PROCEDURE IF EXISTS migrate_admin_user_management;
-
-INSERT INTO users
+INSERT INTO app_user
 (
-    username,
+    user_name,
     email,
-    password,
-    role,
-    is_active
+    password_hash,
+    role_name,
+    active_flag
 )
 VALUES
 (

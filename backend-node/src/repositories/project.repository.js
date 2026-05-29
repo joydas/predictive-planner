@@ -26,6 +26,10 @@ async function ensureApprovedProjectTables() {
     ALTER TABLE project
     ADD COLUMN total_cr_estimation_impact DECIMAL(12,2) NOT NULL DEFAULT 0 AFTER total_cr_team_impact
   `);
+  await addColumnIfMissing('project', 'actual_completion_date', `
+    ALTER TABLE project
+    ADD COLUMN actual_completion_date DATE NULL AFTER actual_final_estimated_value
+  `);
 
   return true;
 }
@@ -98,6 +102,10 @@ async function ensureProjectCompletionTables() {
     ALTER TABLE project_completion_history
     ADD COLUMN actual_final_estimated_value DECIMAL(12,2) NULL DEFAULT NULL AFTER risk_level_indicators
   `);
+  await addColumnIfMissing('project_completion_history', 'actual_completion_date', `
+    ALTER TABLE project_completion_history
+    ADD COLUMN actual_completion_date DATE NULL AFTER actual_final_estimated_value
+  `);
 
   await db.promise().query(`
     CREATE TABLE IF NOT EXISTS project_completion_resource_loading (
@@ -114,6 +122,30 @@ async function ensureProjectCompletionTables() {
       PRIMARY KEY (completion_resource_id),
       INDEX idx_completion_resource_completion (completion_id),
       INDEX idx_completion_resource_project (project_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+}
+
+async function ensureProjectProgressTables() {
+  await ensureApprovedProjectTables();
+  await db.promise().query(`
+    CREATE TABLE IF NOT EXISTS project_progress_snapshot (
+      snapshot_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      project_id BIGINT UNSIGNED NOT NULL,
+      snapshot_date DATE NOT NULL,
+      actual_effort_pd DECIMAL(12,2) NOT NULL DEFAULT 0,
+      actual_budget DECIMAL(14,2) NOT NULL DEFAULT 0,
+      actual_team_size DECIMAL(10,2) NOT NULL DEFAULT 0,
+      actual_completion_percent DECIMAL(5,2) NOT NULL DEFAULT 0,
+      remarks TEXT NULL,
+      created_by BIGINT UNSIGNED NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (snapshot_id),
+      UNIQUE KEY uq_project_progress_snapshot_date (project_id, snapshot_date),
+      INDEX idx_project_progress_project (project_id),
+      INDEX idx_project_progress_snapshot_date (snapshot_date),
+      INDEX idx_project_progress_created_by (created_by)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 }
@@ -213,6 +245,72 @@ function normalizeNumber(value, fallback = 0) {
 
 function sumObjectValues(value = {}) {
   return Object.values(value || {}).reduce((sum, next) => sum + normalizeNumber(next, 0), 0);
+}
+
+function toDateOnly(value) {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+  return String(value).slice(0, 10);
+}
+
+function calculateCalendarDuration(startDate, endDate) {
+  const start = startDate ? new Date(`${toDateOnly(startDate)}T00:00:00`) : null;
+  const end = endDate ? new Date(`${toDateOnly(endDate)}T00:00:00`) : null;
+  if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+    return 0;
+  }
+  return Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+}
+
+function calculateSeverity(expectedCompletionPercent, actualCompletionPercent, hasSnapshot) {
+  if (!hasSnapshot) return 'Not Measured';
+  const variance = Math.abs(normalizeNumber(expectedCompletionPercent, 0) - normalizeNumber(actualCompletionPercent, 0));
+  if (variance <= 10) return 'Normal';
+  if (variance <= 20) return 'Medium';
+  if (variance <= 40) return 'High';
+  return 'Urgent';
+}
+
+function plannedDurationFromProject(project) {
+  const draftData = project?.draftData || {};
+  const delivery = draftData.deliveryDetails || {};
+  const baselineDuration = calculateCalendarDuration(delivery.start_date, delivery.planned_end_date);
+  return baselineDuration + normalizeNumber(project?.totalCrScheduleImpactDays, 0);
+}
+
+function expectedCompletionForSnapshot(project, snapshotDate) {
+  const draftData = project?.draftData || {};
+  const delivery = draftData.deliveryDetails || {};
+  const plannedDuration = plannedDurationFromProject(project);
+  if (!plannedDuration || !delivery.start_date || !snapshotDate) return 0;
+  const elapsed = calculateCalendarDuration(delivery.start_date, snapshotDate);
+  return Math.max(0, Math.min(100, (elapsed / plannedDuration) * 100));
+}
+
+function mapProgressSnapshot(row, project = null) {
+  if (!row) return null;
+  const expectedCompletionPercent = project
+    ? expectedCompletionForSnapshot(project, row.snapshotDate)
+    : normalizeNumber(row.expectedCompletionPercent, 0);
+  const actualCompletionPercent = normalizeNumber(row.actualCompletionPercent, 0);
+  return {
+    snapshotId: row.snapshotId,
+    projectId: row.projectId,
+    snapshotDate: toDateOnly(row.snapshotDate),
+    actualEffortPd: normalizeNumber(row.actualEffortPd, 0),
+    actualBudget: normalizeNumber(row.actualBudget, 0),
+    actualTeamSize: normalizeNumber(row.actualTeamSize, 0),
+    actualCompletionPercent,
+    expectedCompletionPercent: Number(expectedCompletionPercent.toFixed(2)),
+    completionVariancePercent: Number(Math.abs(expectedCompletionPercent - actualCompletionPercent).toFixed(2)),
+    severity: calculateSeverity(expectedCompletionPercent, actualCompletionPercent, true),
+    remarks: row.remarks || '',
+    createdBy: row.createdBy,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
 }
 
 function extractPmEstimatedValue(data = {}) {
@@ -420,15 +518,18 @@ function mapProjectListRow(row) {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     reviewerComment: row.reviewerComment || '-',
+    severity: row.severity || 'Not Measured',
     canEdit: row.recordType !== 'APPROVED_PROJECT' && ['DRAFT', 'RETURNED'].includes(row.currentStatus),
     canCreateCr: row.recordType === 'APPROVED_PROJECT' && row.currentStatus === 'APPROVED',
     canComplete: row.recordType === 'APPROVED_PROJECT' && row.currentStatus === 'APPROVED',
+    canTrackProgress: row.recordType === 'APPROVED_PROJECT' && row.currentStatus === 'APPROVED',
   };
 }
 
 async function findProjectsForPm(filters) {
   await ensureDraftTable();
   await ensureApprovedProjectTables();
+  await ensureProjectProgressTables();
 
   const page = Math.max(1, Number(filters.page) || 1);
   const pageSize = Math.min(100, Math.max(1, Number(filters.pageSize) || 10));
@@ -468,6 +569,7 @@ async function findProjectsForPm(filters) {
              JSON_UNQUOTE(JSON_EXTRACT(p.draft_data, '$.basicInfo.industry')) AS industry,
              JSON_UNQUOTE(JSON_EXTRACT(p.draft_data, '$.basicInfo.delivery_model')) AS deliveryModel,
              p.workflow_status AS currentStatus,
+             'Not Measured' AS severity,
              p.created_at AS createdAt,
              p.updated_at AS updatedAt,
              reviewer.action_comment AS reviewerComment
@@ -497,11 +599,64 @@ async function findProjectsForPm(filters) {
              COALESCE(NULLIF(ap.industry, ''), ap.industry_code) AS industry,
              ap.delivery_model AS deliveryModel,
              CASE WHEN p.workflow_status = 'COMPLETE' THEN 'COMPLETE' ELSE 'APPROVED' END AS currentStatus,
+             CASE
+               WHEN latest_progress.snapshot_id IS NULL THEN 'Not Measured'
+               WHEN ABS(
+                 LEAST(100, GREATEST(0, (
+                   (DATEDIFF(latest_progress.snapshot_date, JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.start_date'))) + 1)
+                   / NULLIF(
+                     (DATEDIFF(JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.planned_end_date')), JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.start_date'))) + 1)
+                     + COALESCE(cr_schedule.totalScheduleImpactDays, 0),
+                     0
+                   )
+                 ) * 100)) - COALESCE(latest_progress.actual_completion_percent, 0)
+               ) <= 10 THEN 'Normal'
+               WHEN ABS(
+                 LEAST(100, GREATEST(0, (
+                   (DATEDIFF(latest_progress.snapshot_date, JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.start_date'))) + 1)
+                   / NULLIF(
+                     (DATEDIFF(JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.planned_end_date')), JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.start_date'))) + 1)
+                     + COALESCE(cr_schedule.totalScheduleImpactDays, 0),
+                     0
+                   )
+                 ) * 100)) - COALESCE(latest_progress.actual_completion_percent, 0)
+               ) <= 20 THEN 'Medium'
+               WHEN ABS(
+                 LEAST(100, GREATEST(0, (
+                   (DATEDIFF(latest_progress.snapshot_date, JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.start_date'))) + 1)
+                   / NULLIF(
+                     (DATEDIFF(JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.planned_end_date')), JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.start_date'))) + 1)
+                     + COALESCE(cr_schedule.totalScheduleImpactDays, 0),
+                     0
+                   )
+                 ) * 100)) - COALESCE(latest_progress.actual_completion_percent, 0)
+               ) <= 40 THEN 'High'
+               ELSE 'Urgent'
+             END AS severity,
              ap.created_at AS createdAt,
              p.updated_at AS updatedAt,
              reviewer.action_comment AS reviewerComment
       FROM project ap
       INNER JOIN project_drafts p ON p.draft_id = ap.source_draft_id
+      LEFT JOIN (
+        SELECT progress.*
+        FROM project_progress_snapshot progress
+        INNER JOIN (
+          SELECT project_id, MAX(snapshot_date) AS snapshot_date
+          FROM project_progress_snapshot
+          GROUP BY project_id
+        ) latest
+          ON latest.project_id = progress.project_id
+         AND latest.snapshot_date = progress.snapshot_date
+      ) latest_progress
+        ON latest_progress.project_id = ap.project_id
+      LEFT JOIN (
+        SELECT project_id, SUM(schedule_impact_days) AS totalScheduleImpactDays
+        FROM change_request
+        WHERE workflow_status = 'APPROVED'
+        GROUP BY project_id
+      ) cr_schedule
+        ON cr_schedule.project_id = ap.project_id
       LEFT JOIN (
         SELECT h.project_id, h.action_comment
         FROM project_workflow_history h
@@ -566,11 +721,26 @@ async function findApprovedProjectsAvailableForCr(user) {
              ap.client_name AS clientName,
              COALESCE(NULLIF(ap.industry, ''), ap.industry_code) AS industry,
              ap.delivery_model AS deliveryModel,
+             ap.current_planned_effort AS currentPlannedEffort,
+             ap.current_planned_budget AS currentPlannedBudget,
+             ap.current_planned_team_size AS currentPlannedTeamSize,
+             ap.actual_final_estimated_value AS currentEstimation,
+             (
+               DATEDIFF(JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.planned_end_date')),
+                        JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.start_date'))) + 1
+             ) + COALESCE(cr_schedule.totalScheduleImpactDays, 0) AS currentPlannedDuration,
              CASE WHEN pd.workflow_status = 'COMPLETE' THEN 'COMPLETE' ELSE 'APPROVED' END AS currentStatus,
              'APPROVED_PROJECT' AS recordType,
              CASE WHEN pd.workflow_status = 'APPROVED' THEN 1 ELSE 0 END AS canCreateCr
       FROM project ap
       INNER JOIN project_drafts pd ON pd.draft_id = ap.source_draft_id
+      LEFT JOIN (
+        SELECT project_id, SUM(schedule_impact_days) AS totalScheduleImpactDays
+        FROM change_request
+        WHERE workflow_status = 'APPROVED'
+        GROUP BY project_id
+      ) cr_schedule
+        ON cr_schedule.project_id = ap.project_id
       WHERE ${where.join(' AND ')}
         AND pd.workflow_status = 'APPROVED'
       ORDER BY ap.updated_at DESC, ap.project_id DESC
@@ -581,6 +751,13 @@ async function findApprovedProjectsAvailableForCr(user) {
   return rows.map((row) => ({
     ...row,
     canCreateCr: Boolean(row.canCreateCr),
+    currentApprovedValues: {
+      effort: row.currentPlannedEffort,
+      budget: row.currentPlannedBudget,
+      teamSize: row.currentPlannedTeamSize,
+      duration: row.currentPlannedDuration,
+      estimation: row.currentEstimation,
+    },
   }));
 }
 
@@ -640,10 +817,12 @@ async function getProjectById(projectId) {
            ap.actual_budget AS actualBudget,
            ap.actual_team_size AS actualTeamSize,
            ap.actual_final_estimated_value AS actualFinalEstimatedValue,
+           ap.actual_completion_date AS actualCompletionDate,
            ap.total_cr_effort_impact AS totalCrEffortImpact,
            ap.total_cr_budget_impact AS totalCrBudgetImpact,
            ap.total_cr_team_impact AS totalCrTeamImpact,
            ap.total_cr_estimation_impact AS totalCrEstimationImpact,
+           COALESCE(cr_schedule.totalScheduleImpactDays, 0) AS totalCrScheduleImpactDays,
            CASE WHEN pd.workflow_status = 'COMPLETE' THEN 'COMPLETE' ELSE 'APPROVED' END AS status,
            CASE WHEN pd.workflow_status = 'COMPLETE' THEN 'COMPLETE' ELSE 'APPROVED' END AS workflowStatus,
            pd.submitted_by_user_id AS submittedByUserId,
@@ -657,6 +836,13 @@ async function getProjectById(projectId) {
            pd.updated_at AS updatedAt
     FROM project ap
     INNER JOIN project_drafts pd ON pd.draft_id = ap.source_draft_id
+    LEFT JOIN (
+      SELECT project_id, SUM(schedule_impact_days) AS totalScheduleImpactDays
+      FROM change_request
+      WHERE workflow_status = 'APPROVED'
+      GROUP BY project_id
+    ) cr_schedule
+      ON cr_schedule.project_id = ap.project_id
     WHERE ap.project_id = ?
     LIMIT 1
   `;
@@ -665,7 +851,7 @@ async function getProjectById(projectId) {
     return null;
   }
   const project = mapDraftDataToProject(rows[0]);
-  return {
+  const mappedProject = {
     ...project,
     baselineTracking: {
       ai: {
@@ -700,7 +886,122 @@ async function getProjectById(projectId) {
         teamSize: rows[0].totalCrTeamImpact,
       },
     },
+    actualCompletionDate: toDateOnly(rows[0].actualCompletionDate),
+    totalCrScheduleImpactDays: rows[0].totalCrScheduleImpactDays,
   };
+  await ensureProjectProgressTables();
+  const [progressRows] = await db.promise().query(
+    `
+      SELECT snapshot_id AS snapshotId,
+             project_id AS projectId,
+             snapshot_date AS snapshotDate,
+             actual_effort_pd AS actualEffortPd,
+             actual_budget AS actualBudget,
+             actual_team_size AS actualTeamSize,
+             actual_completion_percent AS actualCompletionPercent,
+             remarks,
+             created_by AS createdBy,
+             created_at AS createdAt,
+             updated_at AS updatedAt
+      FROM project_progress_snapshot
+      WHERE project_id = ?
+      ORDER BY snapshot_date DESC, snapshot_id DESC
+      LIMIT 1
+    `,
+    [projectId],
+  );
+  const latestProgressSnapshot = progressRows.length ? mapProgressSnapshot(progressRows[0], mappedProject) : null;
+  return {
+    ...mappedProject,
+    latestProgressSnapshot,
+    severity: latestProgressSnapshot?.severity || 'Not Measured',
+  };
+}
+
+async function findProgressSnapshots(projectId) {
+  await ensureProjectProgressTables();
+  const project = await getProjectById(projectId);
+  const [rows] = await db.promise().query(
+    `
+      SELECT snapshot_id AS snapshotId,
+             project_id AS projectId,
+             snapshot_date AS snapshotDate,
+             actual_effort_pd AS actualEffortPd,
+             actual_budget AS actualBudget,
+             actual_team_size AS actualTeamSize,
+             actual_completion_percent AS actualCompletionPercent,
+             remarks,
+             created_by AS createdBy,
+             created_at AS createdAt,
+             updated_at AS updatedAt
+      FROM project_progress_snapshot
+      WHERE project_id = ?
+      ORDER BY snapshot_date DESC, snapshot_id DESC
+    `,
+    [projectId],
+  );
+  return rows.map((row) => mapProgressSnapshot(row, project));
+}
+
+async function getProgressSnapshotByDate(projectId, snapshotDate) {
+  await ensureProjectProgressTables();
+  const project = await getProjectById(projectId);
+  const [rows] = await db.promise().query(
+    `
+      SELECT snapshot_id AS snapshotId,
+             project_id AS projectId,
+             snapshot_date AS snapshotDate,
+             actual_effort_pd AS actualEffortPd,
+             actual_budget AS actualBudget,
+             actual_team_size AS actualTeamSize,
+             actual_completion_percent AS actualCompletionPercent,
+             remarks,
+             created_by AS createdBy,
+             created_at AS createdAt,
+             updated_at AS updatedAt
+      FROM project_progress_snapshot
+      WHERE project_id = ? AND snapshot_date = ?
+      LIMIT 1
+    `,
+    [projectId, snapshotDate],
+  );
+  return rows.length ? mapProgressSnapshot(rows[0], project) : null;
+}
+
+async function getLatestProgressSnapshot(projectId) {
+  await ensureProjectProgressTables();
+  const snapshots = await findProgressSnapshots(projectId);
+  return snapshots[0] || null;
+}
+
+async function upsertProgressSnapshot(projectId, userId, snapshot) {
+  await ensureProjectProgressTables();
+  await db.promise().query(
+    `
+      INSERT INTO project_progress_snapshot
+        (project_id, snapshot_date, actual_effort_pd, actual_budget, actual_team_size,
+         actual_completion_percent, remarks, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        actual_effort_pd = VALUES(actual_effort_pd),
+        actual_budget = VALUES(actual_budget),
+        actual_team_size = VALUES(actual_team_size),
+        actual_completion_percent = VALUES(actual_completion_percent),
+        remarks = VALUES(remarks),
+        updated_at = NOW()
+    `,
+    [
+      projectId,
+      snapshot.snapshotDate,
+      normalizeNumber(snapshot.actualEffortPd, 0),
+      normalizeNumber(snapshot.actualBudget, 0),
+      normalizeNumber(snapshot.actualTeamSize, 0),
+      normalizeNumber(snapshot.actualCompletionPercent, 0),
+      snapshot.remarks || null,
+      userId,
+    ],
+  );
+  return getProgressSnapshotByDate(projectId, snapshot.snapshotDate);
 }
 
 async function getProjectForCompletion(connection, projectId) {
@@ -712,6 +1013,7 @@ async function getProjectForCompletion(connection, projectId) {
              ap.project_name AS projectName,
              ap.project_code AS projectCode,
              ap.actual_final_estimated_value AS actualFinalEstimatedValue,
+             ap.actual_completion_date AS actualCompletionDate,
              pd.submitted_by_user_id AS submittedByUserId,
              pd.approved_by_user_id AS approvedByUserId,
              pd.workflow_status AS workflowStatus
@@ -732,8 +1034,8 @@ async function insertProjectCompletion(connection, completion) {
         (project_id, source_draft_id, completed_by_user_id, final_resource_loading,
          management_cost, contingency_cost, resource_cost, full_project_cost,
          dependency_count, requirement_stability_index, actual_cr_volatility,
-         risk_level_indicators, actual_final_estimated_value, completion_payload)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         risk_level_indicators, actual_final_estimated_value, actual_completion_date, completion_payload)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     [
       completion.projectId,
@@ -749,6 +1051,7 @@ async function insertProjectCompletion(connection, completion) {
       completion.actualCrVolatility,
       JSON.stringify(completion.riskLevelIndicators),
       completion.actualFinalEstimatedValue,
+      completion.actualCompletionDate || null,
       JSON.stringify(completion.payload),
     ],
   );
@@ -784,7 +1087,8 @@ async function updateProjectActuals(connection, projectId, actuals) {
       SET actual_effort = ?,
           actual_budget = ?,
           actual_team_size = ?,
-          actual_final_estimated_value = ?
+          actual_final_estimated_value = ?,
+          actual_completion_date = ?
       WHERE project_id = ?
     `,
     [
@@ -792,6 +1096,7 @@ async function updateProjectActuals(connection, projectId, actuals) {
       normalizeNumber(actuals.actualBudget, 0),
       normalizeNumber(actuals.actualTeamSize, 0),
       normalizeNumber(actuals.actualFinalEstimatedValue, 0),
+      actuals.actualCompletionDate || null,
       projectId,
     ],
   );
@@ -1007,7 +1312,11 @@ module.exports = {
   getDraftForPublishing,
   ensureApprovedProjectTables,
   ensureProjectCompletionTables,
+  ensureProjectProgressTables,
   ensureDraftTable,
+  findProgressSnapshots,
+  getLatestProgressSnapshot,
+  getProgressSnapshotByDate,
   getProjectForCompletion,
   insertProjectCompletion,
   updateProjectActuals,
@@ -1015,5 +1324,6 @@ module.exports = {
   insertProjectTeamSnapshots,
   markProjectComplete,
   markDraftPublished,
+  upsertProgressSnapshot,
   insertProject,
 };

@@ -135,6 +135,7 @@ CREATE TABLE project (
   actual_budget DECIMAL(14,2) NULL DEFAULT NULL,
   actual_team_size DECIMAL(10,2) NULL DEFAULT NULL,
   actual_final_estimated_value DECIMAL(12,2) NULL DEFAULT NULL,
+  actual_completion_date DATE NULL,
   total_cr_effort_impact DECIMAL(12,2) NOT NULL DEFAULT 0,
   total_cr_budget_impact DECIMAL(14,2) NOT NULL DEFAULT 0,
   total_cr_team_impact DECIMAL(10,2) NOT NULL DEFAULT 0,
@@ -149,6 +150,25 @@ CREATE TABLE project (
   INDEX idx_project_owner_id (owner_id),
   INDEX idx_project_industry_code (industry_code),
   INDEX idx_project_approved_at (approved_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE project_progress_snapshot (
+  snapshot_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  project_id BIGINT UNSIGNED NOT NULL,
+  snapshot_date DATE NOT NULL,
+  actual_effort_pd DECIMAL(12,2) NOT NULL DEFAULT 0,
+  actual_budget DECIMAL(14,2) NOT NULL DEFAULT 0,
+  actual_team_size DECIMAL(10,2) NOT NULL DEFAULT 0,
+  actual_completion_percent DECIMAL(5,2) NOT NULL DEFAULT 0,
+  remarks TEXT NULL,
+  created_by BIGINT UNSIGNED NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (snapshot_id),
+  UNIQUE KEY uq_project_progress_snapshot_date (project_id, snapshot_date),
+  INDEX idx_project_progress_project (project_id),
+  INDEX idx_project_progress_snapshot_date (snapshot_date),
+  INDEX idx_project_progress_created_by (created_by)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE project_team_snapshot (
@@ -187,6 +207,7 @@ CREATE TABLE project_completion_history (
   actual_cr_volatility VARCHAR(50) NULL DEFAULT NULL,
   risk_level_indicators JSON NULL,
   actual_final_estimated_value DECIMAL(12,2) NULL DEFAULT NULL,
+  actual_completion_date DATE NULL,
   completion_payload JSON NOT NULL,
   completed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (completion_id),

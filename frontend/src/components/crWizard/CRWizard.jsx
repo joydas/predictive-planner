@@ -280,6 +280,7 @@ const CRWizard = ({ loading, projects, initialCr, projectId, onSubmitted }) => {
     />,
     <ImpactAssessmentStep
       data={state.impact}
+      selectedProject={selectedProject}
       teamImpact={state.teamImpact}
       financial={state.financial}
       updateSection={(payload) => updateSection('impact', payload)}
