@@ -87,6 +87,22 @@ async function listByProject(req, res) {
   }
 }
 
+async function getProjectStaffingBaseline(req, res) {
+  try {
+    const projectId = Number(req.params.projectId);
+    const excludeCrId = Number(req.query.excludeCrId || 0) || null;
+    if (!projectId) {
+      return res.status(400).json({ message: 'Project id is required' });
+    }
+
+    const staffing = await crService.getProjectStaffingBaseline(req.user, projectId, excludeCrId);
+    return res.json(staffing);
+  } catch (error) {
+    console.error('CR staffing baseline retrieval failed:', error);
+    return res.status(error.status || 500).json({ message: error.message || 'Failed to load staffing baseline' });
+  }
+}
+
 async function listMyCrs(req, res) {
   try {
     const result = await crService.listCrsForPm(req.user, req.query || {});
@@ -136,6 +152,7 @@ module.exports = {
   createChangeRequest: createAndSubmit,
   createDraft,
   getChangeRequest,
+  getProjectStaffingBaseline,
   getWorkflowHistory,
   listByProject,
   listMyCrs,

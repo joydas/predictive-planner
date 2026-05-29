@@ -31,11 +31,15 @@ const ReviewSubmitStep = ({ state, selectedProject, submitComment, onSubmitComme
       <CRow>
         <CCol md={12}>
           <h5>Team Impact</h5>
-          <DetailItem label="PM" value={state.teamImpact.additionalPmCount} />
-          <DetailItem label="Dev" value={state.teamImpact.additionalDevCount} />
-          <DetailItem label="QA" value={state.teamImpact.additionalQaCount} />
-          <DetailItem label="DevOps" value={state.teamImpact.additionalDevOpsCount} />
-          <DetailItem label="Architect" value={state.teamImpact.additionalArchitectCount} />
+          <DetailItem label="Approved staffing rows referenced" value={(state.teamImpact.staffingBaselineSnapshot || []).length} />
+          <DetailItem label="CR staffing delta rows" value={(state.teamImpact.staffingDeltas || []).length} />
+          {(state.teamImpact.staffingDeltas || []).map((row, index) => (
+            <DetailItem
+              key={row.key || index}
+              label={`${row.changeType || 'ADJUST'} ${row.role || 'Role'}`}
+              value={`${row.count || 0} resources, ${row.allocationPercent || 0}% allocation, ${row.plannedEffort || 0} PD`}
+            />
+          ))}
         </CCol>
       </CRow>
     </div>

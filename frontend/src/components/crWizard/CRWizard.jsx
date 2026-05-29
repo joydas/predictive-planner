@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CAlert, CButton, CCard, CCardBody, CCardFooter, CSpinner } from '@coreui/react';
 import WizardTabs from '../projectWizard/WizardTabs';
-import { createCrDraft, submitCrDraft, updateCrDraft } from '../../services/crService';
+import { createCrDraft, getProjectStaffingBaseline, submitCrDraft, updateCrDraft } from '../../services/crService';
+import { getPlanningMasterData } from '../../services/masterDataService';
 import CRBasicInfoStep from './steps/CRBasicInfoStep';
 import ImpactAssessmentStep from './steps/ImpactAssessmentStep';
 import ReviewSubmitStep from './steps/ReviewSubmitStep';
@@ -37,6 +38,8 @@ const defaultState = {
     additionalQaCount: '',
     additionalDevOpsCount: '',
     additionalArchitectCount: '',
+    staffingBaselineSnapshot: [],
+    staffingDeltas: [],
   },
   financial: {
     additionalBudget: '',
@@ -81,6 +84,8 @@ function buildInitialState(initialCr, projectId) {
       additionalQaCount: initialCr.additionalQaCount ?? '',
       additionalDevOpsCount: initialCr.additionalDevOpsCount ?? '',
       additionalArchitectCount: initialCr.additionalArchitectCount ?? '',
+      staffingBaselineSnapshot: initialCr.staffingBaselineSnapshot || [],
+      staffingDeltas: initialCr.staffingDeltas || [],
     },
     financial: {
       additionalBudget: initialCr.additionalBudget ?? initialCr.budgetImpact ?? initialCr.estimatedCostImpact ?? '',
@@ -94,6 +99,8 @@ const CRWizard = ({ loading, projects, initialCr, projectId, onSubmitted }) => {
   const [state, setState] = useState(() => buildInitialState(initialCr, projectId));
   const [stepErrors, setStepErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  const [loadingStaffing, setLoadingStaffing] = useState(false);
+  const [masterData, setMasterData] = useState({ roles: [], rateCards: [] });
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [submitComment, setSubmitComment] = useState('');
@@ -101,6 +108,47 @@ const CRWizard = ({ loading, projects, initialCr, projectId, onSubmitted }) => {
   useEffect(() => {
     setState(buildInitialState(initialCr, projectId));
   }, [initialCr, projectId]);
+
+  useEffect(() => {
+    let active = true;
+    getPlanningMasterData()
+      .then((data) => {
+        if (active) setMasterData(data || { roles: [], rateCards: [] });
+      })
+      .catch(() => {
+        if (active) setMasterData({ roles: [], rateCards: [] });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const selectedProjectId = state.basic.projectId;
+    if (!selectedProjectId) return undefined;
+    if (initialCr?.staffingBaselineSnapshot?.length) return undefined;
+
+    let active = true;
+    setLoadingStaffing(true);
+    getProjectStaffingBaseline(selectedProjectId, state.crId)
+      .then((result) => {
+        if (!active) return;
+        updateSection('teamImpact', {
+          staffingBaselineSnapshot: result.currentApprovedStaffing || [],
+        });
+      })
+      .catch((err) => {
+        if (active) setError(err.message || 'Unable to load approved staffing baseline');
+      })
+      .finally(() => {
+        if (active) setLoadingStaffing(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [initialCr?.staffingBaselineSnapshot?.length, state.basic.projectId, state.crId]);
 
   const selectedProject = useMemo(
     () => projects.find((project) => Number(project.projectId) === Number(state.basic.projectId)),
@@ -237,6 +285,8 @@ const CRWizard = ({ loading, projects, initialCr, projectId, onSubmitted }) => {
       updateSection={(payload) => updateSection('impact', payload)}
       updateTeamImpact={(payload) => updateSection('teamImpact', payload)}
       updateFinancial={(payload) => updateSection('financial', payload)}
+      masterData={masterData}
+      loadingStaffing={loadingStaffing}
       errors={stepErrors}
     />,
     <ReviewSubmitStep

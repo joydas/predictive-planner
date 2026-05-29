@@ -3,6 +3,34 @@ const { pool } = require('../config/db.config');
 async function ensureCrSchema() {
   const projectRepository = require('./project.repository');
   await projectRepository.ensureApprovedProjectTables();
+  await addColumnIfMissing('change_request', 'cr_staffing_baseline_snapshot', `
+    ALTER TABLE change_request
+    ADD COLUMN cr_staffing_baseline_snapshot JSON NULL AFTER infrastructure_cost_impact
+  `);
+  await addColumnIfMissing('change_request', 'cr_staffing_delta', `
+    ALTER TABLE change_request
+    ADD COLUMN cr_staffing_delta JSON NULL AFTER cr_staffing_baseline_snapshot
+  `);
+  return true;
+}
+
+async function addColumnIfMissing(tableName, columnName, alterSql) {
+  const [columns] = await pool.promise().query(
+    `
+      SELECT COLUMN_NAME AS columnName
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = ?
+        AND COLUMN_NAME = ?
+      LIMIT 1
+    `,
+    [tableName, columnName],
+  );
+
+  if (columns.length) {
+    return false;
+  }
+  await pool.promise().query(alterSql);
   return true;
 }
 
@@ -36,6 +64,8 @@ const CR_SELECT = `
   cr.additional_budget AS additionalBudget,
   cr.additional_licensing_cost AS additionalLicensingCost,
   cr.infrastructure_cost_impact AS infrastructureCostImpact,
+  cr.cr_staffing_baseline_snapshot AS staffingBaselineSnapshot,
+  cr.cr_staffing_delta AS staffingDeltas,
   cr.status,
   cr.workflow_status AS workflowStatus,
   cr.submitted_by_user_id AS submittedByUserId,
@@ -71,7 +101,9 @@ const writableColumns = `
   additional_architect_count = ?,
   additional_budget = ?,
   additional_licensing_cost = ?,
-  infrastructure_cost_impact = ?
+  infrastructure_cost_impact = ?,
+  cr_staffing_baseline_snapshot = ?,
+  cr_staffing_delta = ?
 `;
 
 function payloadValues(crData) {
@@ -100,7 +132,93 @@ function payloadValues(crData) {
     crData.additionalBudget,
     crData.additionalLicensingCost,
     crData.infrastructureCostImpact,
+    JSON.stringify(crData.staffingBaselineSnapshot || []),
+    JSON.stringify(crData.staffingDeltas || []),
   ];
+}
+
+function parseJson(rawValue, fallback) {
+  if (!rawValue) return fallback;
+  if (typeof rawValue === 'object') return rawValue;
+  try {
+    return JSON.parse(rawValue);
+  } catch {
+    return fallback;
+  }
+}
+
+function normalizeStaffingRow(row = {}, fallbackKey = '') {
+  const roleId = row.roleId ?? row.role_id ?? null;
+  const role = row.role || row.roleName || '';
+  const locationType = row.locationType || row.location_type || 'ONSITE';
+  const count = Number(row.count ?? row.resourceCount ?? row.resource_count ?? 0) || 0;
+  const allocationPercent = Number(row.allocationPercent ?? row.allocation_percent ?? 0) || 0;
+  const plannedEffort = Number(row.plannedEffort ?? row.planned_effort ?? 0) || 0;
+  const plannedCost = Number(row.plannedCost ?? row.planned_cost ?? 0) || 0;
+  const ratePerDay = Number(row.ratePerDay ?? row.rate_per_day ?? 0) || 0;
+  const key = row.key || row.baselineKey || [
+    roleId || role || fallbackKey,
+    locationType,
+    row.startDate || row.allocationStartDate || row.allocation_start_date || '',
+    row.endDate || row.allocationEndDate || row.allocation_end_date || '',
+  ].join('|');
+
+  return {
+    key,
+    roleId,
+    role,
+    locationType,
+    count,
+    allocationPercent,
+    startDate: row.startDate || row.allocationStartDate || row.allocation_start_date || '',
+    endDate: row.endDate || row.allocationEndDate || row.allocation_end_date || '',
+    ratePerDay,
+    durationDays: Number(row.durationDays ?? row.workingDays ?? 0) || 0,
+    plannedEffort,
+    plannedCost,
+  };
+}
+
+function applyStaffingDeltas(baselineRows = [], deltas = []) {
+  const rowMap = new Map();
+  baselineRows.forEach((row, index) => {
+    const normalized = normalizeStaffingRow(row, `baseline-${index}`);
+    rowMap.set(normalized.key, normalized);
+  });
+
+  deltas.forEach((delta, index) => {
+    const normalizedDelta = normalizeStaffingRow(delta, `delta-${index}`);
+    const key = delta.baselineKey || normalizedDelta.key;
+    const existing = rowMap.get(key);
+    if (existing) {
+      rowMap.set(key, {
+        ...existing,
+        count: existing.count + normalizedDelta.count,
+        allocationPercent: existing.allocationPercent + normalizedDelta.allocationPercent,
+        startDate: normalizedDelta.startDate || existing.startDate,
+        endDate: normalizedDelta.endDate || existing.endDate,
+        durationDays: existing.durationDays + normalizedDelta.durationDays,
+        plannedEffort: existing.plannedEffort + normalizedDelta.plannedEffort,
+        plannedCost: existing.plannedCost + normalizedDelta.plannedCost,
+      });
+    } else {
+      rowMap.set(key, {
+        ...normalizedDelta,
+        key,
+      });
+    }
+  });
+
+  return Array.from(rowMap.values())
+    .filter((row) => Math.abs(Number(row.count || 0)) > 0.0001 || Math.abs(Number(row.plannedEffort || 0)) > 0.0001)
+    .map((row) => ({
+      ...row,
+      count: Number(row.count.toFixed(2)),
+      allocationPercent: Number(row.allocationPercent.toFixed(2)),
+      durationDays: Number(row.durationDays.toFixed(2)),
+      plannedEffort: Number(row.plannedEffort.toFixed(2)),
+      plannedCost: Number(row.plannedCost.toFixed(2)),
+    }));
 }
 
 async function createDraft(crData, createdBy) {
@@ -151,7 +269,12 @@ async function getChangeRequestById(crId) {
     [crId],
   );
 
-  return rows[0] || null;
+  if (!rows[0]) return null;
+  return {
+    ...rows[0],
+    staffingBaselineSnapshot: parseJson(rows[0].staffingBaselineSnapshot, []),
+    staffingDeltas: parseJson(rows[0].staffingDeltas, []),
+  };
 }
 
 async function getChangeRequestForUpdate(connection, crId) {
@@ -168,7 +291,79 @@ async function getChangeRequestForUpdate(connection, crId) {
     [crId],
   );
 
-  return rows[0] || null;
+  if (!rows[0]) return null;
+  return {
+    ...rows[0],
+    staffingBaselineSnapshot: parseJson(rows[0].staffingBaselineSnapshot, []),
+    staffingDeltas: parseJson(rows[0].staffingDeltas, []),
+  };
+}
+
+async function getProjectBaseStaffingSnapshot(projectId) {
+  await ensureCrSchema();
+  const [rows] = await pool.promise().query(
+    `
+      SELECT team_snapshot_id AS snapshotId,
+             role_id AS roleId,
+             role,
+             location_type AS locationType,
+             resource_count AS count,
+             allocation_percent AS allocationPercent,
+             allocation_start_date AS startDate,
+             allocation_end_date AS endDate,
+             rate_per_day AS ratePerDay,
+             planned_effort AS plannedEffort,
+             planned_cost AS plannedCost
+      FROM project_team_snapshot
+      WHERE project_id = ?
+      ORDER BY team_snapshot_id
+    `,
+    [projectId],
+  );
+  return rows.map((row, index) => normalizeStaffingRow({
+    ...row,
+    key: `snapshot-${row.snapshotId || index}`,
+  }, `snapshot-${index}`));
+}
+
+async function getApprovedStaffingDeltas(projectId, excludeCrId = null) {
+  await ensureCrSchema();
+  const params = [projectId];
+  let excludeSql = '';
+  if (excludeCrId) {
+    excludeSql = 'AND cr_id <> ?';
+    params.push(excludeCrId);
+  }
+
+  const [rows] = await pool.promise().query(
+    `
+      SELECT cr_staffing_delta AS staffingDeltas
+      FROM change_request
+      WHERE project_id = ?
+        AND workflow_status = 'APPROVED'
+        ${excludeSql}
+      ORDER BY approved_at ASC, cr_id ASC
+    `,
+    params,
+  );
+
+  return rows.flatMap((row) => parseJson(row.staffingDeltas, []));
+}
+
+async function getCurrentApprovedStaffing(projectId, excludeCrId = null) {
+  const baseSnapshot = await getProjectBaseStaffingSnapshot(projectId);
+  const approvedDeltas = await getApprovedStaffingDeltas(projectId, excludeCrId);
+  const currentSnapshot = applyStaffingDeltas(baseSnapshot, approvedDeltas);
+  return {
+    originalBaseline: baseSnapshot,
+    approvedDeltas,
+    currentApprovedStaffing: currentSnapshot,
+    totals: currentSnapshot.reduce((totals, row) => ({
+      effort: totals.effort + Number(row.plannedEffort || 0),
+      cost: totals.cost + Number(row.plannedCost || 0),
+      teamSize: totals.teamSize + Number(row.count || 0),
+    }), { effort: 0, cost: 0, teamSize: 0 }),
+  };
 }
 
 async function accumulateApprovedCrImpact(connection, changeRequest) {
@@ -385,11 +580,13 @@ async function countByProject(projectId) {
 }
 
 module.exports = {
+  applyStaffingDeltas,
   countByProject,
   createDraft,
   ensureCrSchema,
   findCrsForPm,
   accumulateApprovedCrImpact,
+  getCurrentApprovedStaffing,
   getChangeRequestById,
   getChangeRequestForUpdate,
   getChangeRequestsByProject,

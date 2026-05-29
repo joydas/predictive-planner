@@ -286,6 +286,8 @@ CREATE TABLE change_request (
   additional_budget DECIMAL(14,2) NULL DEFAULT 0,
   additional_licensing_cost DECIMAL(14,2) NULL DEFAULT 0,
   infrastructure_cost_impact DECIMAL(14,2) NULL DEFAULT 0,
+  cr_staffing_baseline_snapshot JSON NULL,
+  cr_staffing_delta JSON NULL,
   root_cause TEXT NULL,
   status VARCHAR(32) NOT NULL DEFAULT 'DRAFT',
   workflow_status VARCHAR(32) NOT NULL DEFAULT 'DRAFT',
