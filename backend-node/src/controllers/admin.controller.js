@@ -32,8 +32,47 @@ async function updateUser(req, res) {
   }
 }
 
+async function getMlAdministration(req, res) {
+  try {
+    const result = await adminService.getMlAdministration(req.user);
+    return res.json(result);
+  } catch (error) {
+    console.error('ML administration status failed:', error);
+    return res.status(error.status || error.response?.status || 500).json({
+      message: error.response?.data?.detail || error.message || 'Failed to load ML administration status',
+    });
+  }
+}
+
+async function retrainMlModels(req, res) {
+  try {
+    const result = await adminService.retrainMlModels(req.user);
+    return res.status(result.accepted === false ? 409 : 202).json(result);
+  } catch (error) {
+    console.error('ML retraining request failed:', error);
+    return res.status(error.status || error.response?.status || 500).json({
+      message: error.response?.data?.detail || error.message || 'Failed to start ML retraining',
+    });
+  }
+}
+
+async function getMlTrainingJob(req, res) {
+  try {
+    const result = await adminService.getMlTrainingJob(req.user, req.params.jobId);
+    return res.json(result);
+  } catch (error) {
+    console.error('ML training job status failed:', error);
+    return res.status(error.status || error.response?.status || 500).json({
+      message: error.response?.data?.detail || error.message || 'Failed to load ML training job',
+    });
+  }
+}
+
 module.exports = {
   createUser,
+  getMlAdministration,
+  getMlTrainingJob,
   listUsers,
+  retrainMlModels,
   updateUser,
 };

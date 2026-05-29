@@ -41,3 +41,27 @@ export async function updateUser(userId, payload) {
   });
   return handleResponse(response);
 }
+
+export async function getMlAdministration() {
+  const response = await fetch(`${API_BASE_URL}/ml`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+  return handleResponse(response);
+}
+
+export async function retrainMlModels() {
+  const response = await fetch(`${API_BASE_URL}/ml/retrain`, {
+    method: 'POST',
+    headers: getHeaders(),
+  });
+  return handleResponse(response);
+}
+
+export async function getMlTrainingJob(jobId) {
+  const response = await fetch(`${API_BASE_URL}/ml/jobs/${encodeURIComponent(jobId)}`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+  return handleResponse(response);
+}

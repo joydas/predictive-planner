@@ -1,0 +1,11 @@
+[
+  {
+    "jobId": "b3da8b9a2ee947f9a4d9e9aa4e749a7e",
+    "modelVersion": "ml-20260529T170509487970Z0000",
+    "startedAt": "2026-05-29T17:05:03.717059+00:00",
+    "endedAt": "2026-05-29T17:05:20.526939+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 128,
+    "projectsUsed": 128
+  }
+]

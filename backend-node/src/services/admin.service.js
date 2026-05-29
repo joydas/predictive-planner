@@ -1,7 +1,11 @@
 const authService = require('./auth.service');
 const userRepository = require('../repositories/user.repository');
+const axios = require('axios');
 
 const ROLE_VALUES = ['ADMIN', 'AM', 'PM'];
+const DEFAULT_ML_API_URL = 'http://127.0.0.1:8000';
+const normalizeUrl = (url) => String(url || DEFAULT_ML_API_URL).replace(/\/+$/, '');
+const ML_API_URL = normalizeUrl(process.env.ML_API_URL || DEFAULT_ML_API_URL);
 
 function normalizeRole(role) {
   const value = String(role || '').trim().toUpperCase();
@@ -97,9 +101,30 @@ async function updateUser(user, userId, payload) {
   return userRepository.updateUser(userId, { ...normalized, passwordHash });
 }
 
+async function getMlAdministration(user) {
+  assertAdmin(user);
+  const response = await axios.get(`${ML_API_URL}/admin/ml/status`, { timeout: 10000 });
+  return response.data;
+}
+
+async function retrainMlModels(user) {
+  assertAdmin(user);
+  const response = await axios.post(`${ML_API_URL}/admin/ml/retrain`, {}, { timeout: 10000 });
+  return response.data;
+}
+
+async function getMlTrainingJob(user, jobId) {
+  assertAdmin(user);
+  const response = await axios.get(`${ML_API_URL}/admin/ml/jobs/${encodeURIComponent(jobId)}`, { timeout: 10000 });
+  return response.data;
+}
+
 module.exports = {
   createUser,
+  getMlAdministration,
+  getMlTrainingJob,
   listUsers,
   normalizeRole,
+  retrainMlModels,
   updateUser,
 };

@@ -8,5 +8,8 @@ router.use(authenticateToken, authorizeRoles(['ADMIN']));
 router.get('/users', adminController.listUsers);
 router.post('/users', adminController.createUser);
 router.put('/users/:userId', adminController.updateUser);
+router.get('/ml', adminController.getMlAdministration);
+router.post('/ml/retrain', adminController.retrainMlModels);
+router.get('/ml/jobs/:jobId', adminController.getMlTrainingJob);
 
 module.exports = router;

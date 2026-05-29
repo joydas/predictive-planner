@@ -1,34 +1,36 @@
 {
-  "training_timestamp": "2026-05-17T12:59:08.848524+00:00",
+  "model_version": "ml-20260529T170509487970Z0000",
+  "training_timestamp": "2026-05-29T17:05:09.487970+00:00",
   "dataset_version": "project_training_dataset_v1",
   "feature_version": "project_features_v1",
   "dataset_path": "C:\\OurWorkspace\\Dipanjan\\AI\\predictive-planner\\ml-service\\datasets\\project_training_dataset.csv",
-  "row_count": 124,
+  "project_count": 128,
+  "row_count": 128,
   "evaluation_metrics": {
-    "effort": {
-      "rmse": 133.3514123978747,
-      "mae": 67.98911290322579,
-      "r2": 0.9821690394241648
-    },
     "staffing": {
       "mae_per_role": {
-        "Automation_Tester": 0.4126344086021504,
+        "Automation_Tester": 0.38723958333333336,
         "DevOps_Engineer": 0.0,
-        "Java_Developer": 0.15510752688172044,
-        "Java_Lead": 0.015591397849462365,
-        "Manual_Tester": 0.4338709677419355,
-        "Project_Manager": 0.20080645161290323,
-        "Python_Developer": 1.5137096774193548,
-        "Python_Lead": 0.028494623655913976,
+        "Java_Developer": 0.15052083333333333,
+        "Java_Lead": 0.014843750000000001,
+        "Manual_Tester": 0.4317708333333333,
+        "Project_Manager": 0.20416666666666666,
+        "Python_Developer": 1.4158854166666666,
+        "Python_Lead": 0.007291666666666665,
         "QA_Lead": 0.0,
-        "React_Developer": 0.2134408602150538,
-        "React_Lead": 0.030645161290322576,
-        "SAP_Consultant": 0.16774193548387098,
-        "Solution_Architect": 0.13736559139784946
+        "React_Developer": 0.2052083333333333,
+        "React_Lead": 0.03307291666666667,
+        "SAP_Consultant": 0.25390625,
+        "Solution_Architect": 0.12760416666666669
       }
     },
+    "effort": {
+      "rmse": 60.871369761851355,
+      "mae": 33.735156250000024,
+      "r2": 0.9947064192897592
+    },
     "schedule_risk": {
-      "accuracy": 0.967741935483871,
+      "accuracy": 1.0,
       "precision": 0.0,
       "recall": 0.0
     }

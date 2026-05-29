@@ -1,3 +1,5 @@
+import os
+from pathlib import Path
 from typing import Any
 
 import joblib
@@ -40,4 +42,7 @@ def feature_columns_for_dataset(df: pd.DataFrame) -> list[str]:
 
 
 def save_artifact(path, artifact: dict[str, Any]) -> None:
-    joblib.dump(artifact, path)
+    output_dir = os.getenv("MODEL_OUTPUT_DIR")
+    target_path = Path(output_dir) / Path(path).name if output_dir else Path(path)
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(artifact, target_path)

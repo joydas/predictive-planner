@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from inference.predictors import debug_model_prediction, predict_effort, predict_risk, predict_staffing
+from model_admin import current_info, get_job_logs, read_state, start_retraining
 from timeseries import predict_final_effort
 
 
@@ -73,6 +74,27 @@ def debug_prediction(model_name: str, data: dict):
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/admin/ml/status")
+def ml_admin_status():
+    return current_info()
+
+
+@app.post("/admin/ml/retrain")
+def ml_admin_retrain():
+    return start_retraining()
+
+
+@app.get("/admin/ml/jobs/{job_id}")
+def ml_admin_job(job_id: str):
+    state = read_state()
+    return {
+        "jobId": job_id,
+        "status": state.get("status"),
+        "current": state if state.get("jobId") == job_id else None,
+        "logs": get_job_logs(job_id),
+    }
 
 
 @app.post("/predict")

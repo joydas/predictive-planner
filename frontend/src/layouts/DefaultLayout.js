@@ -47,6 +47,7 @@ const navigationItems = [
 
 const adminNavigationItems = [
   { icon: cilPeople, label: 'Users', to: '/admin/users' },
+  { icon: cilChart, label: 'ML Administration', to: '/admin/ml' },
 ];
 
 const getStoredSidebarCollapsed = () => {
