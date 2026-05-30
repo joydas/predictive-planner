@@ -12,8 +12,8 @@ const RiskStep = ({ data, updateSection, errors }) => {
   };
 
   return (
-    <div className="wizard-step-panel">
-      <h3>Risks & Dependencies</h3>
+    <div className="project-info-section">
+      <h3 className="project-info-section-heading">Risks & Dependencies</h3>
       <CForm>
         <CRow className="mb-4">
           <CCol md={4}>

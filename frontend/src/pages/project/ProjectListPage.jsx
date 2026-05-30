@@ -6,8 +6,9 @@ import TableFilters from '../../components/dataTable/TableFilters';
 import TableToolbar from '../../components/dataTable/TableToolbar';
 import { listProjects } from '../../services/projectService';
 import authService from '../../services/authService';
-import { formatDisplayDateTime } from '../../utils/dateUtils';
+import { formatDisplayDateTime,formatDisplayDate } from '../../utils/dateUtils';
 import { listIndustries } from '../../services/masterDataService';
+
 
 const statusOptions = ['DRAFT', 'SUBMITTED', 'RETURNED', 'APPROVED', 'COMPLETE', 'REJECTED'].map((value) => ({ value, label: value }));
 const deliveryModelOptions = ['Agile', 'Waterfall', 'Hybrid', 'Scrum', 'Kanban'].map((value) => ({ value, label: value }));
@@ -105,9 +106,9 @@ const ProjectListPage = () => {
   const hasActiveFilters = Boolean(search || Object.values(filters).some(Boolean));
 
   const columns = useMemo(() => [
-    { key: 'projectCode', label: 'Project Code' },
-    { key: 'projectName', label: 'Project Name', sortKey: 'projectName' },
-    { key: 'clientName', label: 'Client Name' },
+    { key: 'projectCode', label: 'Code' },
+    { key: 'projectName', label: 'Name', sortKey: 'projectName' },
+    { key: 'clientName', label: 'Client' },
     { key: 'industry', label: 'Industry' },
     { key: 'deliveryModel', label: 'Delivery Model' },
     {
@@ -117,13 +118,13 @@ const ProjectListPage = () => {
     },
     {
       key: 'currentStatus',
-      label: 'Current Status',
+      label: 'Status',
       sortKey: 'status',
       render: (row) => <CBadge color={statusColors[row.currentStatus] || 'secondary'}>{row.currentStatus}</CBadge>,
     },
-    { key: 'createdAt', label: 'Created Date', sortKey: 'createdAt', render: (row) => formatDisplayDateTime(row.createdAt) },
-    { key: 'updatedAt', label: 'Last Updated', sortKey: 'updatedAt', render: (row) => formatDisplayDateTime(row.updatedAt) },
-    { key: 'reviewerComment', label: 'Reviewer Comment' },
+    { key: 'createdAt', className : 'text-center', label: 'Created', sortKey: 'createdAt', render: (row) => formatDisplayDate(row.createdAt) },
+    { key: 'updatedAt', className : 'text-center', label: 'Updated', sortKey: 'updatedAt', render: (row) => formatDisplayDate(row.updatedAt) },
+    // { key: 'reviewerComment', label: 'Reviewer Comment' },
     {
       key: 'actions',
       label: 'Actions',

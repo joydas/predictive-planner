@@ -231,7 +231,7 @@ const Dashboard = () => {
                   <th>Client</th>
                   <th>Technology</th>
                   <th>Current Status</th>
-                  <th>Planned End Date</th>
+                  <th className="text-center">Planned End Date</th>
                   <th className="text-end">Current Planned Effort (PD)</th>
                   <th className="text-end">Current Planned Budget</th>
                   <th className="text-end">Current Planned Team Size</th>
@@ -248,7 +248,7 @@ const Dashboard = () => {
                     <td>{project.clientName}</td>
                     <td>{project.technology}</td>
                     <td><StatusBadge value={project.currentStatus} /></td>
-                    <td>{formatDisplayDate(project.plannedEndDate)}</td>
+                    <td className="text-center">{formatDisplayDate(project.plannedEndDate)}</td>
                     <td className="text-end">{formatNumber(project.currentPlannedEffort)}</td>
                     <td className="text-end">{formatCurrency(project.currentPlannedBudget)}</td>
                     <td className="text-end">{formatNumber(project.currentPlannedTeamSize)}</td>
@@ -297,8 +297,7 @@ const Dashboard = () => {
                   <th>Name</th>
                   <th>Submitted By</th>
                   <th>Current Status</th>
-                  <th>Last Updated</th>
-                  <th>Pending Since</th>
+                  <th className="text-center">Pending Since</th>
                   <th>Action Required</th>
                 </tr>
               </thead>
@@ -311,8 +310,7 @@ const Dashboard = () => {
                     <td className="fw-semibold">{item.name}</td>
                     <td>{item.submittedBy}</td>
                     <td><StatusBadge value={item.currentStatus} /></td>
-                    <td>{formatGridDateTime(item.lastUpdated)}</td>
-                    <td>{formatGridDateTime(item.pendingSince)}</td>
+                    <td className="text-center">{formatDisplayDate(item.pendingSince)}</td>
                     <td><ActionBadges actions={[item.actionRequired]} /></td>
                   </tr>
                 ))}

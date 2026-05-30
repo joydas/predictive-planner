@@ -4,12 +4,12 @@ import { formatDisplayDate } from '../../../utils/dateUtils';
 import { formatCurrency } from '../../../utils/resourcePlanning';
 
 const sectionSummary = [
-  { key: 'basicInfo', label: 'Basic Information' },
-  { key: 'deliveryDetails', label: 'Delivery & Timeline' },
-  { key: 'technology', label: 'Technology & Architecture' },
-  { key: 'risks', label: 'Risks & Dependencies' },
-  { key: 'financial', label: 'Financial Assumptions' },
-  { key: 'teamComposition', label: 'Resource Loading & Planning' },
+  { key: 'basicInfo', label: 'Basic Information', tabIndex: 0 },
+  { key: 'deliveryDetails', label: 'Delivery & Timeline', tabIndex: 0 },
+  { key: 'technology', label: 'Technology & Architecture', tabIndex: 0 },
+  { key: 'risks', label: 'Risks & Dependencies', tabIndex: 0 },
+  { key: 'financial', label: 'Financial Assumptions', tabIndex: 0 },
+  { key: 'teamComposition', label: 'Resource Loading and Planning', tabIndex: 1 },
 ];
 
 const empty = '-';
@@ -50,7 +50,7 @@ const ReviewSubmitStep = ({ state, onEdit, submitComment, onSubmitCommentChange,
               <CTableDataCell>{index + 1}. {section.label}</CTableDataCell>
               <CTableDataCell>{getStatus(section.key)}</CTableDataCell>
               <CTableDataCell>
-                <CButton color="link" size="sm" onClick={() => onEdit(index)}>
+                <CButton color="link" size="sm" onClick={() => onEdit(section.tabIndex)}>
                   Edit
                 </CButton>
               </CTableDataCell>

@@ -240,7 +240,7 @@ const CompleteProjectPage = () => {
                     <CFormInput type="number" min="0" step="0.01" value={row.rate} onChange={(event) => updateRow(index, 'rate', event.target.value)} />
                     <CFormInput type="number" min="0" step="0.01" value={row.effort} onChange={(event) => updateRow(index, 'effort', event.target.value)} />
                     <div className="derived-cell">{formatCurrency(rowCost)}</div>
-                    <CButton color="danger" variant="outline" size="sm" onClick={() => removeRow(index)} disabled={rows.length === 1}>
+                    <CButton color="danger" size="sm" className="remove-button-danger" onClick={() => removeRow(index)} disabled={rows.length === 1}>
                       Remove
                     </CButton>
                   </div>

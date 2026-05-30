@@ -9,6 +9,7 @@ import {
 } from '@coreui/react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import WorkflowPanel from '../components/WorkflowPanel';
+import WizardTabs from '../components/projectWizard/WizardTabs';
 import { getProject, transitionProject } from '../services/projectService';
 import authService from '../services/authService';
 import { formatDisplayDate } from '../utils/dateUtils';
@@ -29,6 +30,12 @@ const valueOrDash = (value) => (value === null || value === undefined || value =
 const DetailItem = ({ label, value }) => (
   <p><strong>{label}:</strong> {valueOrDash(value)}</p>
 );
+
+const detailTabs = [
+  { key: 'projectInformation', label: 'Project Information' },
+  { key: 'resourceLoading', label: 'Resource Loading and Planning' },
+  { key: 'review', label: 'Review & Submit' },
+];
 
 const normalizeDisplayResourceRow = (row = {}, deliveryDetails = {}) => ({
   ...row,
@@ -89,6 +96,7 @@ const ProjectDetails = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
   const [workflowNotice, setWorkflowNotice] = useState(location.state?.workflowNotice || '');
+  const [activeDetailTab, setActiveDetailTab] = useState(0);
 
   const loadProject = useCallback(async () => {
     try {
@@ -234,39 +242,92 @@ const ProjectDetails = () => {
             )}
           </div>
 
-          <div className="review-summary-grid">
-            <CRow>
-              <CCol md={6}>
-                <h5>Basic Information</h5>
-                <DetailItem label="Project" value={displayProjectName} />
-                <DetailItem label="Client" value={basicInfo.client_name || project.business_unit} />
-                <DetailItem label="Industry" value={basicInfo.industry} />
-                <DetailItem label="Project type" value={basicInfo.project_type} />
-                <DetailItem label="Delivery model" value={basicInfo.delivery_model} />
-                <DetailItem label="Business criticality" value={basicInfo.business_criticality} />
-                <DetailItem label="PM estimated value (PD)" value={basicInfo.pm_estimated_value || estimation.pmEstimatedValue} />
-              </CCol>
-              <CCol md={6}>
-                <h5>Delivery & Timeline</h5>
-                <DetailItem label="Start" value={formatDisplayDate(deliveryDetails.start_date)} />
-                <DetailItem label="Planned end" value={formatDisplayDate(deliveryDetails.planned_end_date)} />
-                <DetailItem label="Sprint length" value={deliveryDetails.sprint_length} />
-                <DetailItem label="Frequency" value={deliveryDetails.release_frequency} />
-                {!isAgile && <DetailItem label="Milestones" value={deliveryDetails.milestone_count} />}
-              </CCol>
-            </CRow>
-            <CRow>
-              <CCol md={12}>
-                <h5>Estimation Lineage</h5>
-                <DetailItem label="PM estimate (PD)" value={estimation.pmEstimatedValue || basicInfo.pm_estimated_value} />
-                <DetailItem label="AI estimate (PD)" value={estimation.aiEstimatedValue} />
-                <DetailItem label="Actual final estimate (PD)" value={estimation.actualFinalEstimatedValue} />
-                <DetailItem label="Approved CR estimation impact (PD)" value={estimation.totalCrEstimationImpact} />
-              </CCol>
-            </CRow>
-            <CRow>
-              <CCol md={12} className="mb-3">
-                <h5>Resource Loading</h5>
+          <WizardTabs steps={detailTabs} currentStep={activeDetailTab} onSelect={setActiveDetailTab} />
+
+          <div className="review-summary-grid project-information-panel">
+            {activeDetailTab === 0 && (
+              <>
+                <div className="project-info-section">
+                  <h5 className="project-info-section-heading">Basic Information</h5>
+                  <CRow>
+                    <CCol md={6}>
+                      <DetailItem label="Project" value={displayProjectName} />
+                      <DetailItem label="Client" value={basicInfo.client_name || project.business_unit} />
+                      <DetailItem label="Industry" value={basicInfo.industry} />
+                      <DetailItem label="Project type" value={basicInfo.project_type} />
+                    </CCol>
+                    <CCol md={6}>
+                      <DetailItem label="Delivery model" value={basicInfo.delivery_model} />
+                      <DetailItem label="Business criticality" value={basicInfo.business_criticality} />
+                      <DetailItem label="PM estimated value (PD)" value={basicInfo.pm_estimated_value || estimation.pmEstimatedValue} />
+                    </CCol>
+                  </CRow>
+                </div>
+                <div className="project-info-section">
+                  <h5 className="project-info-section-heading">Delivery & Timeline</h5>
+                  <CRow>
+                    <CCol md={6}>
+                      <DetailItem label="Start" value={formatDisplayDate(deliveryDetails.start_date)} />
+                      <DetailItem label="Planned end" value={formatDisplayDate(deliveryDetails.planned_end_date)} />
+                    </CCol>
+                    <CCol md={6}>
+                      <DetailItem label="Sprint length" value={deliveryDetails.sprint_length} />
+                      <DetailItem label="Frequency" value={deliveryDetails.release_frequency} />
+                      {!isAgile && <DetailItem label="Milestones" value={deliveryDetails.milestone_count} />}
+                    </CCol>
+                  </CRow>
+                </div>
+                <div className="project-info-section">
+                  <h5 className="project-info-section-heading">Technology & Architecture</h5>
+                  <CRow>
+                    <CCol md={6}>
+                      <DetailItem label="Stack" value={technology.technology_stack || project.technology} />
+                      <DetailItem label="Architecture" value={technology.architecture_type} />
+                      <DetailItem label="Cloud platform" value={technology.cloud_platform} />
+                    </CCol>
+                    <CCol md={6}>
+                      <DetailItem label="Integrations" value={technology.integration_count} />
+                      <DetailItem label="External dependencies" value={technology.external_dependencies} />
+                      <DetailItem label="Complexity" value={technology.complexity || project.complexity} />
+                    </CCol>
+                  </CRow>
+                </div>
+                <div className="project-info-section">
+                  <h5 className="project-info-section-heading">Risks & Dependencies</h5>
+                  <CRow>
+                    <CCol md={6}>
+                      <DetailItem label="Dependencies" value={risks.dependency_count} />
+                      <DetailItem label="Compliance" value={risks.compliance_requirements} />
+                      <DetailItem label="Criticality" value={risks.criticality} />
+                    </CCol>
+                    <CCol md={6}>
+                      <DetailItem label="Stability index" value={risks.requirement_stability_index} />
+                      <DetailItem label="Expected CR volatility" value={risks.expected_cr_volatility} />
+                      <DetailItem label="Risk indicators" value={risks.risk_level_indicators} />
+                    </CCol>
+                  </CRow>
+                </div>
+                <div className="project-info-section">
+                  <h5 className="project-info-section-heading">Financial Assumptions</h5>
+                  <CRow>
+                    <CCol md={6}>
+                      <DetailItem label="Billing model" value={financial.billing_model} />
+                      <DetailItem label="Management reserve %" value={financial.management_reserve_percent} />
+                      <DetailItem label="Contingency reserve %" value={financial.contingency_reserve_percent} />
+                    </CCol>
+                    <CCol md={6}>
+                      <DetailItem label="Derived budget" value={formatCurrency(displayDeliveryBudget)} />
+                      <DetailItem label="Derived Effort (PD)" value={displayPlannedEffort} />
+                      <DetailItem label="Derived team size" value={displayPlanning.estimated_team_size || financial.estimated_team_size || project.team_size} />
+                    </CCol>
+                  </CRow>
+                </div>
+              </>
+            )}
+
+            {activeDetailTab === 1 && (
+              <div className="project-info-section">
+                <h5 className="project-info-section-heading">Resource Loading</h5>
                 {displayResourceRows.length > 0 ? (
                   <div className="table-responsive">
                     <table className="table table-sm mb-3">
@@ -303,39 +364,19 @@ const ProjectDetails = () => {
                 ) : (
                   <p>No roles configured</p>
                 )}
-              </CCol>
-            </CRow>
-            <CRow>
-              <CCol md={6}>
-                <h5>Technology</h5>
-                <DetailItem label="Stack" value={technology.technology_stack || project.technology} />
-                <DetailItem label="Architecture" value={technology.architecture_type} />
-                <DetailItem label="Cloud platform" value={technology.cloud_platform} />
-                <DetailItem label="Integrations" value={technology.integration_count} />
-                <DetailItem label="External dependencies" value={technology.external_dependencies} />
-                <DetailItem label="Complexity" value={technology.complexity || project.complexity} />
-              </CCol>
-              <CCol md={6}>
-                <h5>Financials</h5>
-                <DetailItem label="Billing model" value={financial.billing_model} />
-                <DetailItem label="Management reserve %" value={financial.management_reserve_percent} />
-                <DetailItem label="Contingency reserve %" value={financial.contingency_reserve_percent} />
-                <DetailItem label="Derived budget" value={formatCurrency(displayDeliveryBudget)} />
-                <DetailItem label="Derived Effort (PD)" value={displayPlannedEffort} />
-                <DetailItem label="Derived team size" value={displayPlanning.estimated_team_size || financial.estimated_team_size || project.team_size} />
-              </CCol>
-            </CRow>
-            <CRow>
-              <CCol md={12}>
-                <h5>Risks</h5>
-                <DetailItem label="Dependencies" value={risks.dependency_count} />
-                <DetailItem label="Compliance" value={risks.compliance_requirements} />
-                <DetailItem label="Criticality" value={risks.criticality} />
-                <DetailItem label="Stability index" value={risks.requirement_stability_index} />
-                <DetailItem label="Expected CR volatility" value={risks.expected_cr_volatility} />
-                <DetailItem label="Risk indicators" value={risks.risk_level_indicators} />
-              </CCol>
-            </CRow>
+              </div>
+            )}
+
+            {activeDetailTab === 2 && (
+              <div className="project-info-section">
+                <h5 className="project-info-section-heading">Review & Submit</h5>
+                <DetailItem label="Workflow status" value={status} />
+                <DetailItem label="PM estimate (PD)" value={estimation.pmEstimatedValue || basicInfo.pm_estimated_value} />
+                <DetailItem label="AI estimate (PD)" value={estimation.aiEstimatedValue} />
+                <DetailItem label="Actual final estimate (PD)" value={estimation.actualFinalEstimatedValue} />
+                <DetailItem label="Approved CR estimation impact (PD)" value={estimation.totalCrEstimationImpact} />
+              </div>
+            )}
           </div>
         </CCol>
         <CCol lg={4}>

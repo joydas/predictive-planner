@@ -302,7 +302,7 @@ const TeamCompositionStep = ({
   return (
     <div className="wizard-step-panel">
       <div className="team-composition-title-row">
-        <h3>Resource Loading & Planning</h3>
+        <h3>Resource Loading and Planning</h3>
         <CButton color="primary" onClick={handleGetRecommendation} disabled={loadingRecommendation}>
           {loadingRecommendation ? <><CSpinner size="sm" /> Getting Recommendation</> : 'Get ML Recommendation'}
         </CButton>
@@ -431,7 +431,7 @@ const TeamCompositionStep = ({
               <div className="derived-cell">{formatCurrency(plannedRow.ratePerDay || row.ratePerDay || 0)}</div>
               <div className="derived-cell">{plannedRow.plannedEffort?.toFixed(2) || '0.00'}</div>
               <div className="derived-cell">{formatCurrency(plannedRow.plannedCost || 0)}</div>
-              <CButton color="danger" size="sm" onClick={() => removeRow(index)}>
+              <CButton color="danger" size="sm" className="remove-button-danger" onClick={() => removeRow(index)}>
                 Remove
               </CButton>
             </div>

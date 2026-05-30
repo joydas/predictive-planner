@@ -321,7 +321,7 @@ const ImpactAssessmentStep = ({
                 <div className="derived-cell">{formatCurrency(plannedRow.ratePerDay || row.ratePerDay || 0)}</div>
                 <div className="derived-cell">{formatNumber(plannedRow.plannedEffort)}</div>
                 <div className="derived-cell">{formatCurrency(plannedRow.plannedCost)}</div>
-                <CButton color="danger" variant="outline" size="sm" onClick={() => removeDeltaRow(index)}>Remove</CButton>
+                <CButton color="danger" size="sm" className="remove-button-danger" onClick={() => removeDeltaRow(index)}>Remove</CButton>
               </div>
             );
           })}

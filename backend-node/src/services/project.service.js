@@ -28,6 +28,16 @@ function requireNonNegativeNumber(value, label, { required = false } = {}) {
   return parsed;
 }
 
+function requirePercentInRange(value, label, { required = false } = {}) {
+  const parsed = requireNonNegativeNumber(value, label, { required });
+  if (parsed > 100) {
+    const error = new Error(`${label} cannot be more than 100`);
+    error.status = 400;
+    throw error;
+  }
+  return parsed;
+}
+
 function getWorkingDays(startDate, endDate) {
   if (!startDate || !endDate) return 0;
   const start = new Date(`${startDate}T00:00:00`);
@@ -321,6 +331,9 @@ async function applyDerivedPlanning(payload, { requireResourceLoading = false } 
   if (!payload?.basicInfo) return payload;
   const industryNormalizedPayload = await normalizeIndustrySelection(payload);
   const rateCards = await masterDataRepository.listRateCards();
+  const financial = industryNormalizedPayload.financial || {};
+  requirePercentInRange(financial.management_reserve_percent, 'Management reserve', { required: requireResourceLoading });
+  requirePercentInRange(financial.contingency_reserve_percent, 'Contingency reserve', { required: requireResourceLoading });
   const normalizedRows = normalizeResourceRows(industryNormalizedPayload).filter((row) =>
     requireResourceLoading || isCompleteResourceRow(row)
   );

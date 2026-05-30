@@ -27,8 +27,8 @@ const BasicInfoStep = ({ data, industries = [], updateSection, errors }) => {
   };
 
   return (
-    <div className="wizard-step-panel">
-      <h3>Basic Information</h3>
+    <div className="project-info-section">
+      <h3 className="project-info-section-heading">Basic Information</h3>
       <CForm>
         <CRow className="mb-4">
           <CCol md={6}>
