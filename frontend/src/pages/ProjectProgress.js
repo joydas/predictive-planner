@@ -240,18 +240,18 @@ const ProjectProgress = () => {
                 <CTableHead>
                   <CTableRow>
                     <CTableHeaderCell>Metric</CTableHeaderCell>
-                    <CTableHeaderCell>Current Planned</CTableHeaderCell>
-                    <CTableHeaderCell>Actual Reported</CTableHeaderCell>
-                    <CTableHeaderCell>Variance</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end">Current Planned</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end">Actual Reported</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end">Variance</CTableHeaderCell>
                   </CTableRow>
                 </CTableHead>
                 <CTableBody>
                   {previewRows.map((row) => (
                     <CTableRow key={row.metric}>
                       <CTableDataCell>{row.metric}</CTableDataCell>
-                      <CTableDataCell>{row.currency ? formatCurrency(row.planned) : `${formatNumber(row.planned)}${row.percent ? '%' : ''}`}</CTableDataCell>
-                      <CTableDataCell>{row.currency ? formatCurrency(row.actual) : `${formatNumber(row.actual)}${row.percent ? '%' : ''}`}</CTableDataCell>
-                      <CTableDataCell>{row.currency ? formatCurrency(row.variance) : `${formatNumber(row.variance)}${row.percent ? '%' : ''}`}</CTableDataCell>
+                      <CTableDataCell className="text-end">{row.currency ? formatCurrency(row.planned) : `${formatNumber(row.planned)}${row.percent ? '%' : ''}`}</CTableDataCell>
+                      <CTableDataCell className="text-end">{row.currency ? formatCurrency(row.actual) : `${formatNumber(row.actual)}${row.percent ? '%' : ''}`}</CTableDataCell>
+                      <CTableDataCell className="text-end">{row.currency ? formatCurrency(row.variance) : `${formatNumber(row.variance)}${row.percent ? '%' : ''}`}</CTableDataCell>
                     </CTableRow>
                   ))}
                 </CTableBody>
@@ -266,9 +266,9 @@ const ProjectProgress = () => {
                 <CTableHead>
                   <CTableRow>
                     <CTableHeaderCell>Date</CTableHeaderCell>
-                    <CTableHeaderCell>Effort</CTableHeaderCell>
-                    <CTableHeaderCell>Budget</CTableHeaderCell>
-                    <CTableHeaderCell>Completion</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end">Effort</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end">Budget</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end">Completion</CTableHeaderCell>
                     <CTableHeaderCell>Severity</CTableHeaderCell>
                     <CTableHeaderCell>Updated</CTableHeaderCell>
                   </CTableRow>
@@ -277,9 +277,9 @@ const ProjectProgress = () => {
                   {(context?.snapshots || []).map((snapshot) => (
                     <CTableRow key={snapshot.snapshotId}>
                       <CTableDataCell>{formatDisplayDate(snapshot.snapshotDate)}</CTableDataCell>
-                      <CTableDataCell>{formatNumber(snapshot.actualEffortPd)}</CTableDataCell>
-                      <CTableDataCell>{formatCurrency(snapshot.actualBudget)}</CTableDataCell>
-                      <CTableDataCell>{formatNumber(snapshot.actualCompletionPercent)}%</CTableDataCell>
+                      <CTableDataCell className="text-end">{formatNumber(snapshot.actualEffortPd)}</CTableDataCell>
+                      <CTableDataCell className="text-end">{formatCurrency(snapshot.actualBudget)}</CTableDataCell>
+                      <CTableDataCell className="text-end">{formatNumber(snapshot.actualCompletionPercent)}%</CTableDataCell>
                       <CTableDataCell><CBadge color={severityColors[snapshot.severity]}>{snapshot.severity}</CBadge></CTableDataCell>
                       <CTableDataCell>{formatDisplayDateTime(snapshot.updatedAt)}</CTableDataCell>
                     </CTableRow>

@@ -56,11 +56,11 @@ const DataTable = ({
               <CTableHead>
                 <CTableRow>
                   {columns.map((column) => (
-                    <CTableHeaderCell key={column.key}>
+                    <CTableHeaderCell key={column.key} className={column.headerClassName || column.className || ''}>
                       {column.sortKey ? (
                         <CButton
                           color="link"
-                          className="p-0 text-decoration-none fw-semibold"
+                          className={`p-0 text-decoration-none fw-semibold ${column.className?.includes('text-end') ? 'text-end' : ''}`}
                           onClick={() => onSort(column.sortKey)}
                         >
                           {column.label}{renderSortIndicator(column)}
@@ -76,7 +76,7 @@ const DataTable = ({
                 {rows.map((row) => (
                   <CTableRow key={row.id || row.projectId || row.crId}>
                     {columns.map((column) => (
-                      <CTableDataCell key={`${row.id || row.projectId || row.crId}-${column.key}`}>
+                      <CTableDataCell key={`${row.id || row.projectId || row.crId}-${column.key}`} className={column.className || ''}>
                         {column.render ? column.render(row) : row[column.key] ?? '-'}
                       </CTableDataCell>
                     ))}

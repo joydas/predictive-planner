@@ -9,6 +9,8 @@ const TABLE_SORT_COLUMNS = {
   technology: 'p.technology_stack',
   pmName: 'pm.user_name',
   accountManagerName: 'am.user_name',
+  severity: 'latest_progress.snapshot_date',
+  progressPercent: 'latest_progress.actual_completion_percent',
   aiBaselineEffort: 'p.ai_baseline_effort',
   pmBaselineEffort: 'p.pm_baseline_effort',
   currentPlannedEffort: 'p.current_planned_effort',
@@ -234,9 +236,10 @@ async function getCrTrends() {
 
 async function getVarianceDashboard(user, options = {}) {
   await projectRepository.ensureApprovedProjectTables();
+  await projectRepository.ensureProjectProgressTables();
   const role = String(user.role || '').toUpperCase();
-  if (!['PM', 'ACCOUNT_MANAGER', 'AM'].includes(role)) {
-    const error = new Error('Variance analytics is available for PM and Account Manager roles');
+  if (!['PM', 'ACCOUNT_MANAGER', 'AM', 'ADMIN'].includes(role)) {
+    const error = new Error('Analytics dashboard is available for PM, Account Manager, and Admin roles');
     error.status = 403;
     throw error;
   }
@@ -264,7 +267,26 @@ async function getVarianceDashboard(user, options = {}) {
     INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
     LEFT JOIN app_user pm ON pm.user_id = p.owner_id
     LEFT JOIN app_user am ON am.user_id = p.approved_by_user_id
+    LEFT JOIN project_progress_snapshot latest_progress
+      ON latest_progress.project_id = p.project_id
+    LEFT JOIN project_progress_snapshot newer_progress
+      ON newer_progress.project_id = latest_progress.project_id
+     AND (
+       newer_progress.snapshot_date > latest_progress.snapshot_date
+       OR (
+         newer_progress.snapshot_date = latest_progress.snapshot_date
+         AND newer_progress.snapshot_id > latest_progress.snapshot_id
+       )
+     )
+    LEFT JOIN (
+      SELECT project_id, SUM(schedule_impact_days) AS totalScheduleImpactDays
+      FROM change_request
+      WHERE workflow_status = 'APPROVED'
+      GROUP BY project_id
+    ) cr_schedule
+      ON cr_schedule.project_id = p.project_id
     WHERE pd.workflow_status IN ('APPROVED', 'COMPLETE')
+      AND newer_progress.snapshot_id IS NULL
       AND ${scope.sql}
   `;
   const tableBaseFrom = `
@@ -354,9 +376,23 @@ function buildVarianceScope(user) {
       params: [user.userId, user.userId],
     };
   }
+  if (role === 'ADMIN') {
+    return {
+      sql: '1 = 1',
+      params: [],
+    };
+  }
   return {
-    sql: 'p.approved_by_user_id = ?',
-    params: [user.userId],
+    sql: `(
+      p.approved_by_user_id = ?
+      OR EXISTS (
+        SELECT 1
+        FROM app_user assigned_pm
+        WHERE assigned_pm.user_id = COALESCE(pd.submitted_by_user_id, p.owner_id)
+          AND assigned_pm.manager_id = ?
+      )
+    )`,
+    params: [user.userId, user.userId],
   };
 }
 
@@ -386,6 +422,11 @@ function varianceSelectFields() {
     COALESCE(p.total_cr_effort_impact, 0) AS totalCrEffortImpact,
     COALESCE(p.total_cr_budget_impact, 0) AS totalCrBudgetImpact,
     COALESCE(p.total_cr_team_impact, 0) AS totalCrTeamImpact,
+    JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.deliveryDetails.start_date')) AS projectStartDate,
+    JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.deliveryDetails.planned_end_date')) AS plannedEndDate,
+    COALESCE(cr_schedule.totalScheduleImpactDays, 0) AS totalCrScheduleImpactDays,
+    latest_progress.snapshot_date AS latestProgressDate,
+    latest_progress.actual_completion_percent AS actualCompletionPercent,
     p.approved_at AS approvedAt
   `;
 }
@@ -416,6 +457,11 @@ function mapVarianceRow(row) {
     totalCrEffortImpact: toNullableNumber(row.totalCrEffortImpact),
     totalCrBudgetImpact: toNullableNumber(row.totalCrBudgetImpact),
     totalCrTeamImpact: toNullableNumber(row.totalCrTeamImpact),
+    projectStartDate: toDateOnly(row.projectStartDate),
+    plannedEndDate: toDateOnly(row.plannedEndDate),
+    totalCrScheduleImpactDays: toNullableNumber(row.totalCrScheduleImpactDays) || 0,
+    latestProgressDate: toDateOnly(row.latestProgressDate),
+    actualCompletionPercent: toNullableNumber(row.actualCompletionPercent),
     approvedAt: row.approvedAt,
   };
 
@@ -424,81 +470,183 @@ function mapVarianceRow(row) {
   mapped.finalEstimationVariancePercent = calculateVariancePercent(mapped.actualFinalEstimatedValue, mapped.pmEstimatedValue);
   mapped.budgetVariancePercent = calculateVariancePercent(mapped.actualBudget, mapped.pmBaselineBudget);
   mapped.teamSizeVariancePercent = calculateVariancePercent(mapped.actualTeamSize, mapped.pmBaselineTeamSize);
-  mapped.varianceSeverity = calculateVarianceSeverity([
-    mapped.effortVariancePercent,
-    mapped.estimationVariancePercent,
-    mapped.finalEstimationVariancePercent,
-    mapped.budgetVariancePercent,
-    mapped.teamSizeVariancePercent,
-  ]);
+  mapped.expectedCompletionPercent = calculateExpectedCompletionPercent(mapped);
+  mapped.progressVariancePercent = mapped.latestProgressDate
+    ? Number(Math.abs((mapped.expectedCompletionPercent || 0) - (mapped.actualCompletionPercent || 0)).toFixed(2))
+    : null;
+  mapped.progressPercent = mapped.actualCompletionPercent;
+  mapped.varianceSeverity = calculateProgressSeverity(mapped.progressVariancePercent, Boolean(mapped.latestProgressDate));
+  mapped.severity = mapped.varianceSeverity;
+
+  mapped.aiEffortAccuracy = calculateAccuracyPercent(mapped.aiBaselineEffort, mapped.actualEffort);
+  mapped.pmEffortAccuracy = calculateAccuracyPercent(mapped.pmBaselineEffort, mapped.actualEffort);
+  mapped.aiBudgetAccuracy = calculateAccuracyPercent(mapped.aiBaselineBudget, mapped.actualBudget);
+  mapped.pmBudgetAccuracy = calculateAccuracyPercent(mapped.pmBaselineBudget, mapped.actualBudget);
+  mapped.aiStaffingAccuracy = calculateAccuracyPercent(mapped.aiBaselineTeamSize, mapped.actualTeamSize);
+  mapped.pmStaffingAccuracy = calculateAccuracyPercent(mapped.pmBaselineTeamSize, mapped.actualTeamSize);
+  mapped.aiEstimationAccuracy = calculateAccuracyPercent(mapped.aiEstimatedValue, mapped.actualFinalEstimatedValue);
+  mapped.pmEstimationAccuracy = calculateAccuracyPercent(mapped.pmEstimatedValue, mapped.actualFinalEstimatedValue);
 
   return mapped;
 }
 
 function buildVarianceWidgets(rows) {
   const labels = rows.map((row) => row.projectName || `Project ${row.projectId}`);
-  const aiVsActualEffort = buildAiVsActualWidget('Effort', rows, 'aiBaselineEffort', 'actualEffort');
-  const aiVsActualBudget = buildAiVsActualWidget('Budget', rows, 'aiBaselineBudget', 'actualBudget');
-  const aiVsActualTeamSize = buildAiVsActualWidget('Team Size', rows, 'aiBaselineTeamSize', 'actualTeamSize');
+  const effortPredictionAccuracy = buildPredictionAccuracyWidget('Effort', rows, 'pmBaselineEffort', 'aiBaselineEffort', 'actualEffort');
+  const budgetPredictionAccuracy = buildPredictionAccuracyWidget('Budget', rows, 'pmBaselineBudget', 'aiBaselineBudget', 'actualBudget');
+  const staffingPredictionAccuracy = buildPredictionAccuracyWidget('Team Size', rows, 'pmBaselineTeamSize', 'aiBaselineTeamSize', 'actualTeamSize');
   const estimationComparison = {
-    labels: ['PM Estimate', 'AI Estimate', 'Actual Final Estimate'],
+    labels: ['Estimation'],
     datasets: [
       {
-        label: 'Estimation',
-        data: [
-          sumValues(rows, 'pmEstimatedValue'),
-          sumValues(rows, 'aiEstimatedValue'),
-          sumValues(rows, 'actualFinalEstimatedValue'),
-        ],
+        label: 'PM Estimation',
+        data: [sumValues(rows, 'pmEstimatedValue')],
+      },
+      {
+        label: 'AI Estimation',
+        data: [sumValues(rows, 'aiEstimatedValue')],
+      },
+      {
+        label: 'Actual Final Estimation',
+        data: [sumValues(rows, 'actualFinalEstimatedValue')],
       },
     ],
   };
+  const severityOrder = ['Not Measured', 'Normal', 'Medium', 'High', 'Urgent'];
+  const attentionRows = rows
+    .filter((row) => ['Urgent', 'High', 'Medium', 'Not Measured'].includes(row.severity))
+    .sort((a, b) => severityRank(b.severity) - severityRank(a.severity) || Number(b.progressVariancePercent || 0) - Number(a.progressVariancePercent || 0))
+    .slice(0, 8);
 
   return {
-    effortVariance: {
-      labels,
-      datasets: [{ label: 'Effort Variance %', data: rows.map((row) => row.effortVariancePercent) }],
+    predictionAccuracyKpis: {
+      aiEffortAccuracy: averagePresent(rows.map((row) => row.aiEffortAccuracy)),
+      pmEffortAccuracy: averagePresent(rows.map((row) => row.pmEffortAccuracy)),
+      aiBudgetAccuracy: averagePresent(rows.map((row) => row.aiBudgetAccuracy)),
+      pmBudgetAccuracy: averagePresent(rows.map((row) => row.pmBudgetAccuracy)),
+      aiEstimationAccuracy: averagePresent(rows.map((row) => row.aiEstimationAccuracy)),
+      pmEstimationAccuracy: averagePresent(rows.map((row) => row.pmEstimationAccuracy)),
+      aiStaffingAccuracy: averagePresent(rows.map((row) => row.aiStaffingAccuracy)),
+      pmStaffingAccuracy: averagePresent(rows.map((row) => row.pmStaffingAccuracy)),
+      aiVsPmWinRate: calculateAiVsPmWinRate(rows),
     },
-    costVariance: {
-      labels,
-      datasets: [{ label: 'Cost Variance %', data: rows.map((row) => row.budgetVariancePercent) }],
-    },
-    teamSizeVariance: {
-      labels,
-      datasets: [{ label: 'Team Size Variance %', data: rows.map((row) => row.teamSizeVariancePercent) }],
-    },
-    aiVsActualEffort,
-    aiVsActualBudget,
-    aiVsActualTeamSize,
+    effortPredictionAccuracy,
+    budgetPredictionAccuracy,
+    staffingPredictionAccuracy,
     estimationComparison,
-    aiVsActual: {
-      labels: ['Effort', 'Budget', 'Team Size'],
+    severityDistribution: {
+      labels: severityOrder,
+      datasets: [{
+        label: 'Project Count',
+        data: severityOrder.map((severity) => rows.filter((row) => row.severity === severity).length),
+      }],
+    },
+    progressCompletionComparison: {
+      labels,
       datasets: [
         {
-          label: 'AI Predicted',
-          data: [
-            sumValues(rows, 'aiBaselineEffort'),
-            sumValues(rows, 'aiBaselineBudget'),
-            sumValues(rows, 'aiBaselineTeamSize'),
-          ],
+          label: 'Expected Completion %',
+          data: rows.map((row) => row.latestProgressDate ? row.expectedCompletionPercent : null),
         },
         {
-          label: 'Actual',
-          data: [
-            sumValues(rows, 'actualEffort'),
-            sumValues(rows, 'actualBudget'),
-            sumValues(rows, 'actualTeamSize'),
-          ],
+          label: 'Actual Completion %',
+          data: rows.map((row) => row.latestProgressDate ? row.actualCompletionPercent : null),
         },
       ],
     },
+    projectsRequiringAttention: attentionRows.map((row) => ({
+      projectId: row.projectId,
+      projectName: row.projectName,
+      severity: row.severity,
+      progressVariancePercent: row.progressVariancePercent,
+      latestProgressDate: row.latestProgressDate,
+      reason: buildAttentionReason(row),
+    })),
   };
 }
 
-function buildAiVsActualWidget(label, rows, aiKey, actualKey) {
+function calculateAiVsPmWinRate(rows) {
+  const dimensions = [
+    ['Effort', 'pmBaselineEffort', 'aiBaselineEffort', 'actualEffort'],
+    ['Budget', 'pmBaselineBudget', 'aiBaselineBudget', 'actualBudget'],
+    ['Estimation', 'pmEstimatedValue', 'aiEstimatedValue', 'actualFinalEstimatedValue'],
+    ['Staffing', 'pmBaselineTeamSize', 'aiBaselineTeamSize', 'actualTeamSize'],
+  ];
+  let aiWins = 0;
+  let pmWins = 0;
+  const byDimension = dimensions.map(([label]) => ({
+    label,
+    aiWins: 0,
+    pmWins: 0,
+    totalDecisions: 0,
+    aiOutperformedPercent: null,
+    pmOutperformedPercent: null,
+  }));
+
+  rows.forEach((row) => {
+    dimensions.forEach(([, pmKey, aiKey, actualKey], index) => {
+      const pmValue = Number(row[pmKey]);
+      const aiValue = Number(row[aiKey]);
+      const actualValue = Number(row[actualKey]);
+      if (!Number.isFinite(pmValue) || !Number.isFinite(aiValue) || !Number.isFinite(actualValue)) return;
+
+      const aiError = Math.abs(aiValue - actualValue);
+      const pmError = Math.abs(pmValue - actualValue);
+      if (aiError < pmError) {
+        aiWins += 1;
+        byDimension[index].aiWins += 1;
+        byDimension[index].totalDecisions += 1;
+      }
+      if (pmError < aiError) {
+        pmWins += 1;
+        byDimension[index].pmWins += 1;
+        byDimension[index].totalDecisions += 1;
+      }
+    });
+  });
+
+  byDimension.forEach((dimension) => {
+    if (!dimension.totalDecisions) return;
+    dimension.aiOutperformedPercent = Number(((dimension.aiWins / dimension.totalDecisions) * 100).toFixed(1));
+    dimension.pmOutperformedPercent = Number(((dimension.pmWins / dimension.totalDecisions) * 100).toFixed(1));
+  });
+
+  const totalDecisions = aiWins + pmWins;
+  return {
+    aiOutperformedPercent: totalDecisions ? Number(((aiWins / totalDecisions) * 100).toFixed(1)) : null,
+    pmOutperformedPercent: totalDecisions ? Number(((pmWins / totalDecisions) * 100).toFixed(1)) : null,
+    aiWins,
+    pmWins,
+    totalDecisions,
+    byDimension,
+  };
+}
+
+function buildAttentionReason(row) {
+  if (!row.latestProgressDate) return 'No progress captured';
+
+  const expected = Number(row.expectedCompletionPercent);
+  const actual = Number(row.actualCompletionPercent);
+  const variance = Number(row.progressVariancePercent);
+  if (!Number.isFinite(expected) || !Number.isFinite(actual) || !Number.isFinite(variance)) {
+    return 'Progress data incomplete';
+  }
+
+  const roundedVariance = Math.round(variance);
+  if (actual < expected) return `Progress lagging by ${roundedVariance}%`;
+  if (actual > expected) return `Progress ahead by ${roundedVariance}%`;
+  if (variance > 20) return 'High completion variance';
+  return 'Completion variance requires review';
+}
+
+function buildPredictionAccuracyWidget(label, rows, pmKey, aiKey, actualKey) {
   return {
     labels: [label],
     datasets: [
+      {
+        label: 'PM Prediction',
+        data: [sumValues(rows, pmKey)],
+      },
       {
         label: 'AI Predicted',
         data: [sumValues(rows, aiKey)],
@@ -529,6 +677,64 @@ function calculateVarianceSeverity(values) {
   if (maxVariance <= 20) return 'MEDIUM';
   if (maxVariance <= 40) return 'HIGH';
   return 'CRITICAL';
+}
+
+function toDateOnly(value) {
+  if (!value) return '';
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  return String(value).slice(0, 10);
+}
+
+function getCalendarDays(startDate, endDate) {
+  if (!startDate || !endDate) return 0;
+  const start = new Date(`${toDateOnly(startDate)}T00:00:00`);
+  const end = new Date(`${toDateOnly(endDate)}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return 0;
+  return Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+}
+
+function calculateExpectedCompletionPercent(row) {
+  if (!row.latestProgressDate) return null;
+  const plannedDuration = getCalendarDays(row.projectStartDate, row.plannedEndDate) + Number(row.totalCrScheduleImpactDays || 0);
+  if (!plannedDuration) return null;
+  const elapsed = getCalendarDays(row.projectStartDate, row.latestProgressDate);
+  return Number(Math.max(0, Math.min(100, (elapsed / plannedDuration) * 100)).toFixed(2));
+}
+
+function calculateProgressSeverity(variance, hasSnapshot) {
+  if (!hasSnapshot) return 'Not Measured';
+  const value = Number(variance || 0);
+  if (value <= 10) return 'Normal';
+  if (value <= 20) return 'Medium';
+  if (value <= 40) return 'High';
+  return 'Urgent';
+}
+
+function calculateAccuracyPercent(predicted, actual) {
+  const predictedValue = Number(predicted);
+  const actualValue = Number(actual);
+  if (!Number.isFinite(predictedValue) || !Number.isFinite(actualValue) || actualValue === 0) return null;
+  return Number(Math.max(0, 100 - (Math.abs(predictedValue - actualValue) / Math.abs(actualValue)) * 100).toFixed(2));
+}
+
+function averagePresent(values) {
+  const present = values.filter((value) => value !== null && value !== undefined && Number.isFinite(Number(value)));
+  return average(present);
+}
+
+function severityRank(severity) {
+  return {
+    'Not Measured': 1,
+    Normal: 0,
+    Medium: 2,
+    High: 3,
+    Urgent: 4,
+  }[severity] ?? 0;
 }
 
 function toNullableNumber(value) {

@@ -107,8 +107,8 @@ const ResourceUtilizationPage = () => {
                           <CTableHeaderCell>Name</CTableHeaderCell>
                           <CTableHeaderCell>Role</CTableHeaderCell>
                           <CTableHeaderCell>Location</CTableHeaderCell>
-                          <CTableHeaderCell>Utilization</CTableHeaderCell>
-                          <CTableHeaderCell>Capacity Left</CTableHeaderCell>
+                          <CTableHeaderCell className="text-end">Utilization</CTableHeaderCell>
+                          <CTableHeaderCell className="text-end">Capacity Left</CTableHeaderCell>
                         </CTableRow>
                       </CTableHead>
                       <CTableBody>
@@ -118,8 +118,8 @@ const ResourceUtilizationPage = () => {
                               <CTableDataCell>{resource.employeeName}</CTableDataCell>
                               <CTableDataCell>{resource.primaryRoleName}</CTableDataCell>
                               <CTableDataCell>{resource.locationType}</CTableDataCell>
-                              <CTableDataCell>{`${resource.utilizationPercent}%`}</CTableDataCell>
-                              <CTableDataCell>{`${resource.capacityLeft}%`}</CTableDataCell>
+                              <CTableDataCell className="text-end">{`${resource.utilizationPercent}%`}</CTableDataCell>
+                              <CTableDataCell className="text-end">{`${resource.capacityLeft}%`}</CTableDataCell>
                             </CTableRow>
                           ))
                         ) : (
@@ -148,8 +148,8 @@ const ResourceUtilizationPage = () => {
                         <CTableRow>
                           <CTableHeaderCell>Name</CTableHeaderCell>
                           <CTableHeaderCell>Role</CTableHeaderCell>
-                          <CTableHeaderCell>Utilization</CTableHeaderCell>
-                          <CTableHeaderCell>Capacity Left</CTableHeaderCell>
+                          <CTableHeaderCell className="text-end">Utilization</CTableHeaderCell>
+                          <CTableHeaderCell className="text-end">Capacity Left</CTableHeaderCell>
                           <CTableHeaderCell>Next Release Date</CTableHeaderCell>
                         </CTableRow>
                       </CTableHead>
@@ -159,8 +159,8 @@ const ResourceUtilizationPage = () => {
                             <CTableRow key={resource.resourceId}>
                               <CTableDataCell>{resource.employeeName}</CTableDataCell>
                               <CTableDataCell>{resource.primaryRoleName}</CTableDataCell>
-                              <CTableDataCell>{`${resource.utilizationPercent}%`}</CTableDataCell>
-                              <CTableDataCell>{`${resource.capacityLeft}%`}</CTableDataCell>
+                              <CTableDataCell className="text-end">{`${resource.utilizationPercent}%`}</CTableDataCell>
+                              <CTableDataCell className="text-end">{`${resource.capacityLeft}%`}</CTableDataCell>
                               <CTableDataCell>{resource.nextReleaseDate || '-'}</CTableDataCell>
                             </CTableRow>
                           ))

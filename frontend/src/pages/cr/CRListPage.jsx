@@ -86,8 +86,8 @@ const CRListPage = () => {
       sortKey: 'status',
       render: (row) => <CBadge color={statusColors[row.currentStatus] || 'secondary'}>{row.currentStatus}</CBadge>,
     },
-    { key: 'scheduleImpactDays', label: 'Schedule Impact', sortKey: 'scheduleImpactDays', render: (row) => `${row.scheduleImpactDays ?? 0} days` },
-    { key: 'additionalBudget', label: 'Additional Budget Impact', sortKey: 'additionalBudget', render: (row) => formatCurrency(row.additionalBudget || 0) },
+    { key: 'scheduleImpactDays', className: 'text-end', label: 'Schedule Impact', sortKey: 'scheduleImpactDays', render: (row) => `${row.scheduleImpactDays ?? 0} days` },
+    { key: 'additionalBudget', className: 'text-end', label: 'Additional Budget Impact', sortKey: 'additionalBudget', render: (row) => formatCurrency(row.additionalBudget || 0) },
     { key: 'latestComment', label: 'Last Comment' },
     { key: 'updatedAt', className : 'text-center', label: 'Updated Date', sortKey: 'updatedAt', render: (row) => formatDisplayDate(row.updatedAt) },
     {

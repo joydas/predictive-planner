@@ -169,10 +169,10 @@ const ResourceListPage = () => {
                     <CTableHeaderCell>Name</CTableHeaderCell>
                     <CTableHeaderCell>Role</CTableHeaderCell>
                     <CTableHeaderCell>Location</CTableHeaderCell>
-                    <CTableHeaderCell>Experience</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end">Experience</CTableHeaderCell>
                     <CTableHeaderCell>Skills</CTableHeaderCell>
-                    <CTableHeaderCell>Utilization</CTableHeaderCell>
-                    <CTableHeaderCell>Capacity Left</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end">Utilization</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end">Capacity Left</CTableHeaderCell>
                     <CTableHeaderCell>Status</CTableHeaderCell>
                   </CTableRow>
                 </CTableHead>
@@ -183,10 +183,10 @@ const ResourceListPage = () => {
                       <CTableDataCell>{resource.employeeName}</CTableDataCell>
                       <CTableDataCell>{resource.primaryRoleName}</CTableDataCell>
                       <CTableDataCell>{resource.locationType}</CTableDataCell>
-                      <CTableDataCell>{resource.yearsExperience}</CTableDataCell>
+                      <CTableDataCell className="text-end">{resource.yearsExperience}</CTableDataCell>
                       <CTableDataCell>{resource.skills.join(', ')}</CTableDataCell>
-                      <CTableDataCell>{`${resource.utilizationPercent}%`}</CTableDataCell>
-                      <CTableDataCell>{`${resource.capacityLeft}%`}</CTableDataCell>
+                      <CTableDataCell className="text-end">{`${resource.utilizationPercent}%`}</CTableDataCell>
+                      <CTableDataCell className="text-end">{`${resource.capacityLeft}%`}</CTableDataCell>
                       <CTableDataCell>{resource.overAllocated ? 'RED' : resource.utilizationPercent >= 90 ? 'AMBER' : 'GREEN'}</CTableDataCell>
                     </CTableRow>
                   ))}

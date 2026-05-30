@@ -11,9 +11,10 @@ import {
   CRow,
   CSpinner,
 } from '@coreui/react';
+import { useNavigate } from 'react-router-dom';
 import { getOperationalDashboard } from '../services/operationalDashboardService';
 import TablePagination from '../components/dataTable/TablePagination';
-import { formatDisplayDate, formatGridDateTime } from '../utils/dateFormat';
+import { parseBackendDate } from '../utils/dateFormat';
 
 const numberFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 0,
@@ -27,6 +28,26 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
 
 const formatNumber = (value) => numberFormatter.format(Number(value || 0));
 const formatCurrency = (value) => currencyFormatter.format(Number(value || 0));
+const formatCompactPercent = (value) => (value === null || value === undefined ? 'N/A' : `${Number(value || 0).toFixed(0)}%`);
+const formatDashboardDate = (value) => {
+  const parsed = parseBackendDate(value);
+  return parsed ? parsed.format('DD-MMM-YYYY') : 'N/A';
+};
+const formatProgressAge = (value) => {
+  const parsed = parseBackendDate(value);
+  if (!parsed) return 'Never';
+  const today = parseBackendDate(new Date().toISOString());
+  const days = today ? Math.max(0, today.startOf('day').diff(parsed.startOf('day'), 'day')) : 0;
+  if (days === 0) return 'Today';
+  return `${days} ${days === 1 ? 'Day' : 'Days'}`;
+};
+const formatCompactCurrency = (value) => {
+  const numeric = Number(value || 0);
+  const absolute = Math.abs(numeric);
+  if (absolute >= 1000000) return `$${(numeric / 1000000).toFixed(1)}M`;
+  if (absolute >= 1000) return `$${(numeric / 1000).toFixed(1)}K`;
+  return formatCurrency(numeric);
+};
 
 const statusColor = {
   APPROVED: 'success',
@@ -42,9 +63,19 @@ const actionColor = {
   'Pending Approval': 'warning',
   'Returned for Rework': 'danger',
   'Pending Submission': 'info',
-  'Pending Completion': 'primary',
+  'Progress Required': 'danger',
+  'Progress Pending': 'info',
   'CR Pending': 'warning',
   'Action Required': 'danger',
+  'On Track': 'success',
+};
+
+const severityColor = {
+  'Not Measured': 'secondary',
+  Normal: 'success',
+  Medium: 'warning',
+  High: 'warning',
+  Urgent: 'danger',
 };
 
 function StatusBadge({ value }) {
@@ -52,6 +83,19 @@ function StatusBadge({ value }) {
   return (
     <CBadge color={statusColor[normalized] || 'secondary'} shape="rounded-pill">
       {normalized}
+    </CBadge>
+  );
+}
+
+function SeverityBadge({ value }) {
+  const label = value || 'Not Measured';
+  return (
+    <CBadge
+      color={severityColor[label] || 'secondary'}
+      className={label === 'High' ? 'severity-badge-high' : ''}
+      shape="rounded-pill"
+    >
+      {label}
     </CBadge>
   );
 }
@@ -64,6 +108,38 @@ function ActionBadges({ actions = [] }) {
           {action}
         </CBadge>
       ))}
+    </div>
+  );
+}
+
+function RowActions({ project, canManageProject }) {
+  const navigate = useNavigate();
+  return (
+    <div className="operational-row-actions">
+      <CButton size="sm" color="primary" variant="outline" onClick={() => navigate(`/projects/view/${project.projectId}`)}>
+        View
+      </CButton>
+      {canManageProject && (
+        <>
+          <CButton size="sm" color="info" variant="outline" onClick={() => navigate(`/progress/${project.projectId}`)}>
+            Progress
+          </CButton>
+          <CButton size="sm" color="success" variant="outline" onClick={() => navigate(`/crs/create?projectId=${project.projectId}`)}>
+            Create CR
+          </CButton>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ProjectMetrics({ project }) {
+  return (
+    <div className="project-metrics-stack">
+      <div><span>Effort:</span><strong>{formatNumber(project.currentPlannedEffort)} PD</strong></div>
+      <div><span>Budget:</span><strong>{formatCompactCurrency(project.currentPlannedBudget)}</strong></div>
+      <div><span>Team:</span><strong>{formatNumber(project.currentPlannedTeamSize)}</strong></div>
+      <div><span>CRs:</span><strong>{formatNumber(project.approvedCrCount)}</strong></div>
     </div>
   );
 }
@@ -186,6 +262,7 @@ const Dashboard = () => {
   const activeProjects = data?.activeProjects || { items: [], page: 1, pageSize: 10, totalRecords: 0, totalPages: 1 };
   const workflowQueue = data?.workflowQueue || { items: [], page: 1, pageSize: 10, totalRecords: 0, totalPages: 1 };
   const crSnapshot = data?.crSnapshot || {};
+  const canManageProject = String(data?.role || '').toUpperCase() === 'PM';
 
   return (
     <div className="fade-in operational-dashboard">
@@ -232,28 +309,30 @@ const Dashboard = () => {
                   <th>Technology</th>
                   <th>Current Status</th>
                   <th className="text-center">Planned End Date</th>
-                  <th className="text-end">Current Planned Effort (PD)</th>
-                  <th className="text-end">Current Planned Budget</th>
-                  <th className="text-end">Current Planned Team Size</th>
-                  <th className="text-end">Approved CR Count</th>
+                  <th className="text-center">Progress Age</th>
+                  <th className="text-end">Progress</th>
+                  <th>Severity</th>
+                  <th className="text-end">Project Metrics</th>
                   <th>Pending Actions</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {activeProjects.items.length === 0 ? (
-                  <EmptyRow colSpan={10} label="No active approved projects found." />
+                  <EmptyRow colSpan={11} label="No active approved projects found." />
                 ) : activeProjects.items.map((project) => (
                   <tr key={project.projectId}>
                     <td className="fw-semibold">{project.projectName}</td>
                     <td>{project.clientName}</td>
                     <td>{project.technology}</td>
                     <td><StatusBadge value={project.currentStatus} /></td>
-                    <td className="text-center">{formatDisplayDate(project.plannedEndDate)}</td>
-                    <td className="text-end">{formatNumber(project.currentPlannedEffort)}</td>
-                    <td className="text-end">{formatCurrency(project.currentPlannedBudget)}</td>
-                    <td className="text-end">{formatNumber(project.currentPlannedTeamSize)}</td>
-                    <td className="text-end">{formatNumber(project.approvedCrCount)}</td>
+                    <td className="text-center">{formatDashboardDate(project.plannedEndDate)}</td>
+                    <td className="text-center">{formatProgressAge(project.latestProgressDate)}</td>
+                    <td className="text-end">{formatCompactPercent(project.actualCompletionPercent)}</td>
+                    <td><SeverityBadge value={project.severity} /></td>
+                    <td className="text-end"><ProjectMetrics project={project} /></td>
                     <td><ActionBadges actions={project.pendingActions} /></td>
+                    <td><RowActions project={project} canManageProject={canManageProject} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -297,7 +376,7 @@ const Dashboard = () => {
                   <th>Name</th>
                   <th>Submitted By</th>
                   <th>Current Status</th>
-                  <th className="text-center">Pending Since</th>
+                  <th className="text-end">Age (Days)</th>
                   <th>Action Required</th>
                 </tr>
               </thead>
@@ -310,7 +389,7 @@ const Dashboard = () => {
                     <td className="fw-semibold">{item.name}</td>
                     <td>{item.submittedBy}</td>
                     <td><StatusBadge value={item.currentStatus} /></td>
-                    <td className="text-center">{formatDisplayDate(item.pendingSince)}</td>
+                    <td className="text-end">{formatNumber(item.ageDays)}</td>
                     <td><ActionBadges actions={[item.actionRequired]} /></td>
                   </tr>
                 ))}
