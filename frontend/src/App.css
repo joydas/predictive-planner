@@ -511,6 +511,35 @@ tbody td {
   margin-top: 4px;
 }
 
+.analytics-kpi-insight {
+  color: #475569;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  margin-top: 8px;
+}
+
+.analytics-win-drilldown {
+  margin-top: 10px;
+}
+
+.analytics-win-drilldown summary {
+  color: #2f80ed;
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.analytics-win-drilldown .table-responsive {
+  margin-top: 8px;
+  max-height: 260px;
+}
+
+.analytics-win-drilldown th,
+.analytics-win-drilldown td {
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
 .analytics-win-breakdown {
   color: #475569;
   display: grid;
@@ -541,6 +570,20 @@ tbody td {
   text-transform: none;
   vertical-align: middle;
   width: 17px;
+}
+
+.analytics-info-tooltip {
+  max-width: 320px;
+  text-align: left;
+}
+
+.analytics-info-tooltip-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.analytics-info-tooltip-body {
+  white-space: pre-line;
 }
 
 @media (max-width: 1199.98px) {

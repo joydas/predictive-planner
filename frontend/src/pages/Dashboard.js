@@ -14,6 +14,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { getOperationalDashboard } from '../services/operationalDashboardService';
 import TablePagination from '../components/dataTable/TablePagination';
+import SeverityInfoHint from '../components/SeverityInfoHint';
 import { parseBackendDate } from '../utils/dateFormat';
 
 const numberFormatter = new Intl.NumberFormat('en-US', {
@@ -311,7 +312,10 @@ const Dashboard = () => {
                   <th className="text-center">Planned End Date</th>
                   <th className="text-center">Progress Age</th>
                   <th className="text-end">Progress</th>
-                  <th>Severity</th>
+                  <th>
+                    Severity
+                    <SeverityInfoHint />
+                  </th>
                   <th className="text-end">Project Metrics</th>
                   <th>Pending Actions</th>
                   <th>Actions</th>

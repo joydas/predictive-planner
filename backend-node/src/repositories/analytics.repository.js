@@ -574,52 +574,105 @@ function calculateAiVsPmWinRate(rows) {
   ];
   let aiWins = 0;
   let pmWins = 0;
+  let ties = 0;
   const byDimension = dimensions.map(([label]) => ({
     label,
     aiWins: 0,
     pmWins: 0,
+    ties: 0,
     totalDecisions: 0,
     aiOutperformedPercent: null,
     pmOutperformedPercent: null,
+    tiePercent: null,
   }));
+  const comparisons = [];
 
   rows.forEach((row) => {
-    dimensions.forEach(([, pmKey, aiKey, actualKey], index) => {
-      const pmValue = Number(row[pmKey]);
-      const aiValue = Number(row[aiKey]);
-      const actualValue = Number(row[actualKey]);
-      if (!Number.isFinite(pmValue) || !Number.isFinite(aiValue) || !Number.isFinite(actualValue)) return;
+    dimensions.forEach(([label, pmKey, aiKey, actualKey], index) => {
+      const pmValue = toComparisonNumber(row[pmKey]);
+      const aiValue = toComparisonNumber(row[aiKey]);
+      const actualValue = toComparisonNumber(row[actualKey]);
+      if (pmValue === null || aiValue === null || actualValue === null) return;
 
       const aiError = Math.abs(aiValue - actualValue);
       const pmError = Math.abs(pmValue - actualValue);
+      byDimension[index].totalDecisions += 1;
+
+      let winner = 'Tie';
       if (aiError < pmError) {
         aiWins += 1;
         byDimension[index].aiWins += 1;
-        byDimension[index].totalDecisions += 1;
-      }
-      if (pmError < aiError) {
+        winner = 'AI';
+      } else if (pmError < aiError) {
         pmWins += 1;
         byDimension[index].pmWins += 1;
-        byDimension[index].totalDecisions += 1;
+        winner = 'PM';
+      } else {
+        ties += 1;
+        byDimension[index].ties += 1;
       }
+
+      comparisons.push({
+        projectId: row.projectId,
+        projectName: row.projectName || `Project ${row.projectId}`,
+        metric: label,
+        aiPrediction: aiValue,
+        pmPrediction: pmValue,
+        actual: actualValue,
+        aiError: Number(aiError.toFixed(2)),
+        pmError: Number(pmError.toFixed(2)),
+        winner,
+      });
     });
   });
 
   byDimension.forEach((dimension) => {
     if (!dimension.totalDecisions) return;
-    dimension.aiOutperformedPercent = Number(((dimension.aiWins / dimension.totalDecisions) * 100).toFixed(1));
-    dimension.pmOutperformedPercent = Number(((dimension.pmWins / dimension.totalDecisions) * 100).toFixed(1));
+    const percentages = calculateWinPercentages(dimension.aiWins, dimension.pmWins, dimension.ties);
+    dimension.aiOutperformedPercent = percentages.aiOutperformedPercent;
+    dimension.pmOutperformedPercent = percentages.pmOutperformedPercent;
+    dimension.tiePercent = percentages.tiePercent;
   });
 
-  const totalDecisions = aiWins + pmWins;
+  const totalDecisions = aiWins + pmWins + ties;
+  const percentages = calculateWinPercentages(aiWins, pmWins, ties);
   return {
-    aiOutperformedPercent: totalDecisions ? Number(((aiWins / totalDecisions) * 100).toFixed(1)) : null,
-    pmOutperformedPercent: totalDecisions ? Number(((pmWins / totalDecisions) * 100).toFixed(1)) : null,
+    aiOutperformedPercent: totalDecisions ? percentages.aiOutperformedPercent : null,
+    pmOutperformedPercent: totalDecisions ? percentages.pmOutperformedPercent : null,
+    tiePercent: totalDecisions ? percentages.tiePercent : null,
     aiWins,
     pmWins,
+    ties,
     totalDecisions,
     byDimension,
+    comparisons,
   };
+}
+
+function calculateWinPercentages(aiWins, pmWins, ties) {
+  const total = aiWins + pmWins + ties;
+  if (!total) {
+    return {
+      aiOutperformedPercent: null,
+      pmOutperformedPercent: null,
+      tiePercent: null,
+    };
+  }
+
+  const aiOutperformedPercent = Number(((aiWins / total) * 100).toFixed(1));
+  const pmOutperformedPercent = Number(((pmWins / total) * 100).toFixed(1));
+  const tiePercent = Number(Math.max(0, 100 - aiOutperformedPercent - pmOutperformedPercent).toFixed(1));
+  return {
+    aiOutperformedPercent,
+    pmOutperformedPercent,
+    tiePercent,
+  };
+}
+
+function toComparisonNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
 }
 
 function buildAttentionReason(row) {

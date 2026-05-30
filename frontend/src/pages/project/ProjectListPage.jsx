@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import DataTable from '../../components/dataTable/DataTable';
 import TableFilters from '../../components/dataTable/TableFilters';
 import TableToolbar from '../../components/dataTable/TableToolbar';
+import SeverityInfoHint from '../../components/SeverityInfoHint';
 import { listProjects } from '../../services/projectService';
 import authService from '../../services/authService';
 import { formatDisplayDateTime,formatDisplayDate } from '../../utils/dateUtils';
@@ -113,7 +114,12 @@ const ProjectListPage = () => {
     { key: 'deliveryModel', label: 'Delivery Model' },
     {
       key: 'severity',
-      label: 'Severity',
+      label: (
+        <>
+          Severity
+          <SeverityInfoHint />
+        </>
+      ),
       render: (row) => <CBadge color={severityColors[row.severity] || 'secondary'}>{row.severity || 'Not Measured'}</CBadge>,
     },
     {

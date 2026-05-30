@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CAlert, CBadge, CCard, CCardBody, CCardHeader, CCol, CRow } from '@coreui/react';
+import { CAlert, CBadge, CCard, CCardBody, CCardHeader, CCol, CRow, CTooltip } from '@coreui/react';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import {
   ArcElement,
@@ -12,6 +12,7 @@ import {
 } from 'chart.js';
 import DataTable from '../../components/dataTable/DataTable';
 import TableToolbar from '../../components/dataTable/TableToolbar';
+import SeverityInfoHint from '../../components/SeverityInfoHint';
 import { getVarianceDashboard } from '../../services/analyticsService';
 import authService from '../../services/authService';
 import { parseBackendDate } from '../../utils/dateFormat';
@@ -24,6 +25,21 @@ const severityColors = {
   Medium: 'warning',
   High: 'warning',
   Urgent: 'danger',
+};
+
+const aiOutperformedTooltip = {
+  text: `Measures how often AI recommendations were closer to actual project outcomes than PM estimates.
+
+Comparisons are performed using:
+
+* Effort
+* Budget
+* Team Size
+* Estimation
+
+across projects with available actual values.
+
+Higher percentages indicate stronger AI prediction performance.`,
 };
 
 const AnalyticsOverview = () => {
@@ -83,7 +99,12 @@ const AnalyticsOverview = () => {
     { key: 'pmName', label: 'PM Name', sortKey: 'pmName' },
     {
       key: 'severity',
-      label: 'Severity',
+      label: (
+        <>
+          Severity
+          <SeverityInfoHint />
+        </>
+      ),
       render: (row) => (
         <CBadge color={severityColors[row.severity] || 'secondary'} className={row.severity === 'High' ? 'severity-badge-high' : ''}>
           {row.severity || 'Not Measured'}
@@ -164,7 +185,7 @@ const AnalyticsOverview = () => {
         <CCol xs={12} lg={3}>
           <ChartCard
             title="Severity Distribution"
-            info="Not Measured = No progress reported. Normal = Variance 0-10%. Medium = Variance 11-20%. High = Variance 21-40%. Urgent = Variance >40%."
+            infoElement={<SeverityInfoHint />}
             data={severityChart(widgets.severityDistribution)}
             options={severityDonutOptions}
             loading={loading}
@@ -214,12 +235,12 @@ const AnalyticsOverview = () => {
   );
 };
 
-const ChartCard = ({ title, subtitle, info, data, options = chartOptions, loading, type = 'bar' }) => (
+const ChartCard = ({ title, subtitle, infoTitle, info, infoElement, data, options = chartOptions, loading, type = 'bar' }) => (
   <CCard className="h-100 analytics-chart-card">
     <CCardHeader>
       <div className="d-flex align-items-start justify-content-between gap-2">
         <div>
-          <div>{title}{info && <InfoHint text={info} />}</div>
+          <div>{title}{infoElement || (info && <InfoHint title={infoTitle} text={info} />)}</div>
           {subtitle && <div className="analytics-chart-subtitle">{subtitle}</div>}
         </div>
       </div>
@@ -256,23 +277,69 @@ const WinRateKpi = ({ value = {} }) => (
       <CCardBody>
         <div className="analytics-kpi-label">
           AI Outperformed PM
-          <InfoHint text="Across effort, budget, estimation, and staffing, AI wins when ABS(AI Prediction - Actual) is lower than ABS(PM Prediction - Actual). Ties are excluded." />
+          <InfoHint text={aiOutperformedTooltip.text} />
         </div>
         <div className="analytics-kpi-value">{formatAccuracy(value.aiOutperformedPercent)}</div>
         <div className="analytics-win-subtext">PM Outperformed AI {formatAccuracy(value.pmOutperformedPercent)}</div>
-        {/* <div className="analytics-win-breakdown">
-          {formatWinLine(value, 'Effort')}
-          {formatWinLine(value, 'Budget')}
-          {formatWinLine(value, 'Estimation')}
-          {formatWinLine(value, 'Staffing')}
-        </div> */}
+        <div className="analytics-win-subtext">Tie {formatAccuracy(value.tiePercent)}</div>
+        <div className="analytics-kpi-insight">{buildWinRateInsight(value)}</div>
+        <details className="analytics-win-drilldown">
+          <summary>View comparison drilldown</summary>
+          <div className="table-responsive">
+            <table className="table table-sm mb-0">
+              <thead>
+                <tr>
+                  <th>Project</th>
+                  <th>Metric</th>
+                  <th className="text-end">AI Prediction</th>
+                  <th className="text-end">PM Prediction</th>
+                  <th className="text-end">Actual</th>
+                  <th className="text-end">AI Error</th>
+                  <th className="text-end">PM Error</th>
+                  <th>Winner</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(value.comparisons || []).length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="text-muted">No comparisons available.</td>
+                  </tr>
+                ) : (value.comparisons || []).map((row, index) => (
+                  <tr key={`${row.projectId}-${row.metric}-${index}`}>
+                    <td>{row.projectName}</td>
+                    <td>{row.metric}</td>
+                    <td className="text-end">{formatNumber(row.aiPrediction)}</td>
+                    <td className="text-end">{formatNumber(row.pmPrediction)}</td>
+                    <td className="text-end">{formatNumber(row.actual)}</td>
+                    <td className="text-end">{formatNumber(row.aiError)}</td>
+                    <td className="text-end">{formatNumber(row.pmError)}</td>
+                    <td>{formatWinner(row.winner)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
       </CCardBody>
     </CCard>
 );
 
-const InfoHint = ({ text }) => (
-  <span className="analytics-info-hint" title={text} aria-label={text} role="img">i</span>
-);
+const InfoHint = ({ title, text }) => {
+  const label = title ? `${title}\n\n${text}` : text;
+  return (
+    <CTooltip
+      content={(
+        <div className="analytics-info-tooltip">
+          {title && <div className="analytics-info-tooltip-title">{title}</div>}
+          <div className="analytics-info-tooltip-body">{text}</div>
+        </div>
+      )}
+      placement="top"
+    >
+      <span className="analytics-info-hint" aria-label={label} role="img" tabIndex={0}>i</span>
+    </CTooltip>
+  );
+};
 
 const AttentionCard = ({ rows = [], loading }) => (
   <CCard className="h-100 analytics-chart-card">
@@ -288,7 +355,10 @@ const AttentionCard = ({ rows = [], loading }) => (
             <thead>
               <tr>
                 <th>Project</th>
-                <th>Severity</th>
+                <th>
+                  Severity
+                  <SeverityInfoHint />
+                </th>
                 <th className="text-end">Variance</th>
                 <th>Last Progress</th>
                 <th>Reason</th>
@@ -602,6 +672,27 @@ function formatDisplayDate(value) {
 
 function compactNumber(value) {
   return Number(value || 0).toLocaleString(undefined, { notation: 'compact', maximumFractionDigits: 1 });
+}
+
+function buildWinRateInsight(value = {}) {
+  const ai = Number(value.aiOutperformedPercent);
+  const pm = Number(value.pmOutperformedPercent);
+  if (!Number.isFinite(ai) || !Number.isFinite(pm)) {
+    return 'No AI vs PM comparisons are available yet.';
+  }
+  if (ai > pm) {
+    return `AI recommendations were closer to actual outcomes in ${ai.toFixed(1)}% of evaluated comparisons.`;
+  }
+  if (pm > ai) {
+    return 'PM estimates currently outperform AI recommendations based on available project history.';
+  }
+  return `AI and PM estimates are evenly split across evaluated comparisons at ${ai.toFixed(1)}% each.`;
+}
+
+function formatWinner(value) {
+  if (value === 'AI') return 'AI Win';
+  if (value === 'PM') return 'PM Win';
+  return 'Tie';
 }
 
 export default AnalyticsOverview;
