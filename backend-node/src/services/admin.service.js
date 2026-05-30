@@ -293,8 +293,8 @@ async function resolveProjectReference(reference) {
     `
       SELECT
         d.draft_id AS draftId,
-        p.project_id AS projectId,
-        COALESCE(p.project_code, CONCAT('DRF-', LPAD(d.draft_id, 6, '0'))) AS projectCode,
+        COALESCE(p.project_id, d.published_project_id) AS projectId,
+        COALESCE(p.project_code, CONCAT('PRJ-', LPAD(COALESCE(p.project_id, d.published_project_id, d.draft_id), 6, '0'))) AS projectCode,
         COALESCE(p.project_name, JSON_UNQUOTE(JSON_EXTRACT(d.draft_data, '$.basicInfo.project_name')), 'Untitled Project') AS projectName,
         COALESCE(p.client_name, JSON_UNQUOTE(JSON_EXTRACT(d.draft_data, '$.basicInfo.client_name')), '-') AS clientName,
         COALESCE(d.workflow_status, d.status, 'DRAFT') AS status
@@ -312,7 +312,7 @@ async function resolveProjectReference(reference) {
         `
           SELECT
             d.draft_id AS draftId,
-            p.project_id AS projectId,
+            COALESCE(p.project_id, d.published_project_id) AS projectId,
             COALESCE(p.project_code, CONCAT('PRJ-', LPAD(p.project_id, 6, '0'))) AS projectCode,
             COALESCE(p.project_name, 'Untitled Project') AS projectName,
             COALESCE(p.client_name, '-') AS clientName,
@@ -340,34 +340,79 @@ async function countIfExists(tableName, whereSql, params) {
   return Number(rows[0]?.total || 0);
 }
 
+function uniqueNumbers(values) {
+  return [...new Set(values.map(Number).filter((value) => Number.isFinite(value) && value > 0))];
+}
+
+function inClause(values) {
+  return values.map(() => '?').join(',');
+}
+
+async function resolveProjectIdsForDelete(project) {
+  const draftId = Number(project.draftId || 0);
+  const projectIds = [Number(project.projectId || 0)];
+  if (draftId) {
+    const rows = await query(
+      `
+        SELECT project_id AS projectId
+        FROM project
+        WHERE source_draft_id = ?
+        UNION
+        SELECT published_project_id AS projectId
+        FROM project_drafts
+        WHERE draft_id = ? AND published_project_id IS NOT NULL
+      `,
+      [draftId, draftId],
+    );
+    rows.forEach((row) => projectIds.push(row.projectId));
+  }
+  return uniqueNumbers(projectIds);
+}
+
+async function countByProjectIds(tableName, projectIds, extraWhere = '') {
+  if (!projectIds.length) return 0;
+  return countIfExists(tableName, `WHERE project_id IN (${inClause(projectIds)}) ${extraWhere}`, projectIds);
+}
+
 async function getProjectDeleteSummary(user, reference) {
   assertAdmin(user);
   const project = await resolveProjectReference(reference);
   const projectId = Number(project.projectId || 0);
   const draftId = Number(project.draftId || 0);
-  const crRows = projectId ? await query('SELECT cr_id AS crId FROM change_request WHERE project_id = ?', [projectId]) : [];
+  const projectIds = await resolveProjectIdsForDelete(project);
+  const crRows = projectIds.length ? await query(`SELECT cr_id AS crId FROM change_request WHERE project_id IN (${inClause(projectIds)})`, projectIds) : [];
   const crIds = crRows.map((row) => row.crId);
   const predictionRows = draftId ? await query('SELECT prediction_id AS predictionId FROM ml_prediction_log WHERE project_draft_id = ?', [draftId]) : [];
   const predictionIds = predictionRows.map((row) => row.predictionId);
 
   const counts = {
-    project: projectId ? 1 : 0,
+    project: projectIds.length,
     draft: draftId ? 1 : 0,
-    changeRequests: projectId ? await countIfExists('change_request', 'WHERE project_id = ?', [projectId]) : 0,
+    changeRequests: await countByProjectIds('change_request', projectIds),
     crWorkflowHistory: crIds.length ? await countIfExists('cr_workflow_history', `WHERE cr_id IN (${crIds.map(() => '?').join(',')})`, crIds) : 0,
-    progressSnapshots: projectId ? await countIfExists('project_progress_snapshot', 'WHERE project_id = ?', [projectId]) : 0,
-    forecastSnapshots: projectId ? await countIfExists('project_forecast_snapshot', 'WHERE project_id = ?', [projectId]) : 0,
+    progressSnapshots: await countByProjectIds('project_progress_snapshot', projectIds),
+    forecastSnapshots: await countByProjectIds('project_forecast_snapshot', projectIds),
     projectWorkflowHistory: draftId ? await countIfExists('project_workflow_history', 'WHERE project_id = ?', [draftId]) : 0,
-    completionHistory: projectId ? await countIfExists('project_completion_history', 'WHERE project_id = ?', [projectId]) : 0,
-    completionResourceLoading: projectId ? await countIfExists('project_completion_resource_loading', 'WHERE project_id = ?', [projectId]) : 0,
-    resourceAllocations: projectId ? await countIfExists('resource_allocation', 'WHERE project_id = ?', [projectId]) : 0,
-    teamSnapshots: projectId ? await countIfExists('project_team_snapshot', 'WHERE project_id = ?', [projectId]) : 0,
-    mlTargetVariables: projectId ? await countIfExists('ml_target_variable', 'WHERE project_id = ?', [projectId]) : 0,
+    completionHistory: projectIds.length || draftId
+      ? await countIfExists(
+        'project_completion_history',
+        `WHERE ${[
+          projectIds.length ? `project_id IN (${inClause(projectIds)})` : '',
+          draftId ? 'source_draft_id = ?' : '',
+        ].filter(Boolean).join(' OR ')}`,
+        [...projectIds, ...(draftId ? [draftId] : [])],
+      )
+      : 0,
+    completionResourceLoading: await countByProjectIds('project_completion_resource_loading', projectIds),
+    resourceAllocations: await countByProjectIds('resource_allocation', projectIds),
+    teamSnapshots: await countByProjectIds('project_team_snapshot', projectIds),
+    mlTargetVariables: await countByProjectIds('ml_target_variable', projectIds),
     mlPredictionLogs: draftId ? await countIfExists('ml_prediction_log', 'WHERE project_draft_id = ?', [draftId]) : 0,
     mlPredictionFeedback: draftId ? await countIfExists('ml_prediction_feedback', 'WHERE project_draft_id = ?', [draftId]) : 0,
     mlPredictionFeedbackByPrediction: predictionIds.length
       ? await countIfExists('ml_prediction_feedback', `WHERE prediction_id IN (${predictionIds.map(() => '?').join(',')})`, predictionIds)
       : 0,
+    plPredictionFeedback: draftId ? await countIfExists('pl_prediction_feedback', 'WHERE project_draft_id = ?', [draftId]) : 0,
   };
 
   return {
@@ -379,6 +424,7 @@ async function getProjectDeleteSummary(user, reference) {
 
 const PROJECT_DELETE_TABLES = [
   'ml_prediction_feedback',
+  'pl_prediction_feedback',
   'ml_prediction_log',
   'cr_workflow_history',
   'change_request_resource_loading',
@@ -411,6 +457,11 @@ async function deleteFromIfExists(connection, tableName, whereSql, params) {
   }
 }
 
+async function deleteByProjectIds(connection, tableName, projectIds) {
+  if (!projectIds.length) return 0;
+  return deleteFromIfExists(connection, tableName, `WHERE project_id IN (${inClause(projectIds)})`, projectIds);
+}
+
 async function deleteProjectTransactional(reference) {
   const project = await resolveProjectReference(reference);
   const projectId = Number(project.projectId || 0);
@@ -421,8 +472,27 @@ async function deleteProjectTransactional(reference) {
   try {
     await connection.beginTransaction();
 
-    const [crRows] = projectId
-      ? await connection.query('SELECT cr_id AS crId FROM change_request WHERE project_id = ?', [projectId])
+    const projectIds = uniqueNumbers([
+      projectId,
+      ...(
+        draftId
+          ? (await connection.query(
+            `
+              SELECT project_id AS projectId
+              FROM project
+              WHERE source_draft_id = ?
+              UNION
+              SELECT published_project_id AS projectId
+              FROM project_drafts
+              WHERE draft_id = ? AND published_project_id IS NOT NULL
+            `,
+            [draftId, draftId],
+          ))[0].map((row) => row.projectId)
+          : []
+      ),
+    ]);
+    const [crRows] = projectIds.length
+      ? await connection.query(`SELECT cr_id AS crId FROM change_request WHERE project_id IN (${inClause(projectIds)})`, projectIds)
       : [[]];
     const crIds = crRows.map((row) => row.crId);
     const [predictionRows] = draftId
@@ -437,9 +507,16 @@ async function deleteProjectTransactional(reference) {
         `WHERE prediction_id IN (${predictionIds.map(() => '?').join(',')})`,
         predictionIds,
       );
+      deleted.pl_prediction_feedback_by_prediction = await deleteFromIfExists(
+        connection,
+        'pl_prediction_feedback',
+        `WHERE prediction_id IN (${predictionIds.map(() => '?').join(',')})`,
+        predictionIds,
+      );
     }
     if (draftId) {
       deleted.ml_prediction_feedback = await deleteFromIfExists(connection, 'ml_prediction_feedback', 'WHERE project_draft_id = ?', [draftId]);
+      deleted.pl_prediction_feedback = await deleteFromIfExists(connection, 'pl_prediction_feedback', 'WHERE project_draft_id = ?', [draftId]);
       deleted.ml_prediction_log = await deleteFromIfExists(connection, 'ml_prediction_log', 'WHERE project_draft_id = ?', [draftId]);
     }
     if (crIds.length) {
@@ -462,21 +539,29 @@ async function deleteProjectTransactional(reference) {
         crIds,
       );
     }
-    if (projectId) {
-      deleted.change_request = await deleteFromIfExists(connection, 'change_request', 'WHERE project_id = ?', [projectId]);
-      deleted.project_progress_snapshot = await deleteFromIfExists(connection, 'project_progress_snapshot', 'WHERE project_id = ?', [projectId]);
-      deleted.project_forecast_snapshot = await deleteFromIfExists(connection, 'project_forecast_snapshot', 'WHERE project_id = ?', [projectId]);
-      deleted.forecast_history = await deleteFromIfExists(connection, 'forecast_history', 'WHERE project_id = ?', [projectId]);
-      deleted.project_completion_resource_loading = await deleteFromIfExists(connection, 'project_completion_resource_loading', 'WHERE project_id = ?', [projectId]);
-      deleted.project_completion_history = await deleteFromIfExists(connection, 'project_completion_history', 'WHERE project_id = ?', [projectId]);
-      deleted.project_team_snapshot = await deleteFromIfExists(connection, 'project_team_snapshot', 'WHERE project_id = ?', [projectId]);
-      deleted.project_resource_loading = await deleteFromIfExists(connection, 'project_resource_loading', 'WHERE project_id = ?', [projectId]);
-      deleted.resource_allocation = await deleteFromIfExists(connection, 'resource_allocation', 'WHERE project_id = ?', [projectId]);
-      deleted.ml_target_variable = await deleteFromIfExists(connection, 'ml_target_variable', 'WHERE project_id = ?', [projectId]);
-      deleted.approval_history_project = await deleteFromIfExists(connection, 'approval_history', 'WHERE project_id = ?', [projectId]);
-      deleted.workflow_history_project = await deleteFromIfExists(connection, 'workflow_history', 'WHERE project_id = ?', [projectId]);
-      deleted.project_workflow_history_project = await deleteFromIfExists(connection, 'project_workflow_history', 'WHERE project_id = ?', [projectId]);
-      deleted.project = await deleteFromIfExists(connection, 'project', 'WHERE project_id = ?', [projectId]);
+    if (projectIds.length) {
+      deleted.change_request = await deleteByProjectIds(connection, 'change_request', projectIds);
+      deleted.project_progress_snapshot = await deleteByProjectIds(connection, 'project_progress_snapshot', projectIds);
+      deleted.project_forecast_snapshot = await deleteByProjectIds(connection, 'project_forecast_snapshot', projectIds);
+      deleted.forecast_history = await deleteByProjectIds(connection, 'forecast_history', projectIds);
+      deleted.project_completion_resource_loading = await deleteByProjectIds(connection, 'project_completion_resource_loading', projectIds);
+      if (draftId) {
+        deleted.project_completion_history = await deleteFromIfExists(
+          connection,
+          'project_completion_history',
+          `WHERE project_id IN (${inClause(projectIds)}) OR source_draft_id = ?`,
+          [...projectIds, draftId],
+        );
+      } else {
+        deleted.project_completion_history = await deleteByProjectIds(connection, 'project_completion_history', projectIds);
+      }
+      deleted.project_team_snapshot = await deleteByProjectIds(connection, 'project_team_snapshot', projectIds);
+      deleted.project_resource_loading = await deleteByProjectIds(connection, 'project_resource_loading', projectIds);
+      deleted.resource_allocation = await deleteByProjectIds(connection, 'resource_allocation', projectIds);
+      deleted.ml_target_variable = await deleteByProjectIds(connection, 'ml_target_variable', projectIds);
+      deleted.approval_history_project = await deleteByProjectIds(connection, 'approval_history', projectIds);
+      deleted.workflow_history_project = await deleteByProjectIds(connection, 'workflow_history', projectIds);
+      deleted.project = await deleteFromIfExists(connection, 'project', `WHERE project_id IN (${inClause(projectIds)})`, projectIds);
     }
     if (draftId) {
       deleted.approval_history_draft = await deleteFromIfExists(connection, 'approval_history', 'WHERE project_draft_id = ?', [draftId]);

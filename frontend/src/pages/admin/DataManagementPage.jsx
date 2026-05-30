@@ -264,7 +264,7 @@ const DataManagementPage = () => {
                 <li>Progress Snapshots: {relatedRecords.progressSnapshots || 0}</li>
                 <li>Forecast Snapshots: {relatedRecords.forecastSnapshots || 0}</li>
                 <li>Approval / Workflow Records: {(relatedRecords.projectWorkflowHistory || 0) + (relatedRecords.crWorkflowHistory || 0)}</li>
-                <li>ML Logs / Feedback: {(relatedRecords.mlPredictionLogs || 0) + (relatedRecords.mlPredictionFeedback || 0)}</li>
+                <li>ML Logs / Feedback: {(relatedRecords.mlPredictionLogs || 0) + (relatedRecords.mlPredictionFeedback || 0) + (relatedRecords.plPredictionFeedback || 0)}</li>
               </ul>
             </>
           )}
