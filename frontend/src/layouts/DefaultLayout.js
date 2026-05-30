@@ -46,8 +46,9 @@ const navigationItems = [
 ];
 
 const adminNavigationItems = [
-  { icon: cilPeople, label: 'Users', to: '/admin/users' },
-  { icon: cilChart, label: 'ML Administration', to: '/admin/ml' },
+  { icon: cilPeople, label: 'User Management', to: '/admin/users' },
+  { icon: cilChart, label: 'ML Management', to: '/admin/ml' },
+  { icon: cilFolderOpen, label: 'Data Management', to: '/admin/data' },
 ];
 
 const getStoredSidebarCollapsed = () => {

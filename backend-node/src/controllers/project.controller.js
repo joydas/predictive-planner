@@ -1,5 +1,6 @@
 const projectService = require('../services/project.service');
 const mlPredictionService = require('../services/mlPrediction.service');
+const forecastService = require('../services/forecastService');
 
 async function createDraft(req, res) {
   try {
@@ -134,7 +135,7 @@ async function getProject(req, res) {
         || Number(project.approvedByUserId) === Number(req.user.userId)
       );
 
-    if (!isPmOwner && !isAccountManagerReviewer) {
+    if (role !== 'ADMIN' && !isPmOwner && !isAccountManagerReviewer) {
       return res.status(403).json({ message: 'Access forbidden for this project' });
     }
 
@@ -143,6 +144,21 @@ async function getProject(req, res) {
   } catch (error) {
     console.error('Project retrieval failed:', error);
     return res.status(error.status || 500).json({ message: error.message || 'Failed to load project' });
+  }
+}
+
+async function getProjectForecast(req, res) {
+  try {
+    const projectId = Number(req.params.id);
+    if (!projectId) {
+      return res.status(400).json({ message: 'Project id is required' });
+    }
+
+    const forecast = await forecastService.getProjectForecast(req.user, projectId);
+    return res.json(forecast);
+  } catch (error) {
+    console.error('Project forecast failed:', error.response?.data || error.message || error);
+    return res.status(error.status || 500).json({ message: error.message || 'Failed to load project forecast' });
   }
 }
 
@@ -243,6 +259,7 @@ module.exports = {
   listProjectsAvailableForCr,
   createProject,
   getProject,
+  getProjectForecast,
   getWorkflowHistory,
   getMlRecommendation,
   getProjectProgress,

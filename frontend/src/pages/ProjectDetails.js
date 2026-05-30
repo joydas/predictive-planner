@@ -3,6 +3,9 @@ import {
   CAlert,
   CBadge,
   CButton,
+  CCard,
+  CCardBody,
+  CCardHeader,
   CCol,
   CRow,
   CSpinner,
@@ -10,7 +13,7 @@ import {
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import WorkflowPanel from '../components/WorkflowPanel';
 import WizardTabs from '../components/projectWizard/WizardTabs';
-import { getProject, transitionProject } from '../services/projectService';
+import { getProject, getProjectForecast, transitionProject } from '../services/projectService';
 import authService from '../services/authService';
 import { formatDisplayDate } from '../utils/dateUtils';
 import { formatCurrency, getWorkingDays, parseNumber } from '../utils/resourcePlanning';
@@ -30,6 +33,93 @@ const valueOrDash = (value) => (value === null || value === undefined || value =
 const DetailItem = ({ label, value }) => (
   <p><strong>{label}:</strong> {valueOrDash(value)}</p>
 );
+
+const forecastStatusColor = {
+  'On Track': 'success',
+  'Minor Delay': 'warning',
+  'Moderate Delay': 'warning',
+  'High Delay Risk': 'danger',
+  'Moderate Overrun Risk': 'warning',
+  'High Overrun Risk': 'danger',
+  'Potential Underspend': 'info',
+};
+
+const forecastStatus = (delayDays) => {
+  const delay = Number(delayDays || 0);
+  if (delay <= 0) return 'On Track';
+  if (delay <= 14) return 'Minor Delay';
+  if (delay <= 30) return 'Moderate Delay';
+  return 'High Delay Risk';
+};
+
+const formatDelay = (delayDays) => {
+  if (delayDays === null || delayDays === undefined || delayDays === '') return '-';
+  const delay = Number(delayDays);
+  if (!Number.isFinite(delay)) return '-';
+  if (delay <= 0) return `${Math.abs(delay)} Days Early / On Track`;
+  return `${delay} Days`;
+};
+
+const effortStatus = (variance, plannedEffort) => {
+  const planned = Number(plannedEffort || 0);
+  const delta = Number(variance || 0);
+  if (!Number.isFinite(delta) || planned <= 0) return 'Unavailable';
+  const variancePercent = (delta / planned) * 100;
+  if (variancePercent < -5) return 'Potential Underspend';
+  if (variancePercent <= 5) return 'On Track';
+  if (variancePercent <= 20) return 'Moderate Overrun Risk';
+  return 'High Overrun Risk';
+};
+
+const formatEffortVariance = (variance) => {
+  if (variance === null || variance === undefined || variance === '') return '-';
+  const value = Number(variance);
+  if (!Number.isFinite(value)) return '-';
+  return `${value > 0 ? '+' : ''}${value} PD`;
+};
+
+const formatBudgetVariance = (variance) => {
+  if (variance === null || variance === undefined || variance === '') return '-';
+  const value = Number(variance);
+  if (!Number.isFinite(value)) return '-';
+  const sign = value > 0 ? '+' : value < 0 ? '-' : '';
+  return `${sign}${formatCurrency(Math.abs(value))}`;
+};
+
+const formatSignedDays = (value) => {
+  if (value === null || value === undefined || value === '') return '-';
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '-';
+  return `${numeric > 0 ? '+' : ''}${numeric} Days`;
+};
+
+const formatSignedPercent = (value) => {
+  if (value === null || value === undefined || value === '') return '-';
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '-';
+  return `${numeric > 0 ? '+' : ''}${Math.round(numeric)}%`;
+};
+
+const trendIndicator = (status) => {
+  if (['Deteriorating', 'Increasing'].includes(status)) return '▲';
+  if (['Improving', 'Decreasing'].includes(status)) return '▼';
+  return '▬';
+};
+
+const trendColor = (status) => {
+  if (status === 'Deteriorating' || status === 'High Overrun Risk') return 'danger';
+  if (status === 'Increasing') return 'warning';
+  if (status === 'Improving' || status === 'Decreasing') return 'success';
+  return 'secondary';
+};
+
+const averageConfidence = (...forecasts) => {
+  const values = forecasts
+    .filter((item) => item?.forecastAvailable && Number.isFinite(Number(item.confidence)))
+    .map((item) => Number(item.confidence));
+  if (!values.length) return null;
+  return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+};
 
 const detailTabs = [
   { key: 'projectInformation', label: 'Project Information' },
@@ -92,6 +182,7 @@ const ProjectDetails = () => {
   const location = useLocation();
   const [project, setProject] = useState(null);
   const [workflowHistory, setWorkflowHistory] = useState([]);
+  const [forecast, setForecast] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
@@ -101,9 +192,16 @@ const ProjectDetails = () => {
   const loadProject = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await getProject(projectId);
+      const [data, forecastResult] = await Promise.all([
+        getProject(projectId),
+        getProjectForecast(projectId).catch((err) => ({
+          forecastAvailable: false,
+          message: err.message || 'Forecast is currently unavailable.',
+        })),
+      ]);
       setProject(data.project);
       setWorkflowHistory(data.workflowHistory || []);
+      setForecast(forecastResult);
       setError('');
     } catch (err) {
       setError(err.message || 'Failed to load project');
@@ -387,10 +485,173 @@ const ProjectDetails = () => {
             loading={actionLoading}
             title="Project Workflow"
           />
+          <ForecastingCard
+            forecast={forecast}
+            plannedCompletionDate={deliveryDetails.planned_end_date}
+            plannedEffort={displayPlannedEffort}
+            plannedBudget={displayDeliveryBudget}
+          />
         </CCol>
       </CRow>
     </div>
   );
 };
+
+const ForecastingCard = ({ forecast, plannedCompletionDate, plannedEffort, plannedBudget }) => {
+  const [showHistory, setShowHistory] = useState(false);
+  const completionForecast = forecast?.completionDate || forecast;
+  const finalEffortForecast = forecast?.finalEffort;
+  const finalBudgetForecast = forecast?.finalBudget;
+  const trend = forecast?.trend || {};
+  const history = Array.isArray(forecast?.history) ? forecast.history : [];
+  const status = completionForecast?.forecastAvailable ? forecastStatus(completionForecast.forecastDelayDays) : 'Unavailable';
+  const finalEffortStatus = finalEffortForecast?.forecastAvailable
+    ? effortStatus(finalEffortForecast.forecastVariance, finalEffortForecast.currentPlannedEffort || plannedEffort)
+    : 'Unavailable';
+  const finalBudgetStatus = finalBudgetForecast?.forecastAvailable
+    ? effortStatus(finalBudgetForecast.forecastVariance, finalBudgetForecast.currentPlannedBudget || plannedBudget)
+    : 'Unavailable';
+  const combinedConfidence = averageConfidence(completionForecast, finalEffortForecast, finalBudgetForecast);
+  return (
+    <CCard className="mt-3">
+      <CCardHeader>
+        <strong>Forecasting</strong>
+      </CCardHeader>
+      <CCardBody>
+        <h6>Schedule Forecast</h6>
+        <DetailItem label="Planned Completion" value={formatDisplayDate(completionForecast?.plannedCompletionDate || plannedCompletionDate)} />
+        {completionForecast?.forecastAvailable ? (
+          <>
+            <DetailItem label="Forecast Completion" value={formatDisplayDate(completionForecast.forecastCompletionDate)} />
+            <DetailItem label="Expected Delay" value={formatDelay(completionForecast.forecastDelayDays)} />
+            <p>
+              <strong>Status:</strong>{' '}
+              <CBadge color={forecastStatusColor[status] || 'secondary'}>{status}</CBadge>
+            </p>
+          </>
+        ) : (
+          <CAlert color="warning">
+            {completionForecast?.message || 'Insufficient historical project data available for forecasting.'}
+          </CAlert>
+        )}
+        <hr />
+        <h6>Effort Forecast</h6>
+        <DetailItem label="Planned Effort" value={`${finalEffortForecast?.currentPlannedEffort ?? plannedEffort ?? '-'} PD`} />
+        {finalEffortForecast?.forecastAvailable ? (
+          <>
+            <DetailItem label="Forecast Final Effort" value={`${finalEffortForecast.forecastFinalEffort} PD`} />
+            <DetailItem label="Variance" value={formatEffortVariance(finalEffortForecast.forecastVariance)} />
+            <p>
+              <strong>Status:</strong>{' '}
+              <CBadge color={forecastStatusColor[finalEffortStatus] || 'secondary'}>{finalEffortStatus}</CBadge>
+            </p>
+          </>
+        ) : (
+          <CAlert color="warning" className="mb-0">
+            {finalEffortForecast?.message || 'Insufficient historical project data available for final effort forecasting.'}
+          </CAlert>
+        )}
+        <hr />
+        <h6>Budget Forecast</h6>
+        <DetailItem label="Planned Budget" value={formatCurrency(finalBudgetForecast?.currentPlannedBudget ?? plannedBudget ?? 0)} />
+        {finalBudgetForecast?.forecastAvailable ? (
+          <>
+            <DetailItem label="Forecast Final Budget" value={formatCurrency(finalBudgetForecast.forecastFinalBudget)} />
+            <DetailItem label="Variance" value={formatBudgetVariance(finalBudgetForecast.forecastVariance)} />
+            <p>
+              <strong>Status:</strong>{' '}
+              <CBadge color={forecastStatusColor[finalBudgetStatus] || 'secondary'}>{finalBudgetStatus}</CBadge>
+            </p>
+          </>
+        ) : (
+          <CAlert color="warning" className="mb-0">
+            {finalBudgetForecast?.message || 'Insufficient historical project data available for final budget forecasting.'}
+          </CAlert>
+        )}
+        <hr />
+        <h6>Forecast Confidence</h6>
+        <DetailItem label="Overall Confidence" value={combinedConfidence === null ? '-' : `${combinedConfidence}%`} />
+        <DetailItem label="Schedule Confidence" value={completionForecast?.forecastAvailable ? `${completionForecast.confidence}%` : '-'} />
+        <DetailItem label="Effort Confidence" value={finalEffortForecast?.forecastAvailable ? `${finalEffortForecast.confidence}%` : '-'} />
+        <DetailItem label="Budget Confidence" value={finalBudgetForecast?.forecastAvailable ? `${finalBudgetForecast.confidence}%` : '-'} />
+        <hr />
+        <h6>Forecast Trend</h6>
+        {trend.hasPreviousForecast ? (
+          <>
+            <TrendLine
+              label="Schedule"
+              value={formatSignedDays(trend.schedule?.deltaDays)}
+              status={trend.schedule?.status}
+            />
+            <TrendLine
+              label="Effort"
+              value={formatEffortVariance(trend.effort?.delta)}
+              status={trend.effort?.status}
+            />
+            <TrendLine
+              label="Budget"
+              value={formatBudgetVariance(trend.budget?.delta)}
+              status={trend.budget?.status}
+            />
+            <TrendLine
+              label="Confidence"
+              value={formatSignedPercent(trend.confidence?.delta)}
+              status={trend.confidence?.status}
+            />
+          </>
+        ) : (
+          <CAlert color="info" className="mb-0">
+            No previous forecast snapshot is available yet.
+          </CAlert>
+        )}
+        <hr />
+        <div className="d-flex justify-content-between align-items-center gap-2 mb-2">
+          <h6 className="mb-0">Forecast History</h6>
+          <CButton color="secondary" variant="outline" size="sm" onClick={() => setShowHistory((value) => !value)}>
+            {showHistory ? 'Hide' : 'Show'}
+          </CButton>
+        </div>
+        {showHistory && (
+          history.length > 0 ? (
+            <div className="table-responsive">
+              <table className="table table-sm mb-0">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Completion</th>
+                    <th>Effort</th>
+                    <th>Budget</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.map((item) => (
+                    <tr key={item.snapshotId}>
+                      <td>{formatDisplayDate(item.snapshotDate)}</td>
+                      <td>{formatDisplayDate(item.forecastCompletionDate)}</td>
+                      <td>{item.forecastFinalEffort === null ? '-' : `${item.forecastFinalEffort} PD`}</td>
+                      <td>{item.forecastFinalBudget === null ? '-' : formatCurrency(item.forecastFinalBudget)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <CAlert color="info" className="mb-0">No forecast history is available.</CAlert>
+          )
+        )}
+      </CCardBody>
+    </CCard>
+  );
+};
+
+const TrendLine = ({ label, value, status }) => (
+  <p>
+    <strong>{label}:</strong>{' '}
+    {valueOrDash(value)}{' '}
+    <CBadge color={trendColor(status)}>
+      {trendIndicator(status)} {status || 'Stable'}
+    </CBadge>
+  </p>
+);
 
 export default ProjectDetails;

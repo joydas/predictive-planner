@@ -1,5 +1,7 @@
 project_id,project_name,planned_completion_date,industry,technology,complexity,project_type,planned_duration_days,current_planned_effort,current_planned_budget,current_planned_team_size,pm_estimated_value,ai_estimated_value,approved_cr_count,total_cr_effort_impact,total_cr_budget_impact,total_cr_duration_impact,latest_completion_percent,progress_snapshot_count,days_since_last_progress_update,average_progress_velocity,progress_velocity_trend,actual_effort_to_date,actual_budget_to_date,actual_team_size,actual_final_budget
+131,P2,2026-05-29,BFSI,Python,1,New Build,13,71.5,38496.25,5.5,71.5,0.0,0.0,0.0,0.0,0.0,0.0,0,999,0.0,0.0,0.0,0.0,0,33475.0
+133,P1,2026-06-05,BFSI,Node.js,3,New Build,13,35.0,14611.0,1.0,13.0,0.0,3.0,62.0,1551.0,12.0,0.0,0,999,0.0,0.0,0.0,0.0,0,13000.0
+135,Testing N1,2026-07-23,BFSI,Java,3,New Build,61,872.0,376900.0,13.0,572.0,528.0,2.0,300.0,48000.0,8.0,0.0,0,999,0.0,0.0,0.0,0.0,0,403000.0
 136,28thMay,2026-06-04,Transportation and Logistics,Java,1,New Build,35,200.0,98750.0,8.0,200.0,200.0,0.0,0.0,0.0,0.0,0.0,0,999,0.0,0.0,0.0,0.0,0,98750.0
 137,28-2,2026-06-30,"Banking, Financial Services and Insurance",Python,1,New Build,31,115.0,63785.0,9.0,400.0,310.64,2.0,5.0,1800.0,2.0,90.0,5,0,14.5,18.5,22.0,2000.0,0,2000.0
 139,30thMay,2026-08-30,"Banking, Financial Services and Insurance",Python,3,New Build,127,720.0,424350.0,8.0,500.0,188.15,0.0,0.0,0.0,0.0,100.0,5,0,0.7610619469026548,-0.4117647058823529,750.0,470000.0,0,470000.0
-140,30thMay-2,2026-05-31,"Banking, Financial Services and Insurance",Java,2,New Build,31,231.0,119416.5,11.0,240.0,216.48,0.0,0.0,0.0,0.0,99.0,2,1,2.8823529411764706,0.0,230.0,120000.0,0,120000.0

@@ -68,10 +68,54 @@ async function getMlTrainingJob(req, res) {
   }
 }
 
+async function listDataManagementProjects(req, res) {
+  try {
+    const result = await adminService.listDataManagementProjects(req.user, req.query || {});
+    return res.json(result);
+  } catch (error) {
+    console.error('Admin data project list failed:', error);
+    return res.status(error.status || 500).json({ message: error.message || 'Failed to load data management projects' });
+  }
+}
+
+async function getProjectDeleteSummary(req, res) {
+  try {
+    const result = await adminService.getProjectDeleteSummary(req.user, req.query || {});
+    return res.json(result);
+  } catch (error) {
+    console.error('Admin project delete summary failed:', error);
+    return res.status(error.status || 500).json({ message: error.message || 'Failed to load project delete summary' });
+  }
+}
+
+async function deleteProject(req, res) {
+  try {
+    const result = await adminService.deleteProject(req.user, req.body?.project || req.body || {}, req.body?.confirmation);
+    return res.json(result);
+  } catch (error) {
+    console.error('Admin project delete failed:', error);
+    return res.status(error.status || 500).json({ message: error.message || 'Failed to delete project' });
+  }
+}
+
+async function bulkDeleteProjects(req, res) {
+  try {
+    const result = await adminService.bulkDeleteProjects(req.user, req.body?.projects || [], req.body?.confirmation);
+    return res.json(result);
+  } catch (error) {
+    console.error('Admin bulk project delete failed:', error);
+    return res.status(error.status || 500).json({ message: error.message || 'Failed to delete projects' });
+  }
+}
+
 module.exports = {
+  bulkDeleteProjects,
   createUser,
+  deleteProject,
   getMlAdministration,
   getMlTrainingJob,
+  getProjectDeleteSummary,
+  listDataManagementProjects,
   listUsers,
   retrainMlModels,
   updateUser,

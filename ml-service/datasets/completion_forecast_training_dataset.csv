@@ -1,0 +1,4 @@
+project_id,project_name,planned_completion_date,industry,technology,complexity,project_type,planned_duration_days,current_planned_effort,current_planned_budget,current_planned_team_size,pm_estimated_value,ai_estimated_value,approved_cr_count,total_cr_effort_impact,total_cr_budget_impact,total_cr_duration_impact,latest_completion_percent,progress_snapshot_count,days_since_last_progress_update,average_progress_velocity,progress_velocity_trend,actual_effort_to_date,actual_budget_to_date,actual_team_size,completion_delay_days
+132,P3-E2E,2026-06-05,BFSI,Java,2,New Build,12,24.0,20700.0,2.0,24.0,0.0,0.0,0.0,0.0,0.0,0.0,0,999,0.0,0.0,0.0,0.0,0,-19
+134,Analytics B1,2026-12-17,BFSI,Node.js,3,New Build,208,0.0,0.0,0.0,1117.5,0.0,1.0,40.0,0.0,10.0,0.0,0,999,0.0,0.0,0.0,0.0,0,-214
+135,Testing N1,2026-07-23,BFSI,Java,3,New Build,61,872.0,376900.0,13.0,572.0,528.0,2.0,300.0,48000.0,8.0,0.0,0,999,0.0,0.0,0.0,0.0,0,-67

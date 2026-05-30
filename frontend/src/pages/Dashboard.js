@@ -101,6 +101,28 @@ function SeverityBadge({ value }) {
   );
 }
 
+function formatForecastIndicator(forecast = {}) {
+  if (!forecast.forecastAvailable) return 'N/A';
+  const delay = Number(forecast.forecastDelayDays || 0);
+  if (delay <= 0) return 'On Track';
+  return `${delay} Days Late`;
+}
+
+function ForecastBadge({ forecast }) {
+  const label = formatForecastIndicator(forecast);
+  const delay = Number(forecast?.forecastDelayDays || 0);
+  const color = !forecast?.forecastAvailable
+    ? 'secondary'
+    : delay <= 0
+      ? 'success'
+      : delay <= 14
+        ? 'warning'
+        : delay <= 30
+          ? 'warning'
+          : 'danger';
+  return <CBadge color={color} shape="rounded-pill">{label}</CBadge>;
+}
+
 function ActionBadges({ actions = [] }) {
   return (
     <div className="operational-badge-list">
@@ -316,6 +338,7 @@ const Dashboard = () => {
                     Severity
                     <SeverityInfoHint />
                   </th>
+                  <th>Forecast Status</th>
                   <th className="text-end">Project Metrics</th>
                   <th>Pending Actions</th>
                   <th>Actions</th>
@@ -323,7 +346,7 @@ const Dashboard = () => {
               </thead>
               <tbody>
                 {activeProjects.items.length === 0 ? (
-                  <EmptyRow colSpan={11} label="No active approved projects found." />
+                  <EmptyRow colSpan={12} label="No active approved projects found." />
                 ) : activeProjects.items.map((project) => (
                   <tr key={project.projectId}>
                     <td className="fw-semibold">{project.projectName}</td>
@@ -334,6 +357,7 @@ const Dashboard = () => {
                     <td className="text-center">{formatProgressAge(project.latestProgressDate)}</td>
                     <td className="text-end">{formatCompactPercent(project.actualCompletionPercent)}</td>
                     <td><SeverityBadge value={project.severity} /></td>
+                    <td><ForecastBadge forecast={project.forecast} /></td>
                     <td className="text-end"><ProjectMetrics project={project} /></td>
                     <td><ActionBadges actions={project.pendingActions} /></td>
                     <td><RowActions project={project} canManageProject={canManageProject} /></td>

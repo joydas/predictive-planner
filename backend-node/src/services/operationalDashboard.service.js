@@ -1,4 +1,5 @@
 const { pool } = require('../config/db.config');
+const forecastService = require('./forecastService');
 
 const ACTIVE_PROJECT_STATUSES = ['APPROVED'];
 const COMPLETED_PROJECT_STATUSES = ['COMPLETE', 'CLOSED'];
@@ -105,6 +106,10 @@ function visibleApprovedProjectWhere(user, alias = 'p', draftAlias = 'pd') {
     };
   }
 
+  if (role === 'ADMIN') {
+    return { sql: '1 = 1', params: [] };
+  }
+
   return { sql: '1 = 0', params: [] };
 }
 
@@ -131,6 +136,10 @@ function visibleDraftWorkflowWhere(user, alias = 'pd') {
       )`,
       params: [user.userId],
     };
+  }
+
+  if (role === 'ADMIN') {
+    return { sql: '1 = 1', params: [] };
   }
 
   return { sql: '1 = 0', params: [] };
@@ -214,6 +223,10 @@ function crVisibilityWhere(
     };
   }
 
+  if (role === 'ADMIN') {
+    return { sql: '1 = 1', params: [] };
+  }
+
   return { sql: '1 = 0', params: [] };
 }
 
@@ -277,6 +290,13 @@ function mapProjectRow(row) {
     approvedCrCount: Number(row.approvedCrCount || 0),
     pendingCrCount: Number(row.pendingCrCount || 0),
     pendingActions: actions,
+  };
+}
+
+function attachForecast(project, forecast) {
+  return {
+    ...project,
+    forecast: forecast || { forecastAvailable: false },
   };
 }
 
@@ -357,8 +377,11 @@ async function getActiveProjects(user, query) {
 
   const totalRecords = Number(countRows[0]?.totalRecords || 0);
 
+  const items = rows.map(mapProjectRow);
+  const forecasts = await forecastService.getForecastsForProjects(items.map((item) => item.projectId));
+
   return {
-    items: rows.map(mapProjectRow),
+    items: items.map((item) => attachForecast(item, forecasts[item.projectId])),
     page: paging.page,
     pageSize: paging.pageSize,
     totalRecords,

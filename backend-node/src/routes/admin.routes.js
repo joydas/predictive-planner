@@ -11,5 +11,9 @@ router.put('/users/:userId', adminController.updateUser);
 router.get('/ml', adminController.getMlAdministration);
 router.post('/ml/retrain', adminController.retrainMlModels);
 router.get('/ml/jobs/:jobId', adminController.getMlTrainingJob);
+router.get('/data/projects', adminController.listDataManagementProjects);
+router.get('/data/projects/delete-summary', adminController.getProjectDeleteSummary);
+router.delete('/data/projects', adminController.deleteProject);
+router.post('/data/projects/bulk-delete', adminController.bulkDeleteProjects);
 
 module.exports = router;

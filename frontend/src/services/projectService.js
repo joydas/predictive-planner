@@ -68,6 +68,14 @@ export async function getProject(projectId) {
   return handleResponse(response);
 }
 
+export async function getProjectForecast(projectId) {
+  const response = await fetch(`${API_BASE_URL}/${projectId}/forecast`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+  return handleResponse(response);
+}
+
 export async function listProjectsAvailableForCr() {
   const response = await fetch(`${API_BASE_URL}/available-for-cr`, {
     method: 'GET',

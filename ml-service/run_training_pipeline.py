@@ -5,6 +5,9 @@ import traceback
 
 from feature_engineering.merge_training_dataset import merge_training_dataset
 from training.train_effort_model import train_effort_model
+from training.train_completion_forecast_model import train_completion_forecast_model
+from training.train_final_budget_forecast_model import train_final_budget_forecast_model
+from training.train_final_effort_forecast_model import train_final_effort_forecast_model
 from training.train_schedule_risk_model import train_schedule_risk_model
 from training.train_staffing_model import train_staffing_model
 from training.analyze_staffing_distribution import analyze_staffing_distribution
@@ -20,6 +23,9 @@ ARTIFACT_FILES = [
     "effort_model.joblib",
     "staffing_model.joblib",
     "schedule_risk_model.joblib",
+    "completion_forecast_model.pkl",
+    "final_effort_forecast_model.pkl",
+    "final_budget_forecast_model.pkl",
     "model_metadata.json",
 ]
 
@@ -91,6 +97,9 @@ def run_training_pipeline(publish: bool = True, job_id: str | None = None, log=p
             ("staffing", "Training staffing model", train_staffing_model),
             ("effort", "Training effort model", train_effort_model),
             ("schedule_risk", "Training risk model", train_schedule_risk_model),
+            ("completion_forecast", "Training completion forecast model", train_completion_forecast_model),
+            ("final_effort_forecast", "Training final effort forecast model", train_final_effort_forecast_model),
+            ("final_budget_forecast", "Training final budget forecast model", train_final_budget_forecast_model),
         ]
         for name, message, trainer in trainers:
             log(message)
