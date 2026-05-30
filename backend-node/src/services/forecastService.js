@@ -5,7 +5,6 @@ const DEFAULT_ML_API_URL = 'http://127.0.0.1:8000';
 const normalizeUrl = (url) => String(url || DEFAULT_ML_API_URL).replace(/\/+$/, '');
 const ML_API_URL = normalizeUrl(process.env.ML_API_URL || DEFAULT_ML_API_URL);
 let snapshotTableReady = false;
-let regressionColumnKnown = null;
 
 const TREND_THRESHOLDS = {
   scheduleDays: Number(process.env.FORECAST_TREND_SCHEDULE_STABLE_DAYS || 2),
@@ -45,22 +44,6 @@ function visibilityWhere(user, projectAlias = 'p', draftAlias = 'pd') {
   return { sql: '1 = 0', params: [] };
 }
 
-async function hasRegressionColumn() {
-  if (regressionColumnKnown !== null) return regressionColumnKnown;
-  const [rows] = await pool.promise().query(
-    `
-      SELECT 1
-      FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = 'project'
-        AND COLUMN_NAME = 'is_regression_data'
-      LIMIT 1
-    `,
-  );
-  regressionColumnKnown = rows.length > 0;
-  return regressionColumnKnown;
-}
-
 async function ensureSnapshotTable() {
   if (snapshotTableReady) return;
   await pool.promise().query(`
@@ -86,7 +69,6 @@ async function ensureSnapshotTable() {
 
 async function canAccessProject(user, projectId) {
   const visibility = visibilityWhere(user);
-  const regressionFilter = await hasRegressionColumn() ? 'AND COALESCE(p.is_regression_data, 0) = 0' : '';
   const [rows] = await pool.promise().query(
     `
       SELECT p.project_id AS projectId
@@ -94,7 +76,6 @@ async function canAccessProject(user, projectId) {
       INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
       WHERE p.project_id = ?
         AND ${visibility.sql}
-        ${regressionFilter}
       LIMIT 1
     `,
     [projectId, ...visibility.params],
@@ -218,7 +199,6 @@ async function upsertForecastSnapshot(projectId, forecast) {
 
 async function readForecastHistory(projectId) {
   await ensureSnapshotTable();
-  const regressionJoinFilter = await hasRegressionColumn() ? 'AND COALESCE(p.is_regression_data, 0) = 0' : '';
   const [rows] = await pool.promise().query(
     `
       SELECT
@@ -235,7 +215,6 @@ async function readForecastHistory(projectId) {
       FROM project_forecast_snapshot s
       INNER JOIN project p ON p.project_id = s.project_id
       WHERE s.project_id = ?
-        ${regressionJoinFilter}
       ORDER BY s.snapshot_date DESC, s.snapshot_id DESC
       LIMIT 30
     `,

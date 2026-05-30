@@ -108,3 +108,34 @@ export async function bulkDeleteDataProjects(projects, confirmation) {
   });
   return handleResponse(response);
 }
+
+export async function startRegressionSuite(projectCount) {
+  const response = await fetch(`${API_BASE_URL}/regression-suite/run`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ projectCount }),
+  });
+  return handleResponse(response);
+}
+
+export async function listRegressionRuns(params = {}) {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      searchParams.set(key, value);
+    }
+  });
+  const response = await fetch(`${API_BASE_URL}/regression-suite/runs?${searchParams.toString()}`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+  return handleResponse(response);
+}
+
+export async function getRegressionRun(runId) {
+  const response = await fetch(`${API_BASE_URL}/regression-suite/runs/${encodeURIComponent(runId)}`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+  return handleResponse(response);
+}

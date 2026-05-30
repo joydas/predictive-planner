@@ -12,6 +12,7 @@ import CRDetailsPage from './pages/cr/CRDetailsPage';
 import UserManagementPage from './pages/admin/UserManagementPage';
 import MlAdministrationPage from './pages/admin/MlAdministrationPage';
 import DataManagementPage from './pages/admin/DataManagementPage';
+import RegressionSuitePage from './pages/admin/RegressionSuitePage';
 import AnalyticsOverview from './pages/analytics/AnalyticsOverview';
 import PMDashboard from './pages/analytics/PMDashboard';
 import AMDashboard from './pages/analytics/AMDashboard';
@@ -63,6 +64,7 @@ function App() {
           <Route path="admin/users" element={<UserManagementPage />} />
           <Route path="admin/ml" element={<MlAdministrationPage />} />
           <Route path="admin/data" element={<DataManagementPage />} />
+          <Route path="admin/regression-suite" element={<RegressionSuitePage />} />
           <Route path="analytics" element={<AnalyticsOverview />} />
           <Route path="analytics/pm" element={<PMDashboard />} />
           <Route path="analytics/am" element={<AMDashboard />} />

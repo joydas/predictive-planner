@@ -1,4 +1,5 @@
 const adminService = require('../services/admin.service');
+const regressionSuiteService = require('../services/regressionSuite.service');
 
 async function listUsers(req, res) {
   try {
@@ -108,6 +109,38 @@ async function bulkDeleteProjects(req, res) {
   }
 }
 
+async function startRegressionSuite(req, res) {
+  try {
+    const result = await regressionSuiteService.startRegressionSuite(req.user, req.body || {});
+    return res.status(202).json(result);
+  } catch (error) {
+    console.error('Admin regression suite start failed:', error);
+    return res.status(error.status || 500).json({ message: error.message || 'Failed to start regression suite' });
+  }
+}
+
+async function listRegressionRuns(req, res) {
+  try {
+    const result = await regressionSuiteService.listRegressionRuns(req.user, req.query || {});
+    return res.json(result);
+  } catch (error) {
+    console.error('Admin regression run list failed:', error);
+    return res.status(error.status || 500).json({ message: error.message || 'Failed to load regression runs' });
+  }
+}
+
+async function getRegressionRun(req, res) {
+  try {
+    const runId = Number(req.params.runId);
+    if (!runId) return res.status(400).json({ message: 'Regression run id is required' });
+    const result = await regressionSuiteService.getRegressionRun(req.user, runId);
+    return res.json(result);
+  } catch (error) {
+    console.error('Admin regression run detail failed:', error);
+    return res.status(error.status || 500).json({ message: error.message || 'Failed to load regression run' });
+  }
+}
+
 module.exports = {
   bulkDeleteProjects,
   createUser,
@@ -115,8 +148,11 @@ module.exports = {
   getMlAdministration,
   getMlTrainingJob,
   getProjectDeleteSummary,
+  getRegressionRun,
   listDataManagementProjects,
+  listRegressionRuns,
   listUsers,
   retrainMlModels,
+  startRegressionSuite,
   updateUser,
 };

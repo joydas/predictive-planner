@@ -49,6 +49,7 @@ const adminNavigationItems = [
   { icon: cilPeople, label: 'User Management', to: '/admin/users' },
   { icon: cilChart, label: 'ML Management', to: '/admin/ml' },
   { icon: cilFolderOpen, label: 'Data Management', to: '/admin/data' },
+  { icon: cilReload, label: 'Regression Suite', to: '/admin/regression-suite' },
 ];
 
 const getStoredSidebarCollapsed = () => {
