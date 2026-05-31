@@ -165,6 +165,8 @@ const AnalyticsOverview = () => {
         <WinRateKpi value={kpis.aiVsPmWinRate} />
       </div>
 
+      <WinRateDrilldown comparisons={kpis.aiVsPmWinRate?.comparisons || []} />
+
       <CRow className="mb-4 g-4">
         <CCol xs={12} md={6} xl={3}>
           <ChartCard title="Effort Prediction Accuracy" data={comparisonChart(widgets.effortPredictionAccuracy)} options={effortComparisonOptions} loading={loading} />
@@ -279,49 +281,54 @@ const WinRateKpi = ({ value = {} }) => (
           AI Outperformed PM
           <InfoHint text={aiOutperformedTooltip.text} />
         </div>
-        <div className="analytics-kpi-value">{formatAccuracy(value.aiOutperformedPercent)}</div>
-        <div className="analytics-win-subtext">PM Outperformed AI {formatAccuracy(value.pmOutperformedPercent)}</div>
-        <div className="analytics-win-subtext">Tie {formatAccuracy(value.tiePercent)}</div>
-        <div className="analytics-kpi-insight">{buildWinRateInsight(value)}</div>
-        <details className="analytics-win-drilldown">
-          <summary>View comparison drilldown</summary>
-          <div className="table-responsive">
-            <table className="table table-sm mb-0">
-              <thead>
-                <tr>
-                  <th>Project</th>
-                  <th>Metric</th>
-                  <th className="text-end">AI Prediction</th>
-                  <th className="text-end">PM Prediction</th>
-                  <th className="text-end">Actual</th>
-                  <th className="text-end">AI Error</th>
-                  <th className="text-end">PM Error</th>
-                  <th>Winner</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(value.comparisons || []).length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="text-muted">No comparisons available.</td>
-                  </tr>
-                ) : (value.comparisons || []).map((row, index) => (
-                  <tr key={`${row.projectId}-${row.metric}-${index}`}>
-                    <td>{row.projectName}</td>
-                    <td>{row.metric}</td>
-                    <td className="text-end">{formatNumber(row.aiPrediction)}</td>
-                    <td className="text-end">{formatNumber(row.pmPrediction)}</td>
-                    <td className="text-end">{formatNumber(row.actual)}</td>
-                    <td className="text-end">{formatNumber(row.aiError)}</td>
-                    <td className="text-end">{formatNumber(row.pmError)}</td>
-                    <td>{formatWinner(row.winner)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </details>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)'}}>
+          <div className="analytics-win-subtext">AI Outperformed {formatAccuracy(value.aiOutperformedPercent)}</div>
+          <div className="analytics-win-subtext">PM Outperformed {formatAccuracy(value.pmOutperformedPercent)}</div>
+          <div className="analytics-win-subtext">Tie {formatAccuracy(value.tiePercent)}</div>
+        </div>
+        {/* <div className="analytics-kpi-insight">{buildWinRateInsight(value)}</div> */}
       </CCardBody>
     </CCard>
+);
+
+const WinRateDrilldown = ({ comparisons = [] }) => (
+  <details className="analytics-win-drilldown mb-4">
+    <summary>View comparison drilldown</summary>
+    <div className="table-responsive">
+      <table className="table table-sm mb-0">
+        <thead>
+          <tr>
+            <th>Project</th>
+            <th>Metric</th>
+            <th className="text-end">AI Prediction</th>
+            <th className="text-end">PM Prediction</th>
+            <th className="text-end">Actual</th>
+            <th className="text-end">AI Error</th>
+            <th className="text-end">PM Error</th>
+            <th>Winner</th>
+          </tr>
+        </thead>
+        <tbody>
+          {comparisons.length === 0 ? (
+            <tr>
+              <td colSpan={8} className="text-muted">No comparisons available.</td>
+            </tr>
+          ) : comparisons.map((row, index) => (
+            <tr key={`${row.projectId}-${row.metric}-${index}`}>
+              <td>{row.projectName}</td>
+              <td>{row.metric}</td>
+              <td className="text-end">{formatNumber(row.aiPrediction)}</td>
+              <td className="text-end">{formatNumber(row.pmPrediction)}</td>
+              <td className="text-end">{formatNumber(row.actual)}</td>
+              <td className="text-end">{formatNumber(row.aiError)}</td>
+              <td className="text-end">{formatNumber(row.pmError)}</td>
+              <td>{formatWinner(row.winner)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </details>
 );
 
 const InfoHint = ({ title, text }) => {

@@ -413,10 +413,20 @@ tbody td {
   display: grid;
   gap: var(--spacer);
   grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: stretch;
 }
 
 .analytics-kpi-card {
   border-left: 4px solid #2f80ed !important;
+  height: 220px;
+  display: flex;
+}
+
+.analytics-kpi-card .card-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 100%;
 }
 
 .analytics-kpi-good {
@@ -519,19 +529,37 @@ tbody td {
 }
 
 .analytics-win-drilldown {
-  margin-top: 10px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  background: #ffffff;
 }
 
 .analytics-win-drilldown summary {
   color: #2f80ed;
   cursor: pointer;
-  font-size: 0.76rem;
+  font-size: 0.88rem;
   font-weight: 700;
+  list-style: none;
+}
+
+.analytics-win-drilldown summary::-webkit-details-marker {
+  display: none;
+}
+
+details.analytics-win-drilldown[open] summary::after {
+  content: '▲';
+  float: right;
+}
+
+.analytics-win-drilldown summary::after {
+  content: '▼';
+  float: right;
 }
 
 .analytics-win-drilldown .table-responsive {
-  margin-top: 8px;
-  max-height: 260px;
+  margin-top: 1rem;
+  max-height: 300px;
 }
 
 .analytics-win-drilldown th,
