@@ -76,16 +76,19 @@ def current_info() -> dict:
     ensure_runtime_dirs()
     metadata = read_metadata()
     state = read_state()
+    history = read_history()
     running_job_id = state.get("jobId") if state.get("status") == STATUS_RUNNING else None
+    latest_job_id = running_job_id or state.get("jobId") or (history[0].get("jobId") if history else None)
     return {
         "modelVersion": metadata.get("model_version") or metadata.get("training_timestamp") or "N/A",
         "lastTrainingAt": metadata.get("training_timestamp"),
         "trainingStatus": state.get("status", STATUS_IDLE),
         "runningJobId": running_job_id,
+        "latestJobId": latest_job_id,
         "projectsUsed": metadata.get("project_count"),
         "recordsUsed": metadata.get("row_count"),
-        "logs": get_job_logs(running_job_id) if running_job_id else [],
-        "history": read_history(),
+        "logs": get_job_logs(latest_job_id) if latest_job_id else [],
+        "history": history,
     }
 
 

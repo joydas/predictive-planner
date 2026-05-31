@@ -127,6 +127,9 @@ async function getProject(req, res) {
     const rawRole = String(req.user.role || '').toUpperCase();
     const role = rawRole === 'AM' ? 'ACCOUNT_MANAGER' : rawRole;
     const status = String(project.workflowStatus || project.status || '').toUpperCase();
+    if (role !== 'ADMIN' && project.isRegressionData) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
     const isPmOwner = role === 'PM' && (
       Number(project.ownerId) === Number(req.user.userId)
       || Number(project.submittedByUserId) === Number(req.user.userId)

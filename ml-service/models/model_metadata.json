@@ -1,6 +1,6 @@
 {
-  "model_version": "ml-20260531T113059445886Z0000",
-  "training_timestamp": "2026-05-31T11:30:59.445886+00:00",
+  "model_version": "ml-20260531T122439708141Z0000",
+  "training_timestamp": "2026-05-31T12:24:39.708141+00:00",
   "dataset_version": "project_training_dataset_v1",
   "feature_version": "project_features_v1",
   "dataset_path": "C:\\OurWorkspace\\Dipanjan\\AI\\predictive-planner\\ml-service\\datasets\\project_training_dataset.csv",
@@ -8,7 +8,7 @@
     "active": 0,
     "completed": 127,
     "total": 127,
-    "excluded_test_data": 5
+    "excluded_test_data": 20
   },
   "forecast_training_population": {
     "completed": 7,
@@ -20,26 +20,26 @@
   "evaluation_metrics": {
     "staffing": {
       "mae_per_role": {
-        "Automation_Tester": 0.38828125,
-        "Cloud_Engineer": 0.14895833333333336,
+        "Automation_Tester": 0.3950520833333333,
+        "Cloud_Engineer": 0.15182291666666664,
         "DevOps_Engineer": 0.0,
-        "Java_Developer": 0.03151041666666665,
-        "Java_Lead": 0.0013020833333333322,
-        "Manual_Tester": 0.4205729166666667,
-        "Project_Manager": 0.23151041666666666,
-        "Python_Developer": 0.28385416666666674,
-        "Python_Lead": 0.01848958333333333,
+        "Java_Developer": 0.03125,
+        "Java_Lead": 0.0013020833333333324,
+        "Manual_Tester": 0.4239583333333333,
+        "Project_Manager": 0.22682291666666668,
+        "Python_Developer": 0.2903645833333333,
+        "Python_Lead": 0.0171875,
         "QA_Lead": 0.0,
-        "React_Developer": 0.7244791666666667,
-        "React_Lead": 0.056770833333333326,
-        "SAP_Consultant": 0.12265624999999998,
-        "Solution_Architect": 0.11666666666666664
+        "React_Developer": 0.7184895833333333,
+        "React_Lead": 0.054947916666666666,
+        "SAP_Consultant": 0.12291666666666666,
+        "Solution_Architect": 0.11484374999999998
       }
     },
     "effort": {
-      "rmse": 103.07728646834417,
-      "mae": 59.02682291666668,
-      "r2": 0.9895145960184384
+      "rmse": 100.56456123586726,
+      "mae": 57.911979166666654,
+      "r2": 0.9900195726059059
     },
     "schedule_risk": {
       "accuracy": 1.0,
@@ -83,7 +83,7 @@
   "warnings": [
     {
       "report": "staffing_diversity_validation",
-      "issue_count": 36,
+      "issue_count": 51,
       "path": "C:\\OurWorkspace\\Dipanjan\\AI\\predictive-planner\\ml-service\\reports\\staffing_diversity_validation_report.csv"
     }
   ],

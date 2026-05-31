@@ -29,7 +29,22 @@ const TABLE_SORT_COLUMNS = {
   approvedAt: 'p.approved_at',
 };
 
-async function getPmSummary(userId) {
+function normalizeRole(user) {
+  const role = String(user?.role || '').toUpperCase();
+  return role === 'AM' ? 'ACCOUNT_MANAGER' : role;
+}
+
+function hideRegressionForRole(user, aliases = {}) {
+  if (normalizeRole(user) === 'ADMIN') return '';
+  const clauses = [];
+  if (aliases.project) clauses.push(`COALESCE(${aliases.project}.is_regression_data, 0) = 0`);
+  if (aliases.draft) clauses.push(`COALESCE(${aliases.draft}.is_regression_data, 0) = 0`);
+  if (aliases.cr) clauses.push(`COALESCE(${aliases.cr}.is_regression_data, 0) = 0`);
+  return clauses.length ? ` AND ${clauses.join(' AND ')}` : '';
+}
+
+async function getPmSummary(user) {
+  const userId = user.userId;
   const [[projectCounts], [mlUsage], [overrideRows], [crRows]] = await Promise.all([
     db.query(
       `
@@ -38,6 +53,7 @@ async function getPmSummary(userId) {
           SUM(CASE WHEN workflow_status = 'RETURNED' THEN 1 ELSE 0 END) AS returnedProjects
         FROM project_drafts
         WHERE owner_id = ? OR submitted_by_user_id = ?
+          ${hideRegressionForRole(user, { draft: 'project_drafts' })}
       `,
       [userId, userId],
     ),
@@ -55,6 +71,7 @@ async function getPmSummary(userId) {
         FROM ml_prediction_feedback f
         INNER JOIN project_drafts p ON p.draft_id = f.project_draft_id
         WHERE p.owner_id = ? OR p.submitted_by_user_id = ?
+          ${hideRegressionForRole(user, { draft: 'p' })}
       `,
       [userId, userId],
     ),
@@ -65,6 +82,7 @@ async function getPmSummary(userId) {
         INNER JOIN project p ON p.project_id = cr.project_id
         INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
         WHERE pd.owner_id = ? OR pd.submitted_by_user_id = ?
+          ${hideRegressionForRole(user, { cr: 'cr', project: 'p', draft: 'pd' })}
         GROUP BY DATE_FORMAT(cr.created_at, '%Y-%m')
         ORDER BY period DESC
         LIMIT 6
@@ -82,14 +100,16 @@ async function getPmSummary(userId) {
   };
 }
 
-async function getAmSummary(userId) {
+async function getAmSummary(user) {
+  const userId = user.userId;
   const [[pending], [highRisk], [turnaround], [returns]] = await Promise.all([
-    db.query('SELECT COUNT(*) AS pendingApprovals FROM project_drafts WHERE workflow_status = "SUBMITTED"'),
+    db.query(`SELECT COUNT(*) AS pendingApprovals FROM project_drafts WHERE workflow_status = "SUBMITTED" ${hideRegressionForRole(user, { draft: 'project_drafts' })}`),
     db.query(
       `
         SELECT COUNT(*) AS highRiskProjects
         FROM project_drafts
         WHERE JSON_UNQUOTE(JSON_EXTRACT(draft_data, '$.mlRecommendation.recommendation.risk.riskLevel')) IN ('High', 'Critical')
+          ${hideRegressionForRole(user, { draft: 'project_drafts' })}
       `,
     ),
     db.query(
@@ -97,15 +117,18 @@ async function getAmSummary(userId) {
         SELECT AVG(TIMESTAMPDIFF(HOUR, submitted_at, approved_at)) AS approvalTurnaroundHours
         FROM project_drafts
         WHERE approved_by_user_id = ? AND submitted_at IS NOT NULL AND approved_at IS NOT NULL
+          ${hideRegressionForRole(user, { draft: 'project_drafts' })}
       `,
       [userId],
     ),
     db.query(
       `
         SELECT project_id AS projectId, COUNT(*) AS returnCount
-        FROM project_workflow_history
-        WHERE action_type = 'RETURN'
-        GROUP BY project_id
+        FROM project_workflow_history h
+        INNER JOIN project_drafts pd ON pd.draft_id = h.project_id
+        WHERE h.action_type = 'RETURN'
+          ${hideRegressionForRole(user, { draft: 'pd' })}
+        GROUP BY h.project_id
         ORDER BY returnCount DESC
         LIMIT 5
       `,
@@ -120,7 +143,7 @@ async function getAmSummary(userId) {
   };
 }
 
-async function getMlAccuracy() {
+async function getMlAccuracy(user) {
   const [[logs], [feedback]] = await Promise.all([
     db.query(
       `
@@ -184,7 +207,7 @@ async function getMlAccuracy() {
   };
 }
 
-async function getProjectRisk() {
+async function getProjectRisk(user) {
   const [rows] = await db.query(
     `
       SELECT p.draft_id AS projectId,
@@ -206,6 +229,8 @@ async function getProjectRisk() {
         WHERE action_type = 'RETURN'
         GROUP BY project_id
       ) ret ON ret.project_id = p.draft_id
+      WHERE 1 = 1
+        ${hideRegressionForRole(user, { draft: 'p', project: 'ap' })}
       ORDER BY p.updated_at DESC
       LIMIT 100
     `,
@@ -217,16 +242,20 @@ async function getProjectRisk() {
   }));
 }
 
-async function getCrTrends() {
+async function getCrTrends(user) {
   const [rows] = await db.query(
     `
-      SELECT DATE_FORMAT(created_at, '%Y-%m') AS period,
+      SELECT DATE_FORMAT(cr.created_at, '%Y-%m') AS period,
              COUNT(*) AS total,
-             SUM(CASE WHEN severity IN ('High', 'Critical') THEN 1 ELSE 0 END) AS highSeverity,
-             SUM(schedule_impact_days) AS scheduleImpactDays,
-             SUM(estimated_effort_hours) AS effortHours
-      FROM change_request
-      GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+             SUM(CASE WHEN cr.severity IN ('High', 'Critical') THEN 1 ELSE 0 END) AS highSeverity,
+             SUM(cr.schedule_impact_days) AS scheduleImpactDays,
+             SUM(cr.estimated_effort_hours) AS effortHours
+      FROM change_request cr
+      INNER JOIN project p ON p.project_id = cr.project_id
+      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
+      WHERE 1 = 1
+        ${hideRegressionForRole(user, { cr: 'cr', project: 'p', draft: 'pd' })}
+      GROUP BY DATE_FORMAT(cr.created_at, '%Y-%m')
       ORDER BY period DESC
       LIMIT 12
     `,
@@ -288,6 +317,7 @@ async function getVarianceDashboard(user, options = {}) {
     WHERE pd.workflow_status IN ('APPROVED', 'COMPLETE')
       AND newer_progress.snapshot_id IS NULL
       AND ${scope.sql}
+      ${hideRegressionForRole(user, { project: 'p', draft: 'pd' })}
   `;
   const tableBaseFrom = `
     ${scopedBaseFrom}

@@ -28,10 +28,21 @@ const statusColor = {
 };
 
 const valueOrDash = (value) => (value === null || value === undefined || value === '' ? '-' : value);
+const TRAINING_OUTPUT_STORAGE_KEY = 'mlTrainingOutputLogs';
+
+const loadStoredTrainingLogs = () => {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(TRAINING_OUTPUT_STORAGE_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
 
 const MlAdministrationPage = () => {
   const isAdmin = String(authService.getUserRole() || '').toUpperCase() === 'ADMIN';
   const [modelInfo, setModelInfo] = useState(null);
+  const [outputLogs, setOutputLogs] = useState(loadStoredTrainingLogs);
   const [loading, setLoading] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
@@ -39,7 +50,7 @@ const MlAdministrationPage = () => {
 
   const status = String(modelInfo?.trainingStatus || 'IDLE').toUpperCase();
   const isRunning = status === 'RUNNING';
-  const logs = useMemo(() => modelInfo?.logs || [], [modelInfo]);
+  const logs = useMemo(() => outputLogs, [outputLogs]);
   const history = modelInfo?.history || [];
 
   const loadModelInfo = useCallback(async ({ quiet = false } = {}) => {
@@ -66,6 +77,13 @@ const MlAdministrationPage = () => {
     }, 3000);
     return () => window.clearInterval(timer);
   }, [isAdmin, isRunning, loadModelInfo]);
+
+  useEffect(() => {
+    const latestLogs = modelInfo?.logs || [];
+    if (!latestLogs.length) return;
+    setOutputLogs(latestLogs);
+    window.localStorage.setItem(TRAINING_OUTPUT_STORAGE_KEY, JSON.stringify(latestLogs));
+  }, [modelInfo]);
 
   const handleRetrain = async () => {
     setStarting(true);
@@ -144,7 +162,7 @@ const MlAdministrationPage = () => {
         <CCardHeader><strong>Training Output</strong></CCardHeader>
         <CCardBody>
           <div className="bg-dark text-light p-3 rounded" style={{ minHeight: 180, maxHeight: 320, overflowY: 'auto', fontFamily: 'monospace', fontSize: 13 }}>
-            {logs.length ? logs.map((line, index) => <div key={`${line}-${index}`}>{line}</div>) : <div className="text-secondary">No active training output.</div>}
+            {logs.length ? logs.map((line, index) => <div key={`${line}-${index}`}>{line}</div>) : <div className="text-secondary">No training output available.</div>}
           </div>
         </CCardBody>
       </CCard>

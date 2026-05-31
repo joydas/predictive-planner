@@ -3,6 +3,10 @@ const { pool } = require('../config/db.config');
 async function ensureCrSchema() {
   const projectRepository = require('./project.repository');
   await projectRepository.ensureApprovedProjectTables();
+  await addColumnIfMissing('change_request', 'is_regression_data', `
+    ALTER TABLE change_request
+    ADD COLUMN is_regression_data TINYINT(1) NOT NULL DEFAULT 0
+  `);
   await addColumnIfMissing('change_request', 'cr_staffing_baseline_snapshot', `
     ALTER TABLE change_request
     ADD COLUMN cr_staffing_baseline_snapshot JSON NULL AFTER infrastructure_cost_impact
@@ -71,6 +75,8 @@ const CR_SELECT = `
   cr.submitted_by_user_id AS submittedByUserId,
   submitter.manager_id AS submittedByManagerId,
   cr.approved_by_user_id AS approvedByUserId,
+  COALESCE(cr.is_regression_data, 0) AS isRegressionData,
+  COALESCE(p.is_regression_data, 0) AS projectIsRegressionData,
   cr.submitted_at AS submittedAt,
   cr.approved_at AS approvedAt,
   cr.latest_comment AS latestComment,
@@ -494,6 +500,9 @@ function buildCrListWhere(filters) {
     where.push('DATE(cr.created_at) <= ?');
     params.push(filters.createdTo);
   }
+
+  where.push('COALESCE(cr.is_regression_data, 0) = 0');
+  where.push('COALESCE(p.is_regression_data, 0) = 0');
 
   return {
     sql: where.join(' AND '),

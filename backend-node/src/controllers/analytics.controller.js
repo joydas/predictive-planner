@@ -14,9 +14,9 @@ function handler(fn, label) {
 module.exports = {
   pmSummary: handler((req) => analyticsService.getPmSummary(req.user), 'PM summary'),
   amSummary: handler((req) => analyticsService.getAmSummary(req.user), 'AM summary'),
-  mlAccuracy: handler(() => analyticsService.getMlAccuracy(), 'ML accuracy'),
-  projectRisk: handler(() => analyticsService.getProjectRisk(), 'project risk'),
-  crTrends: handler(() => analyticsService.getCrTrends(), 'CR trend'),
+  mlAccuracy: handler((req) => analyticsService.getMlAccuracy(req.user), 'ML accuracy'),
+  projectRisk: handler((req) => analyticsService.getProjectRisk(req.user), 'project risk'),
+  crTrends: handler((req) => analyticsService.getCrTrends(req.user), 'CR trend'),
   varianceDashboard: handler((req) => analyticsService.getVarianceDashboard(req.user, req.query || {}), 'variance dashboard'),
   recordActualOutcome: handler(async (req) => {
     const affectedRows = await analyticsService.recordActualOutcome(req.body || {});

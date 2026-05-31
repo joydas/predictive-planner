@@ -189,6 +189,7 @@ async function listDataManagementProjects(user, params = {}) {
   const offset = (page - 1) * pageSize;
   const search = String(params.search || '').trim();
   const status = String(params.status || '').trim().toUpperCase();
+  const includeRegressionData = ['1', 'true', 'yes', 'on'].includes(String(params.includeRegressionData || '').toLowerCase());
   const managedProjectSql = `
     SELECT
       CONCAT('D', d.draft_id, '-', COALESCE(p.project_id, 'draft')) AS id,
@@ -221,7 +222,7 @@ async function listDataManagementProjects(user, params = {}) {
     LEFT JOIN app_user creator ON creator.user_id = p.owner_id
     WHERE d.draft_id IS NULL
   `;
-  const where = ['isRegressionData = 0'];
+  const where = includeRegressionData ? [] : ['isRegressionData = 0'];
   const values = [];
 
   if (search) {
@@ -266,6 +267,7 @@ async function listDataManagementProjects(user, params = {}) {
       page,
       pageSize,
       total: Number(countRows[0]?.total || 0),
+      includeRegressionData,
     },
   };
 }
@@ -301,7 +303,6 @@ async function resolveProjectReference(reference) {
       FROM project_drafts d
       LEFT JOIN project p ON p.source_draft_id = d.draft_id
       WHERE (${filters.join(' OR ')})
-        AND COALESCE(p.is_regression_data, d.is_regression_data, 0) = 0
       LIMIT 1
     `,
     params,
@@ -320,7 +321,6 @@ async function resolveProjectReference(reference) {
           FROM project p
           LEFT JOIN project_drafts d ON d.draft_id = p.source_draft_id
           WHERE p.project_id = ?
-            AND COALESCE(p.is_regression_data, 0) = 0
           LIMIT 1
         `,
         [projectId],

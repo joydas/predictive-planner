@@ -43,7 +43,7 @@ const DataManagementPage = () => {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0 });
-  const [filters, setFilters] = useState({ search: '', status: '' });
+  const [filters, setFilters] = useState({ search: '', status: '', includeRegressionData: false });
   const [selected, setSelected] = useState({});
   const [summary, setSummary] = useState(null);
   const [deleteMode, setDeleteMode] = useState('single');
@@ -66,6 +66,7 @@ const DataManagementPage = () => {
         pageSize: next.pageSize || pagination.pageSize,
         search: next.search ?? filters.search,
         status: next.status ?? filters.status,
+        includeRegressionData: next.includeRegressionData ?? filters.includeRegressionData,
       });
       setItems(result.items || []);
       setPagination(result.pagination || { page: 1, pageSize: 20, total: 0 });
@@ -75,7 +76,7 @@ const DataManagementPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters.search, filters.status, pagination.page, pagination.pageSize]);
+  }, [filters.includeRegressionData, filters.search, filters.status, pagination.page, pagination.pageSize]);
 
   useEffect(() => {
     if (isAdmin) loadProjects({ page: 1 });
@@ -84,6 +85,7 @@ const DataManagementPage = () => {
   const updateFilter = (field, value) => {
     const nextFilters = { ...filters, [field]: value };
     setFilters(nextFilters);
+    setSelected({});
     loadProjects({ ...nextFilters, page: 1 });
   };
 
@@ -164,6 +166,11 @@ const DataManagementPage = () => {
       label: 'Status',
       render: (row) => <CBadge color={statusColor[String(row.status || '').toUpperCase()] || 'secondary'}>{row.status}</CBadge>,
     },
+    {
+      key: 'isRegressionData',
+      label: 'Data Type',
+      render: (row) => row.isRegressionData ? <CBadge color="warning">Regression</CBadge> : <CBadge color="secondary">Standard</CBadge>,
+    },
     { key: 'createdBy', label: 'Created By', render: (row) => valueOrDash(row.createdBy) },
     { key: 'createdDate', label: 'Created Date', render: (row) => formatDisplayDateTime(row.createdDate) },
     {
@@ -223,7 +230,15 @@ const DataManagementPage = () => {
                 {Object.keys(statusColor).map((status) => <option key={status} value={status}>{status}</option>)}
               </CFormSelect>
             </CCol>
-            <CCol md={4} className="d-flex gap-2 justify-content-md-end">
+            <CCol md={2}>
+              <CFormCheck
+                id="includeRegressionData"
+                label="Include regression data"
+                checked={filters.includeRegressionData}
+                onChange={(event) => updateFilter('includeRegressionData', event.target.checked)}
+              />
+            </CCol>
+            <CCol md={2} className="d-flex gap-2 justify-content-md-end">
               <CButton color="secondary" variant="outline" onClick={() => loadProjects()}>Refresh</CButton>
               <CButton color="danger" disabled={selectedProjects.length === 0} onClick={openBulkDelete}>
                 Delete Multiple Projects

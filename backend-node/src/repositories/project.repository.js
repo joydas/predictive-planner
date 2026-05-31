@@ -1,6 +1,10 @@
 const { pool: db } = require('../config/db.config');
 
 async function ensureDraftTable() {
+  await addColumnIfMissing('project_drafts', 'is_regression_data', `
+    ALTER TABLE project_drafts
+    ADD COLUMN is_regression_data TINYINT(1) NOT NULL DEFAULT 0 AFTER published_at
+  `);
   return true;
 }
 
@@ -29,6 +33,10 @@ async function ensureApprovedProjectTables() {
   await addColumnIfMissing('project', 'actual_completion_date', `
     ALTER TABLE project
     ADD COLUMN actual_completion_date DATE NULL AFTER actual_final_estimated_value
+  `);
+  await addColumnIfMissing('project', 'is_regression_data', `
+    ALTER TABLE project
+    ADD COLUMN is_regression_data TINYINT(1) NOT NULL DEFAULT 0 AFTER approved_data
   `);
 
   return true;
@@ -166,6 +174,7 @@ async function updateDraft(draftId, ownerId, draftData, status = 'DRAFT') {
     UPDATE project_drafts
     SET draft_data = ?, updated_at = NOW(), status = ?
     WHERE draft_id = ? AND owner_id = ? AND workflow_status <> 'APPROVED'
+      AND COALESCE(is_regression_data, 0) = 0
   `;
   const [result] = await db.promise().query(sql, [JSON.stringify(draftData), status, draftId, ownerId]);
   return result.affectedRows > 0;
@@ -193,6 +202,7 @@ async function getDraftById(draftId, ownerId) {
            updated_at AS updatedAt
     FROM project_drafts
     WHERE draft_id = ? AND owner_id = ?
+      AND COALESCE(is_regression_data, 0) = 0
     LIMIT 1
   `;
   const [rows] = await db.promise().query(sql, [draftId, ownerId]);
@@ -212,6 +222,7 @@ async function markDraftSubmitted(draftId, ownerId) {
     UPDATE project_drafts
     SET status = 'SUBMITTED', updated_at = NOW()
     WHERE draft_id = ? AND owner_id = ?
+      AND COALESCE(is_regression_data, 0) = 0
   `;
   const [result] = await db.promise().query(sql, [draftId, ownerId]);
   return result.affectedRows > 0;
@@ -389,6 +400,7 @@ function mapDraftDataToProject(row) {
     isPublished: Boolean(row.isPublished),
     publishedProjectId: row.publishedProjectId,
     publishedAt: row.publishedAt,
+    isRegressionData: Boolean(row.isRegressionData),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     name: legacy.name || basicInfo.project_name || 'Untitled Project',
@@ -502,6 +514,8 @@ function buildProjectListWhere(filters) {
     params.push(filters.createdTo);
   }
 
+  where.push('COALESCE(p.is_regression_data, 0) = 0');
+
   return {
     sql: where.join(' AND '),
     params,
@@ -574,6 +588,7 @@ async function findProjectsForPm(filters) {
         INNER JOIN project_drafts p ON p.draft_id = ap.source_draft_id
         WHERE ${where.sql}
           AND p.is_published = 1
+          AND COALESCE(ap.is_regression_data, 0) = 0
       ) records
     `,
     [...where.params, ...where.params],
@@ -599,6 +614,7 @@ async function findProjectsForPm(filters) {
              0 AS approvedScheduleImpactDays,
              p.created_at AS createdAt,
              p.updated_at AS updatedAt,
+             COALESCE(p.is_regression_data, 0) AS isRegressionData,
              reviewer.action_comment AS reviewerComment
       FROM project_drafts p
       LEFT JOIN (
@@ -669,6 +685,7 @@ async function findProjectsForPm(filters) {
              COALESCE(cr_schedule.totalScheduleImpactDays, 0) AS approvedScheduleImpactDays,
              ap.created_at AS createdAt,
              p.updated_at AS updatedAt,
+             COALESCE(ap.is_regression_data, p.is_regression_data, 0) AS isRegressionData,
              reviewer.action_comment AS reviewerComment
       FROM project ap
       INNER JOIN project_drafts p ON p.draft_id = ap.source_draft_id
@@ -705,6 +722,7 @@ async function findProjectsForPm(filters) {
         ON reviewer.project_id = p.draft_id
       WHERE ${where.sql}
         AND p.is_published = 1
+        AND COALESCE(ap.is_regression_data, 0) = 0
       ) project_rows
       ORDER BY ${sortColumn} ${sortOrder}, projectId DESC
       LIMIT ? OFFSET ?
@@ -723,6 +741,7 @@ async function findProjectsForPm(filters) {
 }
 
 async function findApprovedProjectsAvailableForCr(user) {
+  await ensureDraftTable();
   await ensureApprovedProjectTables();
   const rawRole = String(user.role || '').toUpperCase();
   const role = rawRole === 'AM' ? 'ACCOUNT_MANAGER' : rawRole;
@@ -777,6 +796,8 @@ async function findApprovedProjectsAvailableForCr(user) {
         ON cr_schedule.project_id = ap.project_id
       WHERE ${where.join(' AND ')}
         AND pd.workflow_status = 'APPROVED'
+        AND COALESCE(ap.is_regression_data, 0) = 0
+        AND COALESCE(pd.is_regression_data, 0) = 0
       ORDER BY ap.updated_at DESC, ap.project_id DESC
     `,
     params,
@@ -868,6 +889,7 @@ async function getProjectById(projectId) {
            pd.latest_comment AS latestComment,
            ap.created_at AS createdAt,
            pd.updated_at AS updatedAt
+           ,COALESCE(ap.is_regression_data, pd.is_regression_data, 0) AS isRegressionData
     FROM project ap
     INNER JOIN project_drafts pd ON pd.draft_id = ap.source_draft_id
     LEFT JOIN (
@@ -1186,6 +1208,7 @@ async function getDraftProjectById(draftId) {
            published_at AS publishedAt,
            created_at AS createdAt,
            updated_at AS updatedAt
+           ,COALESCE(is_regression_data, 0) AS isRegressionData
     FROM project_drafts
     WHERE draft_id = ?
     LIMIT 1

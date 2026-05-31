@@ -83,10 +83,13 @@ function daysBetweenToday(value) {
 
 function visibleApprovedProjectWhere(user, alias = 'p', draftAlias = 'pd') {
   const role = normalizeRole(user);
+  const regressionFilter = role === 'ADMIN'
+    ? ''
+    : ` AND COALESCE(${alias}.is_regression_data, 0) = 0 AND COALESCE(${draftAlias}.is_regression_data, 0) = 0`;
 
   if (role === 'PM') {
     return {
-      sql: `(${alias}.owner_id = ? OR ${draftAlias}.submitted_by_user_id = ?)`,
+      sql: `(${alias}.owner_id = ? OR ${draftAlias}.submitted_by_user_id = ?)${regressionFilter}`,
       params: [user.userId, user.userId],
     };
   }
@@ -101,7 +104,7 @@ function visibleApprovedProjectWhere(user, alias = 'p', draftAlias = 'pd') {
           WHERE assigned_pm.user_id = COALESCE(${draftAlias}.submitted_by_user_id, ${alias}.owner_id)
             AND assigned_pm.manager_id = ?
         )
-      )`,
+      )${regressionFilter}`,
       params: [user.userId, user.userId],
     };
   }
@@ -115,10 +118,11 @@ function visibleApprovedProjectWhere(user, alias = 'p', draftAlias = 'pd') {
 
 function visibleDraftWorkflowWhere(user, alias = 'pd') {
   const role = normalizeRole(user);
+  const regressionFilter = role === 'ADMIN' ? '' : ` AND COALESCE(${alias}.is_regression_data, 0) = 0`;
 
   if (role === 'PM') {
     return {
-      sql: `(${alias}.owner_id = ? OR ${alias}.submitted_by_user_id = ?)`,
+      sql: `(${alias}.owner_id = ? OR ${alias}.submitted_by_user_id = ?)${regressionFilter}`,
       params: [user.userId, user.userId],
     };
   }
@@ -133,7 +137,7 @@ function visibleDraftWorkflowWhere(user, alias = 'pd') {
           WHERE assigned_pm.user_id = COALESCE(${alias}.submitted_by_user_id, ${alias}.owner_id)
             AND assigned_pm.manager_id = ?
         )
-      )`,
+      )${regressionFilter}`,
       params: [user.userId],
     };
   }
@@ -182,10 +186,13 @@ function crVisibilityWhere(
   { includeSubmittedForAm = false } = {},
 ) {
   const role = normalizeRole(user);
+  const regressionFilter = role === 'ADMIN'
+    ? ''
+    : ` AND COALESCE(${crAlias}.is_regression_data, 0) = 0 AND COALESCE(${projectAlias}.is_regression_data, 0) = 0 AND COALESCE(${draftAlias}.is_regression_data, 0) = 0`;
 
   if (role === 'PM') {
     return {
-      sql: `(${projectAlias}.owner_id = ? OR ${draftAlias}.submitted_by_user_id = ?)`,
+      sql: `(${projectAlias}.owner_id = ? OR ${draftAlias}.submitted_by_user_id = ?)${regressionFilter}`,
       params: [user.userId, user.userId],
     };
   }
@@ -204,7 +211,7 @@ function crVisibilityWhere(
                 AND assigned_pm.manager_id = ?
             )
           )
-        )`,
+        )${regressionFilter}`,
         params: [user.userId, user.userId],
       };
     }
@@ -218,7 +225,7 @@ function crVisibilityWhere(
           WHERE assigned_pm.user_id = ${crAlias}.submitted_by_user_id
             AND assigned_pm.manager_id = ?
         )
-      )`,
+      )${regressionFilter}`,
       params: [user.userId, user.userId],
     };
   }

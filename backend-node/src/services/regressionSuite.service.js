@@ -253,8 +253,8 @@ async function getRegressionActors() {
     throw error;
   }
   return {
-    pm: { userId: rows[0].pmUserId, role: 'PM', name: rows[0].pmUserName },
-    am: { userId: rows[0].amUserId, role: 'AM', name: rows[0].amUserName },
+    pm: { userId: rows[0].pmUserId, role: 'PM', name: rows[0].pmUserName, isRegressionSuiteActor: true },
+    am: { userId: rows[0].amUserId, role: 'AM', name: rows[0].amUserName, isRegressionSuiteActor: true },
   };
 }
 
@@ -437,9 +437,12 @@ function buildProgressPoints(projectMeta, completed) {
   for (let index = 0; index < months; index += 1) {
     const date = toDateOnly(addMonths(new Date(`${projectMeta.startDate}T00:00:00`), index + 1));
     const range = ranges[Math.min(index, ranges.length - 1)];
-    const completion = completed && index === months - 1
-      ? 100
-      : clamp(randomInt(range[0], range[1]), previous + 5, 95);
+    let completion = 100;
+    if (!(completed && index === months - 1)) {
+      const upperBound = 95;
+      const lowerBound = Math.min(previous + 5, upperBound);
+      completion = clamp(randomInt(range[0], range[1]), lowerBound, upperBound);
+    }
     previous = completion;
     points.push({ date, completion });
   }
