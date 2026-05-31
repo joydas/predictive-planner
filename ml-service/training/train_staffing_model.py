@@ -1,3 +1,5 @@
+import math
+
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error
@@ -12,6 +14,12 @@ from utils.paths import DATASETS_DIR, MODELS_DIR
 MIN_NON_ZERO_TARGETS = 10
 
 
+def _effective_min_non_zero_targets(row_count: int) -> int:
+    if row_count <= 0:
+        return MIN_NON_ZERO_TARGETS
+    return min(MIN_NON_ZERO_TARGETS, max(1, math.ceil(row_count * 0.25)))
+
+
 def train_staffing_model(dataset_path=None) -> dict:
     dataset_path = dataset_path or DATASETS_DIR / "project_training_dataset.csv"
     df = pd.read_csv(dataset_path)
@@ -23,6 +31,7 @@ def train_staffing_model(dataset_path=None) -> dict:
     if df.empty or not target_columns:
         raise ValueError("Training dataset is empty or missing staffing target columns")
 
+    effective_min_non_zero_targets = _effective_min_non_zero_targets(len(df))
     target_non_zero_counts = {
         col: int((pd.to_numeric(df[col], errors="coerce").fillna(0) > 0).sum())
         for col in target_columns
@@ -30,7 +39,7 @@ def train_staffing_model(dataset_path=None) -> dict:
     valid_target_columns = [
         col
         for col in target_columns
-        if target_non_zero_counts[col] >= MIN_NON_ZERO_TARGETS
+        if target_non_zero_counts[col] >= effective_min_non_zero_targets
     ]
     excluded_target_columns = [
         col
@@ -38,7 +47,8 @@ def train_staffing_model(dataset_path=None) -> dict:
         if col not in valid_target_columns
     ]
 
-    print(f"Minimum non-zero staffing targets required: {MIN_NON_ZERO_TARGETS}")
+    print(f"Configured maximum non-zero staffing targets required: {MIN_NON_ZERO_TARGETS}")
+    print(f"Effective non-zero staffing targets required: {effective_min_non_zero_targets}")
     print("Excluded sparse staffing targets:")
     if excluded_target_columns:
         for col in excluded_target_columns:
@@ -51,7 +61,7 @@ def train_staffing_model(dataset_path=None) -> dict:
 
     if not valid_target_columns:
         raise ValueError(
-            f"No staffing target columns have at least {MIN_NON_ZERO_TARGETS} non-zero rows"
+            f"No staffing target columns have at least {effective_min_non_zero_targets} non-zero rows"
         )
 
     features = feature_columns_for_dataset(df)
@@ -88,6 +98,7 @@ def train_staffing_model(dataset_path=None) -> dict:
             },
             "target_non_zero_counts": target_non_zero_counts,
             "min_non_zero_targets": MIN_NON_ZERO_TARGETS,
+            "effective_min_non_zero_targets": effective_min_non_zero_targets,
             "metrics": metrics,
         },
     )

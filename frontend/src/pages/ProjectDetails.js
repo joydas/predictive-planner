@@ -7,6 +7,7 @@ import {
   CCardBody,
   CCardHeader,
   CCol,
+  CProgress,
   CRow,
   CSpinner,
   CTooltip,
@@ -51,6 +52,31 @@ const forecastStatus = (delayDays) => {
   if (delay <= 14) return 'Minor Delay';
   if (delay <= 30) return 'Moderate Delay';
   return 'High Delay Risk';
+};
+
+const deliveryRiskLevel = (probability) => {
+  const value = Number(probability);
+  if (!Number.isFinite(value)) return 'Unknown';
+  if (value >= 80) return 'LOW';
+  if (value >= 60) return 'MODERATE';
+  if (value >= 40) return 'HIGH';
+  return 'CRITICAL';
+};
+
+const deliveryRiskBadgeColor = (probability) => {
+  const value = Number(probability);
+  if (!Number.isFinite(value)) return 'secondary';
+  if (value >= 80) return 'success';
+  if (value >= 60) return 'warning';
+  if (value >= 40) return 'danger';
+  return 'dark';
+};
+
+const formatProbability = (value) => {
+  if (value === null || value === undefined || value === '') return '-';
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '-';
+  return `${Math.round(numeric)}%`;
 };
 
 const formatDelay = (delayDays) => {
@@ -510,6 +536,7 @@ const ProjectDetails = () => {
             plannedEffort={displayPlannedEffort}
             plannedBudget={displayDeliveryBudget}
           />
+          <DeliveryRiskCard forecast={forecast} plannedCompletionDate={deliveryDetails.planned_end_date} />
           <SimilarHistoricalProjectsCard result={similarProjects} />
         </CCol>
       </CRow>
@@ -547,6 +574,7 @@ const SimilarHistoricalProjectsCard = ({ result }) => {
                 <DetailItem label="Actual Effort" value={`${valueOrDash(item.actualEffort)} PD`} />
                 <DetailItem label="Actual Budget" value={formatCurrency(item.actualBudget || 0)} />
                 <DetailItem label="Actual Duration" value={`${valueOrDash(item.actualDurationDays)} Days`} />
+                <DetailItem label="Completed On Time" value={item.completedOnTime ? 'Yes' : 'No'} />
               </div>
               <CButton
                 color="secondary"
@@ -720,6 +748,58 @@ const ForecastingCard = ({ forecast, plannedCompletionDate, plannedEffort, plann
           ) : (
             <CAlert color="info" className="mb-0">No forecast history is available.</CAlert>
           )
+        )}
+      </CCardBody>
+    </CCard>
+  );
+};
+
+const DeliveryRiskCard = ({ forecast, plannedCompletionDate }) => {
+  const probabilityObject = forecast?.onTimeProbability || {};
+  const available = probabilityObject?.available ?? false;
+  const probability = available ? probabilityObject.probability : null;
+  const riskLevel = available ? probabilityObject.riskLevel : 'Unknown';
+  const confidence = available ? probabilityObject.confidence : null;
+  const explanation = Array.isArray(probabilityObject.explanation) ? probabilityObject.explanation : [];
+  const completionForecast = forecast?.completionDate || forecast;
+
+  return (
+    <CCard className="mt-3">
+      <CCardHeader>
+        <strong>Delivery Risk Assessment</strong>
+      </CCardHeader>
+      <CCardBody>
+        {available ? (
+          <>
+            <div className="mb-3">
+              <div className="d-flex justify-content-between align-items-center">
+                <div>
+                  <p className="mb-1"><strong>On-Time Delivery Probability</strong></p>
+                  <h2 className="mb-0">{formatProbability(probability)}</h2>
+                </div>
+                <CBadge color={deliveryRiskBadgeColor(probability)}>{riskLevel}</CBadge>
+              </div>
+            </div>
+            <CProgress value={Math.max(0, Math.min(100, Number(probability) || 0))} className="mb-3" />
+            <DetailItem label="Forecast Completion" value={formatDisplayDate(completionForecast?.forecastCompletionDate || plannedCompletionDate)} />
+            <DetailItem label="Expected Delay" value={formatDelay(completionForecast?.forecastDelayDays)} />
+            <DetailItem label="Model Confidence" value={confidence === null ? '-' : `${confidence}%`} />
+            <hr />
+            <h6>Why AI Assigned This Probability</h6>
+            {explanation.length ? (
+              <ul className="mb-0">
+                {explanation.map((reason, index) => (
+                  <li key={index}>{reason}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mb-0">The probability is derived from historical delivery patterns, forecast outputs, and current project execution signals.</p>
+            )}
+          </>
+        ) : (
+          <CAlert color="warning" className="mb-0">
+            {probabilityObject?.message || 'Insufficient historical project data available for delivery risk assessment.'}
+          </CAlert>
         )}
       </CCardBody>
     </CCard>

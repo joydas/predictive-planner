@@ -36,6 +36,13 @@ FORECAST_FEATURE_COLUMNS = [
     "actual_team_size",
 ]
 
+ON_TIME_PROBABILITY_FEATURE_COLUMNS = [
+    *FORECAST_FEATURE_COLUMNS,
+    "forecast_delay_days",
+    "forecast_final_effort",
+    "forecast_final_budget",
+]
+
 MIN_FORECAST_TRAINING_ROWS = 5
 SIMILAR_PROJECT_FEATURE_COLUMNS = [
     "industry",
@@ -153,6 +160,48 @@ def _read_project_rows(project_id: int | None = None, completed_only: bool = Fal
         get_engine(),
         params=params,
     )
+
+
+def summarize_forecast_training_population() -> dict[str, int]:
+    regression_filter = _regression_filter("p")
+    test_type_expression = """
+      UPPER(COALESCE(
+        p.project_type,
+        mpt.project_type_name,
+        JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.basicInfo.project_type')),
+        ''
+      ))
+    """
+    counts = pd.read_sql_query(
+        text(
+            f"""
+            SELECT
+              SUM(CASE WHEN {test_type_expression} = 'TEST DATA' THEN 1 ELSE 0 END) AS excluded_test_data,
+              SUM(CASE WHEN {test_type_expression} <> 'TEST DATA' THEN 1 ELSE 0 END) AS completed
+            FROM project p
+            INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
+            LEFT JOIN md_project_type mpt ON mpt.project_type_id = p.project_type_id
+            LEFT JOIN (
+              SELECT pch.project_id, DATE(pch.completed_at) AS actual_completion_date
+              FROM project_completion_history pch
+              INNER JOIN (
+                SELECT project_id, MAX(completion_id) AS completion_id
+                FROM project_completion_history
+                GROUP BY project_id
+              ) latest ON latest.completion_id = pch.completion_id
+            ) latest_completion ON latest_completion.project_id = p.project_id
+            WHERE pd.workflow_status IN ('COMPLETE', 'CLOSED')
+              AND COALESCE(p.actual_completion_date, latest_completion.actual_completion_date) IS NOT NULL
+              {regression_filter}
+            """
+        ),
+        get_engine(),
+    )
+    if counts.empty:
+        return {"completed": 0, "total": 0, "excluded_test_data": 0}
+    completed = int(counts.iloc[0].get("completed") or 0)
+    excluded_test_data = int(counts.iloc[0].get("excluded_test_data") or 0)
+    return {"completed": completed, "total": completed, "excluded_test_data": excluded_test_data}
 
 
 def _read_cr_rows(project_ids: list[int]) -> pd.DataFrame:
@@ -449,6 +498,50 @@ def build_final_budget_forecast_training_dataset(output_path=None) -> pd.DataFra
     return dataset
 
 
+def build_on_time_probability_training_dataset(output_path=None) -> pd.DataFrame:
+    projects = _read_project_rows(completed_only=True)
+    if projects.empty:
+        dataset = pd.DataFrame()
+        if output_path is not None:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            dataset.to_csv(output_path, index=False)
+        return dataset
+
+    dataset = _assemble_features(projects, include_target=False)
+    dataset = dataset.merge(
+        projects[["project_id", "actual_completion_date"]],
+        on="project_id",
+        how="left",
+    )
+    dataset["on_time_delivery_flag"] = dataset.apply(
+        lambda row: int(
+            _to_date(row["actual_completion_date"]) is not None
+            and _to_date(row["planned_completion_date"]) is not None
+            and _to_date(row["actual_completion_date"]) <= _to_date(row["planned_completion_date"])
+        ),
+        axis=1,
+    )
+    dataset = dataset[dataset["on_time_delivery_flag"].notna()]
+
+    if output_path is not None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        dataset.to_csv(output_path, index=False)
+    return dataset
+
+
+def build_on_time_probability_input(project_id: int) -> dict:
+    dataset = _assemble_features(_read_project_rows(project_id=project_id), include_target=False)
+    if dataset.empty:
+        raise ValueError(f"Project not found for on-time probability input: {project_id}")
+    row = dataset.iloc[0]
+    return {
+        "projectId": int(row["project_id"]),
+        "projectName": row["project_name"],
+        "plannedCompletionDate": str(row["planned_completion_date"] or "")[:10],
+        "features": row[FORECAST_FEATURE_COLUMNS].to_dict(),
+    }
+
+
 def build_completion_forecast_input(project_id: int) -> dict:
     dataset = _assemble_features(_read_project_rows(project_id=project_id), include_target=False)
     if dataset.empty:
@@ -713,6 +806,7 @@ def find_similar_historical_projects(
                 "actualBudget": _to_number(row["actual_budget"]),
                 "plannedDurationDays": int(_to_number(row["planned_duration_days_detail"] or row["planned_duration_days"], 0)),
                 "actualDurationDays": int(_to_number(row["actual_duration_days"], 0)),
+                "completedOnTime": int(_to_number(row["actual_duration_days"], 0)) <= int(_to_number(row["planned_duration_days_detail"] or row["planned_duration_days"], 0)),
                 "plannedTeamSize": _to_number(row["current_planned_team_size"]),
                 "approvedCrCount": int(_to_number(row["approved_cr_count"], 0)),
                 "totalCrEffortImpact": _to_number(row["total_cr_effort_impact"]),

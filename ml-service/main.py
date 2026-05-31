@@ -11,6 +11,7 @@ from inference.predictors import (
     predict_final_budget_forecast,
     predict_final_effort_forecast,
     predict_forecast_explainability,
+    predict_on_time_delivery_probability,
     predict_risk,
     predict_similar_projects,
     predict_staffing,
@@ -80,6 +81,16 @@ def risk_prediction(data: dict):
 def completion_date_prediction(data: dict):
     try:
         return predict_completion_date(data)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/predict/on-time-probability")
+def on_time_delivery_probability_prediction(data: dict):
+    try:
+        return predict_on_time_delivery_probability(data)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except ValueError as exc:

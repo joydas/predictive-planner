@@ -13,6 +13,7 @@ from feature_engineering.forecast_feature_builder import (
     build_completion_forecast_input,
     build_final_budget_forecast_input,
     build_final_effort_forecast_input,
+    build_on_time_probability_input,
     find_similar_historical_projects,
 )
 
@@ -587,6 +588,82 @@ def predict_risk(payload: dict) -> dict:
     if diagnostics["warnings"]:
         response["diagnostics"] = diagnostics
     return response
+
+
+def _delivery_risk_level(probability: int) -> str:
+    if probability >= 80:
+        return "LOW"
+    if probability >= 60:
+        return "MODERATE"
+    if probability >= 40:
+        return "HIGH"
+    return "CRITICAL"
+
+
+def predict_on_time_delivery_probability(payload: dict) -> dict:
+    artifact = load_artifact("on_time_delivery_probability_model.pkl")
+    if not artifact.get("pipeline"):
+        return {
+            "available": False,
+            "message": "Insufficient historical project data available.",
+        }
+
+    project_id = int(_number(payload.get("projectId"), 0))
+    if not project_id:
+        return {
+            "available": False,
+            "message": "Project id is required for on-time delivery probability.",
+        }
+
+    input_data = build_on_time_probability_input(project_id)
+    feature_columns = artifact["feature_columns"]
+    features = input_data["features"].copy()
+
+    try:
+        completion_forecast = predict_completion_date({"projectId": project_id})
+    except Exception:
+        completion_forecast = {"forecastDelayDays": 0}
+
+    try:
+        effort_forecast = predict_final_effort_forecast({"projectId": project_id})
+    except Exception:
+        effort_forecast = {"forecastFinalEffort": 0}
+
+    try:
+        budget_forecast = predict_final_budget_forecast({"projectId": project_id})
+    except Exception:
+        budget_forecast = {"forecastFinalBudget": 0}
+
+    features["forecast_delay_days"] = float(completion_forecast.get("forecastDelayDays") or 0)
+    features["forecast_final_effort"] = float(effort_forecast.get("forecastFinalEffort") or 0)
+    features["forecast_final_budget"] = float(budget_forecast.get("forecastFinalBudget") or 0)
+
+    frame = pd.DataFrame([{column: features.get(column, 0) for column in feature_columns}])
+    pipeline = artifact["pipeline"]
+    probability_value = 0.0
+    if hasattr(pipeline.named_steps["model"], "predict_proba"):
+        probabilities = pipeline.predict_proba(frame)[0]
+        classes = list(pipeline.named_steps["model"].classes_)
+        if 1 in classes:
+            probability_value = float(probabilities[classes.index(1)])
+
+    probability = int(round(max(0, min(100, probability_value * 100))))
+    risk_level = _delivery_risk_level(probability)
+    explainability = build_forecast_explainability(project_id)
+    explanation = explainability.get("completionDrivers", [])
+
+    return {
+        "available": True,
+        "probability": probability,
+        "riskLevel": risk_level,
+        "confidence": int(round(90 if probability >= 70 else 75 if probability >= 50 else 60)),
+        "explanation": explanation,
+        "forecast": {
+            "completionDelayDays": completion_forecast.get("forecastDelayDays"),
+            "finalEffort": effort_forecast.get("forecastFinalEffort"),
+            "finalBudget": budget_forecast.get("forecastFinalBudget"),
+        },
+    }
 
 
 def _regression_forecast_confidence(

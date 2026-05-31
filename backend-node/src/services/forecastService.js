@@ -110,6 +110,15 @@ async function callFinalBudgetForecastModel(projectId) {
   return response.data;
 }
 
+async function callOnTimeProbabilityModel(projectId) {
+  const response = await axios.post(
+    `${ML_API_URL}/predict/on-time-probability`,
+    { projectId },
+    { timeout: 15000 },
+  );
+  return response.data;
+}
+
 function unavailableForecast(message = 'Forecast is currently unavailable.') {
   return {
     forecastAvailable: false,
@@ -297,10 +306,11 @@ function calculateForecastTrend(history) {
 }
 
 async function callProjectForecast(projectId, options = {}) {
-  const [completionForecast, finalEffortForecast, finalBudgetForecast] = await Promise.all([
+  const [completionForecast, finalEffortForecast, finalBudgetForecast, onTimeProbability] = await Promise.all([
     callCompletionForecastModel(projectId).catch((error) => unavailableForecast(forecastErrorMessage(error))),
     callFinalEffortForecastModel(projectId).catch((error) => unavailableForecast(forecastErrorMessage(error))),
     callFinalBudgetForecastModel(projectId).catch((error) => unavailableForecast(forecastErrorMessage(error))),
+    callOnTimeProbabilityModel(projectId).catch((error) => ({ available: false, message: forecastErrorMessage(error) })),
   ]);
 
   const forecast = {
@@ -308,6 +318,7 @@ async function callProjectForecast(projectId, options = {}) {
     completionDate: completionForecast,
     finalEffort: finalEffortForecast,
     finalBudget: finalBudgetForecast,
+    onTimeProbability: onTimeProbability,
   };
   await upsertForecastSnapshot(projectId, forecast, options.snapshotDate, {
     persistAttempt: Boolean(options.persistAttempt),
