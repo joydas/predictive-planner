@@ -232,7 +232,7 @@ const ResourceAllocationPage = () => {
                   <CTableRow>
                     <CTableHeaderCell>Resource</CTableHeaderCell>
                     <CTableHeaderCell>Role</CTableHeaderCell>
-                    <CTableHeaderCell>Percent</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end">Percent</CTableHeaderCell>
                     <CTableHeaderCell>Start</CTableHeaderCell>
                     <CTableHeaderCell>End</CTableHeaderCell>
                     <CTableHeaderCell>Status</CTableHeaderCell>
@@ -243,7 +243,7 @@ const ResourceAllocationPage = () => {
                     <CTableRow key={allocation.allocationId}>
                       <CTableDataCell>{allocation.employeeName || allocation.resourceId}</CTableDataCell>
                       <CTableDataCell>{allocation.roleName || allocation.roleId}</CTableDataCell>
-                      <CTableDataCell>{allocation.allocationPercent}%</CTableDataCell>
+                      <CTableDataCell className="text-end">{allocation.allocationPercent}%</CTableDataCell>
                       <CTableDataCell>{allocation.allocationStartDate || '-'}</CTableDataCell>
                       <CTableDataCell>{allocation.allocationEndDate || '-'}</CTableDataCell>
                       <CTableDataCell>{allocation.allocationStatus}</CTableDataCell>

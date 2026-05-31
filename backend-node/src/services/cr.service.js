@@ -8,6 +8,34 @@ function normalizeNumber(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function normalizeStaffingRows(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows.map((row, index) => ({
+    key: row.key || row.baselineKey || `staffing-${index}`,
+    baselineKey: row.baselineKey || row.key || null,
+    changeType: row.changeType || row.action || 'ADJUST',
+    roleId: row.roleId ?? row.role_id ?? null,
+    role: String(row.role || row.roleName || '').trim(),
+    locationType: String(row.locationType || row.location_type || 'ONSITE').trim(),
+    count: normalizeNumber(row.count ?? row.resourceCount ?? row.resource_count),
+    allocationPercent: normalizeNumber(row.allocationPercent ?? row.allocation_percent),
+    startDate: row.startDate || row.allocationStartDate || row.allocation_start_date || '',
+    endDate: row.endDate || row.allocationEndDate || row.allocation_end_date || '',
+    ratePerDay: normalizeNumber(row.ratePerDay ?? row.rate_per_day),
+    durationDays: normalizeNumber(row.durationDays ?? row.workingDays),
+    plannedEffort: normalizeNumber(row.plannedEffort ?? row.planned_effort),
+    plannedCost: normalizeNumber(row.plannedCost ?? row.planned_cost),
+  }));
+}
+
+function summarizeStaffingDeltas(staffingDeltas = []) {
+  return staffingDeltas.reduce((totals, row) => ({
+    effort: totals.effort + normalizeNumber(row.plannedEffort),
+    cost: totals.cost + normalizeNumber(row.plannedCost),
+    teamSize: totals.teamSize + normalizeNumber(row.count),
+  }), { effort: 0, cost: 0, teamSize: 0 });
+}
+
 function requireValidCrImpact(changeRequest) {
   const fields = [
     ['effortImpact', 'effort impact'],
@@ -17,7 +45,7 @@ function requireValidCrImpact(changeRequest) {
 
   fields.forEach(([key, label]) => {
     const value = Number(changeRequest?.[key]);
-    if (!Number.isFinite(value) || value < 0) {
+    if (!Number.isFinite(value)) {
       const error = new Error(`Approved change request has invalid ${label}`);
       error.status = 400;
       throw error;
@@ -30,16 +58,34 @@ function normalizeCrPayload(payload = {}) {
   const impact = payload.impact || payload.impactAssessment || payload;
   const teamImpact = payload.teamImpact || payload;
   const financial = payload.financial || payload.financialImpact || payload;
+  const staffingBaselineSnapshot = normalizeStaffingRows(
+    teamImpact.staffingBaselineSnapshot
+      || teamImpact.currentApprovedStaffing
+      || payload.staffingBaselineSnapshot
+      || payload.currentApprovedStaffing,
+  );
+  const staffingDeltas = normalizeStaffingRows(
+    teamImpact.staffingDeltas
+      || teamImpact.crStaffingChanges
+      || payload.staffingDeltas
+      || payload.crStaffingChanges,
+  );
+  const deltaTotals = summarizeStaffingDeltas(staffingDeltas);
+  const hasStaffingDeltas = staffingDeltas.length > 0;
 
   const effortImpact = normalizeNumber(
-    impact.effortImpact ?? impact.effort_impact ?? impact.estimatedEffortHours ?? impact.estimated_effort_hours,
+    hasStaffingDeltas
+      ? deltaTotals.effort
+      : impact.effortImpact ?? impact.effort_impact ?? impact.estimatedEffortHours ?? impact.estimated_effort_hours,
   );
-  const budgetImpact = normalizeNumber(
+  const explicitBudgetImpact = normalizeNumber(
     financial.budgetImpact ?? financial.budget_impact ?? payload.budgetImpact ?? payload.budget_impact,
     null,
   );
   const teamSizeImpact = normalizeNumber(
-    teamImpact.teamSizeImpact ?? teamImpact.team_size_impact ?? payload.teamSizeImpact ?? payload.team_size_impact,
+    hasStaffingDeltas
+      ? deltaTotals.teamSize
+      : teamImpact.teamSizeImpact ?? teamImpact.team_size_impact ?? payload.teamSizeImpact ?? payload.team_size_impact,
     null,
   );
   const additionalPmCount = normalizeNumber(teamImpact.additionalPmCount ?? teamImpact.additional_pm_count);
@@ -47,8 +93,16 @@ function normalizeCrPayload(payload = {}) {
   const additionalQaCount = normalizeNumber(teamImpact.additionalQaCount ?? teamImpact.additional_qa_count);
   const additionalDevOpsCount = normalizeNumber(teamImpact.additionalDevOpsCount ?? teamImpact.additional_devops_count);
   const additionalArchitectCount = normalizeNumber(teamImpact.additionalArchitectCount ?? teamImpact.additional_architect_count);
-  const estimatedCostImpact = normalizeNumber(impact.estimatedCostImpact ?? impact.estimated_cost_impact);
-  const additionalBudget = normalizeNumber(financial.additionalBudget ?? financial.additional_budget);
+  const legacyEstimatedCostImpact = normalizeNumber(impact.estimatedCostImpact ?? impact.estimated_cost_impact, null);
+  const additionalBudget = normalizeNumber(
+    hasStaffingDeltas
+      ? deltaTotals.cost
+      : financial.additionalBudget
+      ?? financial.additional_budget
+      ?? explicitBudgetImpact
+      ?? legacyEstimatedCostImpact,
+  );
+  const estimatedCostImpact = legacyEstimatedCostImpact ?? 0;
   const additionalLicensingCost = normalizeNumber(financial.additionalLicensingCost ?? financial.additional_licensing_cost);
   const infrastructureCostImpact = normalizeNumber(financial.infrastructureCostImpact ?? financial.infrastructure_cost_impact);
 
@@ -64,9 +118,7 @@ function normalizeCrPayload(payload = {}) {
     estimatedEffortHours: effortImpact,
     estimatedCostImpact,
     effortImpact,
-    budgetImpact: budgetImpact === null
-      ? estimatedCostImpact + additionalBudget + additionalLicensingCost + infrastructureCostImpact
-      : budgetImpact,
+    budgetImpact: explicitBudgetImpact ?? additionalBudget,
     teamSizeImpact: teamSizeImpact === null
       ? additionalPmCount + additionalDevCount + additionalQaCount + additionalDevOpsCount + additionalArchitectCount
       : teamSizeImpact,
@@ -80,6 +132,8 @@ function normalizeCrPayload(payload = {}) {
     additionalBudget,
     additionalLicensingCost,
     infrastructureCostImpact,
+    staffingBaselineSnapshot,
+    staffingDeltas,
   };
 }
 
@@ -117,8 +171,16 @@ function validateSubmitPayload(crData) {
 }
 
 function canAccessProject(user, project) {
-  const role = String(user.role || '').toUpperCase();
+  const role = String(user.role || '').toUpperCase() === 'AM' ? 'ACCOUNT_MANAGER' : String(user.role || '').toUpperCase();
   const status = String(project.workflowStatus || project.status || '').toUpperCase();
+
+  if (role === 'ADMIN') {
+    return true;
+  }
+
+  if (project.isRegressionData && !user.isRegressionSuiteActor) {
+    return false;
+  }
 
   if (role === 'PM') {
     return Number(project.ownerId) === Number(user.userId)
@@ -133,15 +195,23 @@ function canAccessProject(user, project) {
 }
 
 function canAccessCr(user, changeRequest) {
-  const role = String(user.role || '').toUpperCase();
-  const status = String(changeRequest.workflowStatus || changeRequest.status || '').toUpperCase();
+  const role = String(user.role || '').toUpperCase() === 'AM' ? 'ACCOUNT_MANAGER' : String(user.role || '').toUpperCase();
+
+  if (role === 'ADMIN') {
+    return true;
+  }
+
+  if ((changeRequest.isRegressionData || changeRequest.projectIsRegressionData) && !user.isRegressionSuiteActor) {
+    return false;
+  }
 
   if (role === 'PM') {
     return Number(changeRequest.submittedByUserId) === Number(user.userId);
   }
 
   if (role === 'ACCOUNT_MANAGER') {
-    return status === 'SUBMITTED' || Number(changeRequest.approvedByUserId) === Number(user.userId);
+    return Number(changeRequest.submittedByManagerId) === Number(user.userId)
+      || Number(changeRequest.approvedByUserId) === Number(user.userId);
   }
 
   return false;
@@ -246,6 +316,23 @@ async function getChangeRequest(user, crId) {
   return changeRequest;
 }
 
+async function getProjectStaffingBaseline(user, projectId, excludeCrId = null) {
+  const project = await projectRepository.getProjectById(projectId);
+  if (!project) {
+    const error = new Error('Project not found');
+    error.status = 404;
+    throw error;
+  }
+
+  if (!canAccessProject(user, project)) {
+    const error = new Error('Access forbidden for this project');
+    error.status = 403;
+    throw error;
+  }
+
+  return crRepository.getCurrentApprovedStaffing(projectId, excludeCrId);
+}
+
 async function getChangeRequestsByProject(user, projectId) {
   const project = await projectRepository.getProjectById(projectId);
   if (!project) {
@@ -303,6 +390,7 @@ async function transitionChangeRequest(crId, user, actionType, comment) {
     });
   }
 
+  await projectRepository.ensureApprovedProjectTables();
   const connection = await pool.promise().getConnection();
   try {
     await connection.beginTransaction();
@@ -347,6 +435,7 @@ module.exports = {
   createDraft,
   getChangeRequest,
   getChangeRequestsByProject,
+  getProjectStaffingBaseline,
   getWorkflowHistory,
   listCrsForPm,
   normalizeCrPayload,

@@ -4,6 +4,7 @@ const projectPublishingService = require('./projectPublishing.service');
 const workflowService = require('../workflow/workflow.service');
 const mlPredictionService = require('./mlPrediction.service');
 const masterDataRepository = require('../repositories/masterData.repository');
+const forecastService = require('./forecastService');
 
 function normalizeNumber(value, fallback = 0) {
   if (value === '' || value === null || value === undefined) return fallback;
@@ -22,6 +23,25 @@ function requireNonNegativeNumber(value, label, { required = false } = {}) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0) {
     const error = new Error(`${label} must be a non-negative number`);
+    error.status = 400;
+    throw error;
+  }
+  return parsed;
+}
+
+function addCalendarDays(dateValue, days = 0) {
+  const base = toDateOnly(dateValue);
+  if (!base) return null;
+  const date = new Date(`${base}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  date.setDate(date.getDate() + Number(days || 0));
+  return toDateOnly(date);
+}
+
+function requirePercentInRange(value, label, { required = false } = {}) {
+  const parsed = requireNonNegativeNumber(value, label, { required });
+  if (parsed > 100) {
+    const error = new Error(`${label} cannot be more than 100`);
     error.status = 400;
     throw error;
   }
@@ -158,6 +178,46 @@ function sumObjectValues(value = {}) {
   return Object.values(value || {}).reduce((sum, next) => sum + normalizeNumber(next, 0), 0);
 }
 
+function getCalendarDays(startDate, endDate) {
+  if (!startDate || !endDate) return 0;
+  const start = new Date(`${toDateOnly(startDate)}T00:00:00`);
+  const end = new Date(`${toDateOnly(endDate)}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return 0;
+  return Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+}
+
+function toDateOnly(value) {
+  if (!value) return '';
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  return String(value).slice(0, 10);
+}
+
+function extractPmEstimatedValue(payload = {}) {
+  return normalizeNumber(
+    payload.basicInfo?.pm_estimated_value
+      ?? payload.basicInfo?.pmEstimatedValue
+      ?? payload.estimation?.pmEstimatedValue,
+    0,
+  );
+}
+
+function extractAiEstimatedValue(payload = {}) {
+  const existing = payload.baselineTracking?.estimation || payload.estimation || {};
+  const recommendation = payload.mlRecommendation?.recommendation || {};
+  return normalizeNumber(
+    recommendation.estimation?.recommendedValue
+      ?? recommendation.estimation?.estimatedValue
+      ?? existing.aiEstimatedValue
+      ?? existing.ai_estimated_value,
+    null,
+  );
+}
+
 function extractAiBaselineFromPayload(payload = {}) {
   const existing = payload.baselineTracking?.ai || payload.mlRecommendation?.aiBaseline || {};
   const recommendation = payload.mlRecommendation?.recommendation || {};
@@ -198,6 +258,7 @@ function normalizeProjectPayload(payload) {
       industry: '',
       project_type: '',
       delivery_model: '',
+      pm_estimated_value: payload.pm_estimated_value || payload.estimated_value || '',
     },
     deliveryDetails: {
       start_date: '',
@@ -236,6 +297,39 @@ function normalizeProjectPayload(payload) {
   };
 }
 
+async function normalizeIndustrySelection(payload) {
+  if (!payload?.basicInfo) return payload;
+
+  const basicInfo = payload.basicInfo || {};
+  const rawCode = String(basicInfo.industry_code || basicInfo.industryCode || '').trim();
+  const rawIndustry = String(basicInfo.industry || '').trim();
+  const industries = await masterDataRepository.listIndustries();
+  const match = industries.find((industry) =>
+    String(industry.industryCode).toLowerCase() === rawCode.toLowerCase()
+    || String(industry.industryName).toLowerCase() === rawIndustry.toLowerCase()
+  );
+
+  if (!match) {
+    return {
+      ...payload,
+      basicInfo: {
+        ...basicInfo,
+        industry: rawIndustry,
+        industry_code: rawCode,
+      },
+    };
+  }
+
+  return {
+    ...payload,
+    basicInfo: {
+      ...basicInfo,
+      industry: match.industryName,
+      industry_code: match.industryCode,
+    },
+  };
+}
+
 function isCompleteResourceRow(row) {
   return Boolean(row?.roleId || row?.role) && Boolean(row?.count) && Number(row.count) > 0;
 }
@@ -250,8 +344,12 @@ function assertPmUser(user) {
 
 async function applyDerivedPlanning(payload, { requireResourceLoading = false } = {}) {
   if (!payload?.basicInfo) return payload;
+  const industryNormalizedPayload = await normalizeIndustrySelection(payload);
   const rateCards = await masterDataRepository.listRateCards();
-  const normalizedRows = normalizeResourceRows(payload).filter((row) =>
+  const financial = industryNormalizedPayload.financial || {};
+  requirePercentInRange(financial.management_reserve_percent, 'Management reserve', { required: requireResourceLoading });
+  requirePercentInRange(financial.contingency_reserve_percent, 'Contingency reserve', { required: requireResourceLoading });
+  const normalizedRows = normalizeResourceRows(industryNormalizedPayload).filter((row) =>
     requireResourceLoading || isCompleteResourceRow(row)
   );
   if (requireResourceLoading && normalizedRows.length === 0) {
@@ -260,13 +358,13 @@ async function applyDerivedPlanning(payload, { requireResourceLoading = false } 
     throw error;
   }
   const normalizedPayload = {
-    ...payload,
+    ...industryNormalizedPayload,
     teamComposition: {
-      ...(payload.teamComposition || {}),
+      ...(industryNormalizedPayload.teamComposition || {}),
       rows: normalizedRows,
     },
     financial: {
-      ...(payload.financial || {}),
+      ...(industryNormalizedPayload.financial || {}),
       rateCards,
     },
   };
@@ -279,7 +377,7 @@ async function applyDerivedPlanning(payload, { requireResourceLoading = false } 
       rows: derivedPlanning.rows,
     },
     financial: {
-      ...payload.financial,
+      ...industryNormalizedPayload.financial,
       planned_effort: Number(derivedPlanning.plannedEffort.toFixed(2)),
       estimated_team_size: Number(derivedPlanning.estimatedTeamSize.toFixed(2)),
       base_resource_cost: Number(derivedPlanning.baseResourceCost.toFixed(2)),
@@ -370,6 +468,11 @@ async function submitProject(user, projectData, draftId = null, comment = '') {
         budget: Number(derivedPlanning.budget.toFixed(2)),
         teamSize: Number(derivedPlanning.estimatedTeamSize.toFixed(2)),
       },
+      estimation: {
+        ...(payload.baselineTracking?.estimation || {}),
+        pmEstimatedValue: Number(extractPmEstimatedValue(payload).toFixed(2)),
+        aiEstimatedValue: extractAiEstimatedValue(payload),
+      },
     },
     teamComposition: {
       ...payload.teamComposition,
@@ -449,6 +552,13 @@ function normalizeCompletionPayload(payload = {}) {
   const resourceCost = finalResourceLoading.reduce((sum, row) => sum + row.actualCost, 0);
   const actualEffort = finalResourceLoading.reduce((sum, row) => sum + (row.count * row.effort), 0);
   const actualTeamSize = finalResourceLoading.reduce((sum, row) => sum + row.count, 0);
+  const directActualEffort = payload.actualEffortPd ?? payload.actual_effort_pd ?? actuals.actualEffortPd ?? actuals.actual_effort_pd;
+  const directActualBudget = payload.actualBudget ?? payload.actual_budget ?? actuals.actualBudget ?? actuals.actual_budget;
+  const directActualTeamSize = payload.actualTeamSize ?? payload.actual_team_size ?? actuals.actualTeamSize ?? actuals.actual_team_size;
+  const actualCompletionPercent = requireNonNegativeNumber(
+    payload.actualCompletionPercent ?? payload.actual_completion_percent ?? actuals.actualCompletionPercent ?? actuals.actual_completion_percent,
+    'Actual completion %',
+  );
   const managementCost = requireNonNegativeNumber(
     actuals.managementCost ?? actuals.management_cost,
     'Management cost spent',
@@ -465,9 +575,24 @@ function normalizeCompletionPayload(payload = {}) {
     managementCost: Number(managementCost.toFixed(2)),
     contingencyCost: Number(contingencyCost.toFixed(2)),
     resourceCost: Number(resourceCost.toFixed(2)),
-    fullProjectCost: Number((resourceCost + managementCost + contingencyCost).toFixed(2)),
-    actualEffort: Number(actualEffort.toFixed(2)),
-    actualTeamSize: Number(actualTeamSize.toFixed(2)),
+    fullProjectCost: Number((directActualBudget !== undefined && directActualBudget !== ''
+      ? requireNonNegativeNumber(directActualBudget, 'Actual budget')
+      : resourceCost + managementCost + contingencyCost).toFixed(2)),
+    actualEffort: Number((directActualEffort !== undefined && directActualEffort !== ''
+      ? requireNonNegativeNumber(directActualEffort, 'Actual effort')
+      : actualEffort).toFixed(2)),
+    actualTeamSize: Number((directActualTeamSize !== undefined && directActualTeamSize !== ''
+      ? requireNonNegativeNumber(directActualTeamSize, 'Actual team size')
+      : actualTeamSize).toFixed(2)),
+    actualCompletionPercent: Number(actualCompletionPercent.toFixed(2)),
+    actualCompletionDate: toDateOnly(payload.actualCompletionDate ?? payload.actual_completion_date ?? actuals.actualCompletionDate ?? actuals.actual_completion_date),
+    actualFinalEstimatedValue: normalizeNumber(
+      payload.actualFinalEstimatedValue
+        ?? payload.actual_final_estimated_value
+        ?? actuals.actualFinalEstimatedValue
+        ?? actuals.actual_final_estimated_value,
+      null,
+    ),
     dependencyCount: normalizeNumber(groundMetrics.dependencyCount ?? groundMetrics.dependency_count, null),
     requirementStabilityIndex: normalizeNumber(
       groundMetrics.requirementStabilityIndex ?? groundMetrics.requirement_stability_index,
@@ -481,12 +606,6 @@ function normalizeCompletionPayload(payload = {}) {
 }
 
 function validateCompletionPayload(completion) {
-  if (!completion.finalResourceLoading.length) {
-    const error = new Error('At least one final resource loading row is required');
-    error.status = 400;
-    throw error;
-  }
-
   completion.finalResourceLoading.forEach((row, index) => {
     if (!row.role) {
       const error = new Error(`Final resource row ${index + 1} role is required`);
@@ -506,8 +625,122 @@ function validateCompletionPayload(completion) {
   });
 }
 
+function assertProjectOwner(project, user) {
+  if (
+    Number(project.ownerId) !== Number(user.userId)
+    && Number(project.submittedByUserId) !== Number(user.userId)
+  ) {
+    const error = new Error('Access forbidden for this project');
+    error.status = 403;
+    throw error;
+  }
+}
+
+function assertApprovedProject(project) {
+  if (String(project?.workflowStatus || project?.status || '').toUpperCase() !== 'APPROVED') {
+    const error = new Error('Only approved active projects support this action');
+    error.status = 400;
+    throw error;
+  }
+}
+
+function buildProgressContext(project, snapshots = [], selectedSnapshot = null) {
+  const delivery = project?.draftData?.deliveryDetails || {};
+  const current = project?.baselineTracking?.current || {};
+  const estimation = project?.baselineTracking?.estimation || {};
+  const approvedScheduleImpactDays = normalizeNumber(project?.totalCrScheduleImpactDays, 0);
+  const plannedDuration = getCalendarDays(delivery.start_date, delivery.planned_end_date)
+    + approvedScheduleImpactDays;
+  const effectiveEndDate = addCalendarDays(delivery.planned_end_date, approvedScheduleImpactDays);
+  return {
+    project: {
+      projectId: project.projectId,
+      projectCode: project.projectCode,
+      projectName: project.name,
+      workflowStatus: project.workflowStatus,
+    },
+    currentApprovedValues: {
+      plannedEffortPd: current.effort,
+      plannedBudget: current.budget,
+      plannedTeamSize: current.teamSize,
+      plannedDuration,
+      startDate: delivery.start_date,
+      plannedEndDate: delivery.planned_end_date,
+      effectiveEndDate,
+      approvedScheduleImpactDays,
+      currentEstimation: estimation.actualFinalEstimatedValue ?? estimation.pmEstimatedValue,
+    },
+    latestSnapshot: snapshots[0] || null,
+    selectedSnapshot,
+    snapshots,
+  };
+}
+
+async function getProjectProgress(projectId, user, snapshotDate = '') {
+  assertPmUser(user);
+  const project = await projectRepository.getProjectById(projectId);
+  if (!project) {
+    const error = new Error('Project not found');
+    error.status = 404;
+    throw error;
+  }
+  assertProjectOwner(project, user);
+  assertApprovedProject(project);
+  const snapshots = await projectRepository.findProgressSnapshots(projectId);
+  const selectedSnapshot = snapshotDate
+    ? await projectRepository.getProgressSnapshotByDate(projectId, snapshotDate)
+    : null;
+  return buildProgressContext(project, snapshots, selectedSnapshot);
+}
+
+async function saveProjectProgress(projectId, user, payload) {
+  assertPmUser(user);
+  const project = await projectRepository.getProjectById(projectId);
+  if (!project) {
+    const error = new Error('Project not found');
+    error.status = 404;
+    throw error;
+  }
+  assertProjectOwner(project, user);
+  assertApprovedProject(project);
+
+  const snapshotDate = toDateOnly(payload.snapshotDate ?? payload.snapshot_date);
+  if (!snapshotDate) {
+    const error = new Error('Snapshot date is required');
+    error.status = 400;
+    throw error;
+  }
+  const actualCompletionPercent = requireNonNegativeNumber(
+    payload.actualCompletionPercent ?? payload.actual_completion_percent,
+    'Actual completion %',
+    { required: true },
+  );
+  if (actualCompletionPercent > 100) {
+    const error = new Error('Actual completion % cannot exceed 100');
+    error.status = 400;
+    throw error;
+  }
+
+  const snapshot = await projectRepository.upsertProgressSnapshot(projectId, user.userId, {
+    snapshotDate,
+    actualEffortPd: requireNonNegativeNumber(payload.actualEffortPd ?? payload.actual_effort_pd, 'Actual effort (PD)', { required: true }),
+    actualBudget: requireNonNegativeNumber(payload.actualBudget ?? payload.actual_budget, 'Actual budget', { required: true }),
+    actualTeamSize: requireNonNegativeNumber(payload.actualTeamSize ?? payload.actual_team_size, 'Actual team size', { required: true }),
+    actualCompletionPercent,
+    remarks: String(payload.remarks || '').trim(),
+  });
+  try {
+    await forecastService.recordProjectForecastSnapshotForDate(projectId, snapshotDate);
+  } catch (error) {
+    console.warn('Forecast snapshot generation after progress save failed:', error.message);
+  }
+  const snapshots = await projectRepository.findProgressSnapshots(projectId);
+  return buildProgressContext(project, snapshots, snapshot);
+}
+
 async function completeProject(projectId, user, payload) {
   assertPmUser(user);
+  await projectRepository.ensureApprovedProjectTables();
   await projectRepository.ensureProjectCompletionTables();
 
   const completion = normalizeCompletionPayload(payload);
@@ -539,6 +772,13 @@ async function completeProject(projectId, user, payload) {
       throw error;
     }
 
+    if (completion.actualFinalEstimatedValue === null) {
+      completion.actualFinalEstimatedValue = normalizeNumber(project.actualFinalEstimatedValue, 0);
+    }
+    if (!completion.actualCompletionDate) {
+      completion.actualCompletionDate = toDateOnly(new Date());
+    }
+
     const completionRecord = await projectRepository.insertProjectCompletion(connection, {
       projectId,
       sourceDraftId: project.sourceDraftId,
@@ -551,11 +791,14 @@ async function completeProject(projectId, user, payload) {
       actualEffort: completion.actualEffort,
       actualBudget: completion.fullProjectCost,
       actualTeamSize: completion.actualTeamSize,
+      actualFinalEstimatedValue: completion.actualFinalEstimatedValue,
     });
     const actualsUpdated = await projectRepository.updateProjectActuals(connection, projectId, {
       actualEffort: completion.actualEffort,
       actualBudget: completion.fullProjectCost,
       actualTeamSize: completion.actualTeamSize,
+      actualFinalEstimatedValue: completion.actualFinalEstimatedValue,
+      actualCompletionDate: completion.actualCompletionDate,
     });
     if (!actualsUpdated) {
       const error = new Error('Project completion actuals could not be stored');
@@ -598,7 +841,12 @@ async function getProject(projectId) {
   if (approvedProject) {
     return approvedProject;
   }
-  return projectRepository.getDraftProjectById(projectId);
+  const draftProject = await projectRepository.getDraftProjectById(projectId);
+  if (draftProject?.publishedProjectId) {
+    const publishedProject = await projectRepository.getProjectById(draftProject.publishedProjectId);
+    if (publishedProject) return publishedProject;
+  }
+  return draftProject;
 }
 
 async function getDraftProject(draftId) {
@@ -721,6 +969,8 @@ module.exports = {
   listProjectsForPm,
   listApprovedProjectsForPm,
   listProjectsAvailableForCr,
+  getProjectProgress,
+  saveProjectProgress,
   getProject,
   getDraftProject,
   getWorkflowHistory,

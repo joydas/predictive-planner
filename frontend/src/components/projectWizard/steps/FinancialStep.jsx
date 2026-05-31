@@ -9,8 +9,8 @@ const FinancialStep = ({ data, updateSection, errors }) => {
   };
 
   return (
-    <div className="wizard-step-panel">
-      <h3>Financial Assumptions</h3>
+    <div className="project-info-section">
+      <h3 className="project-info-section-heading">Financial Assumptions</h3>
       <CForm>
         <CRow className="mb-4">
           <CCol md={4}>
@@ -21,6 +21,7 @@ const FinancialStep = ({ data, updateSection, errors }) => {
               onChange={handleChange('management_reserve_percent')}
               invalid={!!errors.management_reserve_percent}
               min="0"
+              max="100"
               step="0.1"
             />
             {errors.management_reserve_percent && <div className="form-error">{errors.management_reserve_percent}</div>}
@@ -33,6 +34,7 @@ const FinancialStep = ({ data, updateSection, errors }) => {
               onChange={handleChange('contingency_reserve_percent')}
               invalid={!!errors.contingency_reserve_percent}
               min="0"
+              max="100"
               step="0.1"
             />
             {errors.contingency_reserve_percent && <div className="form-error">{errors.contingency_reserve_percent}</div>}

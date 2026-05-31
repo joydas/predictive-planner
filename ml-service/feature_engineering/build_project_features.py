@@ -4,9 +4,7 @@ from config.db import get_engine
 from utils.feature_utils import numeric, parse_json, read_table, safe_days
 
 
-def build_project_features(engine=None) -> pd.DataFrame:
-    engine = engine or get_engine()
-    projects = read_table(engine, "project")
+def build_project_features_from_projects(projects: pd.DataFrame) -> pd.DataFrame:
     if projects.empty:
         return pd.DataFrame()
 
@@ -33,6 +31,8 @@ def build_project_features(engine=None) -> pd.DataFrame:
                 "project_code": row.get("project_code"),
                 "project_name": row.get("project_name"),
                 "client_name": row.get("client_name"),
+                "project_status": row.get("project_status", ""),
+                "project_status_group": row.get("project_status_group", row.get("project_status", "")),
                 "industry": row.get("industry") or "",
                 "project_type": row.get("project_type") or "",
                 "delivery_model": row.get("delivery_model") or "",
@@ -63,4 +63,11 @@ def build_project_features(engine=None) -> pd.DataFrame:
         "requirement_stability_index",
     ]:
         features[column] = numeric(features[column])
+
     return features
+
+
+def build_project_features(engine=None) -> pd.DataFrame:
+    engine = engine or get_engine()
+    projects = read_table(engine, "project")
+    return build_project_features_from_projects(projects)

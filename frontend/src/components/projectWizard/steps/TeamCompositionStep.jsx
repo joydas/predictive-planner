@@ -16,6 +16,35 @@ const roleAliases = {
 
 const displayRole = (role) => String(role || '').replace(/_/g, ' ');
 
+const calculateVariancePercent = (baseline, comparison) => {
+  const baselineValue = Number(baseline);
+  const comparisonValue = Number(comparison);
+  if (!Number.isFinite(baselineValue) || baselineValue === 0 || !Number.isFinite(comparisonValue)) {
+    return null;
+  }
+  return Number((((comparisonValue - baselineValue) / baselineValue) * 100).toFixed(2));
+};
+
+const varianceSeverity = (variance) => {
+  if (variance === null || variance === undefined) return 'Pending';
+  const absolute = Math.abs(Number(variance));
+  if (absolute <= 10) return 'Normal';
+  if (absolute <= 20) return 'Medium';
+  if (absolute <= 40) return 'High';
+  return 'Critical';
+};
+
+const formatPd = (value) => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? `${numeric.toFixed(2)} PD` : '-';
+};
+
+const formatVariance = (value) => (
+  value === null || value === undefined
+    ? '-'
+    : `${Number(value) > 0 ? '+' : ''}${Number(value).toFixed(2)}%`
+);
+
 const normalizeRoleLabel = (label) =>
   String(label || '')
     .replace(/_/g, ' ')
@@ -230,9 +259,14 @@ const TeamCompositionStep = ({
       const aiEffort = recommendedRows.length
         ? recommendedEffort
         : Number(result.effort?.predictedHours ?? 0);
+      const aiEstimatedValue = Number(result.estimation?.recommendedValue ?? result.effort?.predictedHours ?? 0);
       updateMlRecommendation({
         recommendation: {
           ...result,
+          estimation: {
+            ...(result.estimation || {}),
+            recommendedValue: Number(aiEstimatedValue.toFixed(2)),
+          },
           baselineSnapshot: {
             effort: Number(aiEffort.toFixed(2)),
             budget: Number(recommendedPlanning.budget.toFixed(2)),
@@ -252,11 +286,23 @@ const TeamCompositionStep = ({
   };
 
   const recommendation = mlRecommendation.recommendation;
+  const pmEstimatedValue = Number(projectData?.basicInfo?.pm_estimated_value || 0);
+  const aiEstimatedValue = Number(recommendation?.estimation?.recommendedValue || 0);
+  const currentPlannedEffort = Number(derived.planned_effort || 0);
+  const pmVsMlVariance = recommendation
+    ? calculateVariancePercent(pmEstimatedValue, aiEstimatedValue)
+    : null;
+  const pmVsPlannedVariance = recommendation
+    ? calculateVariancePercent(pmEstimatedValue, currentPlannedEffort)
+    : null;
+  const mlVsPlannedVariance = recommendation
+    ? calculateVariancePercent(aiEstimatedValue, currentPlannedEffort)
+    : null;
 
   return (
     <div className="wizard-step-panel">
       <div className="team-composition-title-row">
-        <h3>Resource Loading & Planning</h3>
+        <h3>Resource Loading and Planning</h3>
         <CButton color="primary" onClick={handleGetRecommendation} disabled={loadingRecommendation}>
           {loadingRecommendation ? <><CSpinner size="sm" /> Getting Recommendation</> : 'Get ML Recommendation'}
         </CButton>
@@ -279,6 +325,32 @@ const TeamCompositionStep = ({
               <div>{recommendation.risk?.riskLevel || 'Unknown'}</div>
             </div>
           </div>
+          <div className="ml-recommendation-grid mt-3">
+            <div>
+              <strong>PM Estimate</strong>
+              <div>{formatPd(pmEstimatedValue)}</div>
+            </div>
+            <div>
+              <strong>ML Estimate</strong>
+              <div>{formatPd(aiEstimatedValue)}</div>
+            </div>
+            <div>
+              <strong>Planned Effort</strong>
+              <div>{formatPd(currentPlannedEffort)}</div>
+            </div>
+            <div>
+              <strong>PM vs ML</strong>
+              <div>{formatVariance(pmVsMlVariance)} - {varianceSeverity(pmVsMlVariance)}</div>
+            </div>
+            <div>
+              <strong>PM vs Planned</strong>
+              <div>{formatVariance(pmVsPlannedVariance)} - {varianceSeverity(pmVsPlannedVariance)}</div>
+            </div>
+            <div>
+              <strong>ML vs Planned</strong>
+              <div>{formatVariance(mlVsPlannedVariance)} - {varianceSeverity(mlVsPlannedVariance)}</div>
+            </div>
+          </div>
         </CAlert>
       )}
 
@@ -291,7 +363,7 @@ const TeamCompositionStep = ({
           <div>Start</div>
           <div>End</div>
           <div>Rate</div>
-          <div>Effort</div>
+          <div>Effort (PD)</div>
           <div>Cost</div>
           <div />
         </div>
@@ -359,7 +431,7 @@ const TeamCompositionStep = ({
               <div className="derived-cell">{formatCurrency(plannedRow.ratePerDay || row.ratePerDay || 0)}</div>
               <div className="derived-cell">{plannedRow.plannedEffort?.toFixed(2) || '0.00'}</div>
               <div className="derived-cell">{formatCurrency(plannedRow.plannedCost || 0)}</div>
-              <CButton color="danger" size="sm" onClick={() => removeRow(index)}>
+              <CButton color="danger" size="sm" className="remove-button-danger" onClick={() => removeRow(index)}>
                 Remove
               </CButton>
             </div>
@@ -388,7 +460,7 @@ const TeamCompositionStep = ({
 
       <div className="derived-summary-grid">
         <div><strong>Base resource cost</strong><span>{formatCurrency(derived.baseResourceCost)}</span></div>
-        <div><strong>Planned effort</strong><span>{derived.planned_effort.toFixed(2)} person-days</span></div>
+        <div><strong>Planned Effort (PD)</strong><span>{derived.planned_effort.toFixed(2)}</span></div>
         <div><strong>Estimated team size</strong><span>{derived.estimated_team_size.toFixed(2)}</span></div>
         <div><strong>Budget with reserves</strong><span>{formatCurrency(derived.budget)}</span></div>
       </div>

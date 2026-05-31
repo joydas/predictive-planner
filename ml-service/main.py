@@ -4,7 +4,19 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-from inference.predictors import debug_model_prediction, predict_effort, predict_risk, predict_staffing
+from inference.predictors import (
+    debug_model_prediction,
+    predict_completion_date,
+    predict_effort,
+    predict_final_budget_forecast,
+    predict_final_effort_forecast,
+    predict_forecast_explainability,
+    predict_on_time_delivery_probability,
+    predict_risk,
+    predict_similar_projects,
+    predict_staffing,
+)
+from model_admin import current_info, get_job_logs, read_state, start_retraining
 from timeseries import predict_final_effort
 
 
@@ -65,6 +77,62 @@ def risk_prediction(data: dict):
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
+@app.post("/predict/completion-date")
+def completion_date_prediction(data: dict):
+    try:
+        return predict_completion_date(data)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/predict/on-time-probability")
+def on_time_delivery_probability_prediction(data: dict):
+    try:
+        return predict_on_time_delivery_probability(data)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/predict/final-effort")
+def final_effort_forecast_prediction(data: dict):
+    try:
+        return predict_final_effort_forecast(data)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/predict/final-budget")
+def final_budget_forecast_prediction(data: dict):
+    try:
+        return predict_final_budget_forecast(data)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/predict/similar-projects")
+def similar_projects_prediction(data: dict):
+    try:
+        return predict_similar_projects(data)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/predict/explainability")
+def forecast_explainability_prediction(data: dict):
+    try:
+        return predict_forecast_explainability(data)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 @app.post("/debug/predict/{model_name}")
 def debug_prediction(model_name: str, data: dict):
     try:
@@ -73,6 +141,27 @@ def debug_prediction(model_name: str, data: dict):
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/admin/ml/status")
+def ml_admin_status():
+    return current_info()
+
+
+@app.post("/admin/ml/retrain")
+def ml_admin_retrain():
+    return start_retraining()
+
+
+@app.get("/admin/ml/jobs/{job_id}")
+def ml_admin_job(job_id: str):
+    state = read_state()
+    return {
+        "jobId": job_id,
+        "status": state.get("status"),
+        "current": state if state.get("jobId") == job_id else None,
+        "logs": get_job_logs(job_id),
+    }
 
 
 @app.post("/predict")

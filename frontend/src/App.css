@@ -55,13 +55,13 @@
 .app-sidebar-brand {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  min-height: 64px;
-  padding: 0 1rem !important;
+  gap: var(--spacer-2);
+  min-height: 52px;
+  padding: 0 var(--spacer-3) !important;
 }
 
 .app-sidebar-header {
-  gap: 0.75rem;
+  gap: var(--spacer-2);
 }
 
 .app-sidebar-header .app-sidebar-brand {
@@ -75,8 +75,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 1.75rem;
+  height: 1.75rem;
   border-radius: 0.5rem;
   background: rgba(255, 255, 255, 0.14);
   color: #fff;
@@ -95,7 +95,7 @@
 .app-sidebar-link {
   display: flex !important;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--spacer-2);
 }
 
 .app-sidebar-icon {
@@ -125,8 +125,8 @@
 .app-layout.is-desktop .app-sidebar.sidebar.collapsed .app-sidebar-link {
   justify-content: center;
   gap: 0;
-  padding-left: 0.75rem;
-  padding-right: 0.75rem;
+  padding-left: var(--spacer-2);
+  padding-right: var(--spacer-2);
 }
 
 .app-layout.is-desktop .app-sidebar.sidebar.collapsed .app-sidebar-icon {
@@ -136,18 +136,18 @@
 .app-sidebar-footer {
   margin-top: auto;
   justify-content: flex-end;
-  padding: 0.75rem 1rem !important;
+  padding: var(--spacer-2) var(--spacer-3) !important;
 }
 
 .app-sidebar-footer-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--spacer);
   border: none;
   background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.9);
   border-radius: 0.5rem;
-  padding: 0.5rem 0.75rem !important;
+  padding: var(--spacer) var(--spacer-2) !important;
 }
 
 .app-sidebar-footer-toggle:hover {
@@ -236,13 +236,13 @@ h1, h2, h3, h4, h5, h6 {
 table {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 1rem;
+  margin-bottom: var(--spacer-3);
 }
 
 thead th {
   background-color: #1e293b;
   color: white;
-  padding: 8px 12px;
+  padding: var(--compact-table-cell-y) var(--compact-table-cell-x);
   text-align: left;
   font-weight: 600;
 }
@@ -256,7 +256,7 @@ tbody tr:hover {
 }
 
 tbody td {
-  padding: 8px 12px;
+  padding: var(--compact-table-cell-y) var(--compact-table-cell-x);
   border-bottom: 1px solid #e2e8f0;
 }
 
@@ -275,7 +275,7 @@ tbody td {
 }
 
 .card-body {
-  padding: 1rem;
+  padding: var(--compact-card-padding);
 }
 
 /* Action buttons in tables */
@@ -304,64 +304,64 @@ tbody td {
   font-size: 0.75rem;
   font-weight: 500;
   color: rgba(59, 94, 172, 0.8);
-  margin-bottom: 0.25rem;
+  margin-bottom: var(--spacer);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .kpi-card .card-value {
-  font-size: 2rem;
+  font-size: 1.65rem;
   font-weight: 700;
   color: white;
   line-height: 1;
 }
 
 .section-gap {
-  margin-bottom: 1rem !important;
+  margin-bottom: var(--compact-section-gap) !important;
 }
 
 .kpi-card .card-body {
-  padding: 0.75rem !important;
+  padding: var(--compact-card-padding-sm) !important;
 }
 
 .number-cell {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
 }
 
 /* Tighten overall spacing */
 .card-body {
-  padding: 0.75rem !important;
+  padding: var(--compact-card-padding-sm) !important;
 }
 
 .card-header {
-  padding: 0.75rem 1rem !important;
+  padding: var(--spacer-2) var(--spacer-3) !important;
   margin-bottom: 0 !important;
 }
 
 .table th, .table td {
-  padding: 0.5rem 0.75rem !important;
+  padding: var(--compact-table-cell-y) var(--compact-table-cell-x) !important;
 }
 
 .mb-4 {
-  margin-bottom: 1rem !important;
+  margin-bottom: var(--compact-section-gap) !important;
 }
 
 .mb-3 {
-  margin-bottom: 0.75rem !important;
+  margin-bottom: var(--spacer-2) !important;
 }
 
 .gap-3 {
-  gap: 0.75rem !important;
+  gap: var(--spacer-2) !important;
 }
 
 .p-3 {
-  padding: 0.75rem !important;
+  padding: var(--spacer-2) !important;
 }
 
 .py-5 {
-  padding-top: 1.5rem !important;
-  padding-bottom: 1.5rem !important;
+  padding-top: var(--spacer-4) !important;
+  padding-bottom: var(--spacer-4) !important;
 }
 
 /* Risk badges */
@@ -372,22 +372,29 @@ tbody td {
 
 .badge {
   font-weight: 600;
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   padding: 0.25rem 0.5rem;
   border-radius: 0.375rem;
 }
 
 .analytics-chart-card .card-body {
-  min-height: 260px;
+  min-height: 212px;
 }
 
 .analytics-chart-frame {
-  height: 220px;
+  height: 178px;
   width: 100%;
 }
 
+.analytics-chart-subtitle {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
 .analytics-chart-placeholder {
-  min-height: 220px;
+  min-height: 178px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -402,12 +409,233 @@ tbody td {
   white-space: nowrap;
 }
 
+.analytics-kpi-grid {
+  display: grid;
+  gap: var(--spacer);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.analytics-kpi-card {
+  border-left: 4px solid #2f80ed !important;
+  height: 220px;
+  display: flex;
+}
+
+.analytics-kpi-card .card-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.analytics-kpi-good {
+  border-left-color: #2eb85c !important;
+}
+
+.analytics-kpi-warning {
+  border-left-color: #f9b115 !important;
+}
+
+.analytics-kpi-danger {
+  border-left-color: #e55353 !important;
+}
+
+.analytics-kpi-neutral {
+  border-left-color: #6c757d !important;
+}
+
+.analytics-kpi-win {
+  border-left-color: #2f80ed !important;
+}
+
+.analytics-kpi-wide {
+  grid-column: span 2;
+}
+
+.analytics-kpi-label {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.analytics-kpi-value {
+  color: #0f172a;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-top: var(--spacer);
+}
+
+.analytics-kpi-good .analytics-kpi-value {
+  color: #1f8f48;
+}
+
+.analytics-kpi-warning .analytics-kpi-value {
+  color: #b78103;
+}
+
+.analytics-kpi-danger .analytics-kpi-value {
+  color: #c73535;
+}
+
+.analytics-kpi-status {
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-left: 6px;
+  padding: 3px 6px;
+  text-transform: none;
+  vertical-align: middle;
+}
+
+.analytics-kpi-status-good {
+  background: #e8f5ee;
+  color: #1f8f48;
+}
+
+.analytics-kpi-status-warning {
+  background: #fff4d8;
+  color: #936800;
+}
+
+.analytics-kpi-status-danger {
+  background: #fdeaea;
+  color: #c73535;
+}
+
+.analytics-kpi-status-neutral {
+  background: #eef0f3;
+  color: #6c757d;
+}
+
+.analytics-win-subtext {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.analytics-kpi-insight {
+  color: #475569;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  margin-top: 8px;
+}
+
+.analytics-win-drilldown {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  background: #ffffff;
+}
+
+.analytics-win-drilldown summary {
+  color: #2f80ed;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 700;
+  list-style: none;
+}
+
+.analytics-win-drilldown summary::-webkit-details-marker {
+  display: none;
+}
+
+details.analytics-win-drilldown[open] summary::after {
+  content: '▲';
+  float: right;
+}
+
+.analytics-win-drilldown summary::after {
+  content: '▼';
+  float: right;
+}
+
+.analytics-win-drilldown .table-responsive {
+  margin-top: 1rem;
+  max-height: 300px;
+}
+
+.analytics-win-drilldown th,
+.analytics-win-drilldown td {
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.analytics-win-breakdown {
+  color: #475569;
+  display: grid;
+  font-size: 0.72rem;
+  gap: 2px;
+  line-height: 1.25;
+  margin-top: 8px;
+}
+
+.analytics-win-breakdown span {
+  color: #64748b;
+  font-weight: 700;
+}
+
+.analytics-info-hint {
+  align-items: center;
+  background: #eef4ff;
+  border: 1px solid #cfe0ff;
+  border-radius: 50%;
+  color: #2f80ed;
+  cursor: help;
+  display: inline-flex;
+  font-size: 0.68rem;
+  font-weight: 800;
+  height: 17px;
+  justify-content: center;
+  margin-left: 7px;
+  text-transform: none;
+  vertical-align: middle;
+  width: 17px;
+}
+
+.analytics-info-tooltip {
+  max-width: 320px;
+  text-align: left;
+}
+
+.analytics-info-tooltip-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.analytics-info-tooltip-body {
+  white-space: pre-line;
+}
+
+@media (max-width: 1199.98px) {
+  .analytics-kpi-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767.98px) {
+  .analytics-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .analytics-kpi-wide {
+    grid-column: auto;
+  }
+}
+
 .operational-dashboard .card:hover {
   transform: none;
 }
 
 .operational-kpi-row {
-  row-gap: 0.75rem;
+  row-gap: var(--spacer-2);
 }
 
 .operational-kpi {
@@ -415,7 +643,7 @@ tbody td {
 }
 
 .operational-kpi .card-body {
-  min-height: 96px;
+  min-height: 76px;
 }
 
 .operational-kpi-label {
@@ -429,26 +657,26 @@ tbody td {
 
 .operational-kpi-value {
   color: #0f172a;
-  font-size: 1.55rem;
+  font-size: 1.3rem;
   font-weight: 700;
   line-height: 1.2;
-  margin-top: 0.35rem;
+  margin-top: var(--spacer);
   overflow-wrap: anywhere;
 }
 
 .operational-kpi-meta {
   color: #64748b;
   font-size: 0.78rem;
-  margin-top: 0.2rem;
+  margin-top: 0.125rem;
 }
 
 .operational-section {
-  margin-top: 1rem;
+  margin-top: var(--compact-section-gap);
 }
 
 .operational-search {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--spacer);
   min-width: min(100%, 340px);
 }
 
@@ -457,7 +685,7 @@ tbody td {
 }
 
 .operational-table {
-  min-width: 1120px;
+  min-width: 1180px;
 }
 
 .operational-table th,
@@ -468,8 +696,46 @@ tbody td {
 .operational-badge-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
-  min-width: 10rem;
+  gap: 0.25rem;
+  max-width: 8.5rem;
+  min-width: 7rem;
+}
+
+.operational-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacer);
+  min-width: 11rem;
+}
+
+.project-metrics-stack {
+  display: grid;
+  gap: 0.1rem;
+  line-height: 1.25;
+  min-width: 7.25rem;
+}
+
+.project-metrics-stack div {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: auto 1fr;
+}
+
+.project-metrics-stack span {
+  color: #64748b;
+  font-weight: 700;
+  text-align: left;
+}
+
+.project-metrics-stack strong {
+  color: #0f172a;
+  font-weight: 600;
+  text-align: right;
+}
+
+.severity-badge-high {
+  background-color: #fd7e14 !important;
+  color: #fff !important;
 }
 
 @media (max-width: 991.98px) {

@@ -4,12 +4,14 @@ import { useNavigate } from 'react-router-dom';
 import DataTable from '../../components/dataTable/DataTable';
 import TableFilters from '../../components/dataTable/TableFilters';
 import TableToolbar from '../../components/dataTable/TableToolbar';
+import SeverityInfoHint from '../../components/SeverityInfoHint';
 import { listProjects } from '../../services/projectService';
 import authService from '../../services/authService';
-import { formatDisplayDateTime } from '../../utils/dateUtils';
+import { formatDisplayDate } from '../../utils/dateUtils';
+import { listIndustries } from '../../services/masterDataService';
+
 
 const statusOptions = ['DRAFT', 'SUBMITTED', 'RETURNED', 'APPROVED', 'COMPLETE', 'REJECTED'].map((value) => ({ value, label: value }));
-const industryOptions = ['Banking', 'Healthcare', 'Retail', 'Technology', 'Manufacturing'].map((value) => ({ value, label: value }));
 const deliveryModelOptions = ['Agile', 'Waterfall', 'Hybrid', 'Scrum', 'Kanban'].map((value) => ({ value, label: value }));
 
 const statusColors = {
@@ -21,9 +23,18 @@ const statusColors = {
   REJECTED: 'danger',
 };
 
+const severityColors = {
+  'Not Measured': 'secondary',
+  Normal: 'success',
+  Medium: 'warning',
+  High: 'danger',
+  Urgent: 'dark',
+};
+
 const ProjectListPage = () => {
   const navigate = useNavigate();
-  const isAccountManager = String(authService.getUserRole() || '').toUpperCase() === 'ACCOUNT_MANAGER';
+  const currentRole = String(authService.getUserRole() || '').toUpperCase();
+  const isAccountManager = ['ACCOUNT_MANAGER', 'AM'].includes(currentRole);
   const [rows, setRows] = useState([]);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
@@ -32,6 +43,25 @@ const ProjectListPage = () => {
   const [sort, setSort] = useState({ sortBy: 'updatedAt', sortOrder: 'DESC' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [industryOptions, setIndustryOptions] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    listIndustries()
+      .then((result) => {
+        if (!active) return;
+        setIndustryOptions((result.items || []).map((industry) => ({
+          value: industry.industryName,
+          label: industry.industryName,
+        })));
+      })
+      .catch(() => {
+        if (active) setIndustryOptions([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -77,36 +107,51 @@ const ProjectListPage = () => {
   const hasActiveFilters = Boolean(search || Object.values(filters).some(Boolean));
 
   const columns = useMemo(() => [
-    { key: 'projectCode', label: 'Project Code' },
-    { key: 'projectName', label: 'Project Name', sortKey: 'projectName' },
-    { key: 'clientName', label: 'Client Name' },
+    { key: 'projectCode', label: 'Code' },
+    { key: 'projectName', label: 'Name', sortKey: 'projectName' },
+    { key: 'clientName', label: 'Client' },
     { key: 'industry', label: 'Industry' },
     { key: 'deliveryModel', label: 'Delivery Model' },
     {
+      key: 'severity',
+      label: (
+        <>
+          Severity
+          <SeverityInfoHint />
+        </>
+      ),
+      render: (row) => <CBadge color={severityColors[row.severity] || 'secondary'}>{row.severity || 'Not Measured'}</CBadge>,
+    },
+    {
       key: 'currentStatus',
-      label: 'Current Status',
+      label: 'Status',
       sortKey: 'status',
       render: (row) => <CBadge color={statusColors[row.currentStatus] || 'secondary'}>{row.currentStatus}</CBadge>,
     },
-    { key: 'createdAt', label: 'Created Date', sortKey: 'createdAt', render: (row) => formatDisplayDateTime(row.createdAt) },
-    { key: 'updatedAt', label: 'Last Updated', sortKey: 'updatedAt', render: (row) => formatDisplayDateTime(row.updatedAt) },
-    { key: 'reviewerComment', label: 'Reviewer Comment' },
+    { key: 'startDate', className : 'text-center', label: 'Start Date', sortKey: 'startDate', render: (row) => formatDisplayDate(row.startDate) },
+    { key: 'effectiveEndDate', className : 'text-center', label: 'End Date', sortKey: 'effectiveEndDate', render: (row) => formatDisplayDate(row.effectiveEndDate || row.plannedEndDate) },
+    // { key: 'reviewerComment', label: 'Reviewer Comment' },
     {
       key: 'actions',
       label: 'Actions',
       render: (row) => (
         <div className="d-flex gap-2">
-          {row.currentStatus === 'APPROVED' ? (
+          {['APPROVED', 'COMPLETE'].includes(row.currentStatus) ? (
             <>
               <CButton color="primary" variant="outline" size="sm" onClick={() => navigate(`/projects/view/${row.publishedProjectId || row.projectId}`)}>
                 View
               </CButton>
-              {row.canCreateCr && (
+              {row.currentStatus === 'APPROVED' && row.canCreateCr && (
                 <CButton color="secondary" variant="outline" size="sm" onClick={() => navigate(`/crs/create?projectId=${row.publishedProjectId || row.projectId}`)}>
                   Create CR
                 </CButton>
               )}
-              {row.canComplete && !isAccountManager && (
+              {row.currentStatus === 'APPROVED' && row.canTrackProgress && !isAccountManager && (
+                <CButton color="info" variant="outline" size="sm" onClick={() => navigate(`/progress/${row.publishedProjectId || row.projectId}`)}>
+                  Progress
+                </CButton>
+              )}
+              {row.currentStatus === 'APPROVED' && row.canComplete && !isAccountManager && (
                 <CButton color="success" variant="outline" size="sm" onClick={() => navigate(`/projects/complete/${row.publishedProjectId || row.projectId}`)}>
                   Complete
                 </CButton>

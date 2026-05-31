@@ -1,394 +1,294 @@
-import React, { useState } from 'react';
-import { CCard, CCardBody, CCardHeader, CCol, CRow, CForm, CFormInput, CFormTextarea, CButton, CAlert, CFormFeedback, CSpinner } from '@coreui/react';
-import { useParams, useNavigate } from 'react-router-dom';
-import authService from '../services/authService';
-import { NODE_API_URL } from '../config';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  CAlert,
+  CBadge,
+  CButton,
+  CCard,
+  CCardBody,
+  CCardHeader,
+  CCol,
+  CFormInput,
+  CFormTextarea,
+  CRow,
+  CSpinner,
+  CTable,
+  CTableBody,
+  CTableDataCell,
+  CTableHead,
+  CTableHeaderCell,
+  CTableRow,
+} from '@coreui/react';
+import { useNavigate, useParams } from 'react-router-dom';
 import DateDisplayInput from '../components/projectWizard/DateDisplayInput';
-import { formatApiDate } from '../utils/dateUtils';
+import { formatApiDate, formatDisplayDate, formatDisplayDateTime } from '../utils/dateUtils';
+import { formatCurrency, parseNumber } from '../utils/resourcePlanning';
+import { getProjectProgress, saveProjectProgress } from '../services/projectService';
+
+const severityColors = {
+  'Not Measured': 'secondary',
+  Normal: 'success',
+  Medium: 'warning',
+  High: 'danger',
+  Urgent: 'dark',
+};
+
+const formatNumber = (value) => parseNumber(value, 0).toFixed(2);
+const variance = (actual, planned) => parseNumber(actual, 0) - parseNumber(planned, 0);
+
+const severityFromVariance = (expected, actual) => {
+  const diff = Math.abs(parseNumber(expected, 0) - parseNumber(actual, 0));
+  if (diff <= 10) return 'Normal';
+  if (diff <= 20) return 'Medium';
+  if (diff <= 40) return 'High';
+  return 'Urgent';
+};
 
 const ProjectProgress = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
-
+  const [context, setContext] = useState(null);
   const [formData, setFormData] = useState({
-    date: formatApiDate(new Date()),
-    effortSpent: '',
-    tasksCompleted: ''
+    snapshotDate: formatApiDate(new Date()),
+    actualEffortPd: '',
+    actualBudget: '',
+    actualTeamSize: '',
+    actualCompletionPercent: '',
+    remarks: '',
   });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
 
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [predictedDelay, setPredictedDelay] = useState(null);
-  const [apiMessage, setApiMessage] = useState('');
-  const [submitError, setSubmitError] = useState('');
-  const [formErrors, setFormErrors] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [predicting, setPredicting] = useState(false);
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    // Clear field-specific error when user starts typing
-    if (formErrors[name]) {
-      setFormErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
+  const loadProgress = useCallback(async (snapshotDate = '') => {
+    const result = await getProjectProgress(projectId, snapshotDate);
+    setContext(result);
+    if (result.selectedSnapshot) {
+      setFormData({
+        snapshotDate: result.selectedSnapshot.snapshotDate || snapshotDate,
+        actualEffortPd: result.selectedSnapshot.actualEffortPd ?? '',
+        actualBudget: result.selectedSnapshot.actualBudget ?? '',
+        actualTeamSize: result.selectedSnapshot.actualTeamSize ?? '',
+        actualCompletionPercent: result.selectedSnapshot.actualCompletionPercent ?? '',
+        remarks: result.selectedSnapshot.remarks || '',
+      });
     }
-  };
+    return result;
+  }, [projectId]);
 
-  const validateForm = () => {
-    const errors = {};
-
-    if (!formData.date) {
-      errors.date = 'Date is required';
-    }
-
-    if (!formData.effortSpent || Number(formData.effortSpent) <= 0) {
-      errors.effortSpent = 'Effort spent must be a positive number';
-    } else if (Number(formData.effortSpent) > 1000) {
-      errors.effortSpent = 'Effort spent cannot exceed 1000 hours';
-    }
-
-    if (!formData.tasksCompleted.trim()) {
-      errors.tasksCompleted = 'Tasks completed is required';
-    } else if (formData.tasksCompleted.trim().length < 5) {
-      errors.tasksCompleted = 'Tasks completed must be at least 5 characters';
-    }
-
-    return errors;
-  };
-
-  const resetForm = () => {
-    setFormData({
-      date: formatApiDate(new Date()),
-      effortSpent: '',
-      tasksCompleted: ''
-    });
-    setFormErrors({});
-    setApiMessage('');
-    setPredictedDelay(null);
-    setSubmitError('');
-    setShowSuccess(false);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSubmitError('');
-
-    const errors = validateForm();
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      return;
-    }
-
+  useEffect(() => {
+    let active = true;
     setLoading(true);
-
-    try {
-      const currentUser = authService.getCurrentUser();
-      if (!currentUser) {
-        setSubmitError('Authentication required. Please login again.');
-        setLoading(false);
-        return;
-      }
-
-      const response = await fetch(`${NODE_API_URL}/progress`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authService.getAuthHeader()
-        },
-        body: JSON.stringify({
-          project_id: Number(projectId),
-          date: formData.date,
-          effort_spent: Number(formData.effortSpent),
-          tasks_completed: formData.tasksCompleted.trim(),
-          created_by: currentUser.id
-        })
+    loadProgress()
+      .then(() => {
+        if (active) setError('');
+      })
+      .catch((err) => {
+        if (active) setError(err.message || 'Unable to load progress screen');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
       });
+    return () => {
+      active = false;
+    };
+  }, [loadProgress]);
 
-      const data = await response.json();
+  const current = useMemo(() => context?.currentApprovedValues || {}, [context]);
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to submit progress');
+  const previewRows = useMemo(() => {
+    const expectedCompletion = (() => {
+      const start = current.startDate ? new Date(`${current.startDate}T00:00:00`) : null;
+      const snap = formData.snapshotDate ? new Date(`${formData.snapshotDate}T00:00:00`) : null;
+      const plannedDuration = parseNumber(current.plannedDuration, 0);
+      if (!start || !snap || plannedDuration <= 0 || Number.isNaN(start.getTime()) || Number.isNaN(snap.getTime())) return 0;
+      return Math.max(0, Math.min(100, (((snap - start) / 86400000) + 1) / plannedDuration * 100));
+    })();
+    return [
+      { metric: 'Effort (PD)', planned: current.plannedEffortPd, actual: formData.actualEffortPd, variance: variance(formData.actualEffortPd, current.plannedEffortPd) },
+      { metric: 'Budget', planned: current.plannedBudget, actual: formData.actualBudget, variance: variance(formData.actualBudget, current.plannedBudget), currency: true },
+      { metric: 'Team Size', planned: current.plannedTeamSize, actual: formData.actualTeamSize, variance: variance(formData.actualTeamSize, current.plannedTeamSize) },
+      { metric: 'Completion %', planned: expectedCompletion, actual: formData.actualCompletionPercent, variance: variance(formData.actualCompletionPercent, expectedCompletion), percent: true },
+    ];
+  }, [current, formData]);
+
+  const previewSeverity = severityFromVariance(previewRows[3]?.planned, formData.actualCompletionPercent);
+
+  const updateForm = (field, value) => {
+    setFormData((currentForm) => ({ ...currentForm, [field]: value }));
+    setMessage('');
+  };
+
+  const handleDateChange = async (value) => {
+    updateForm('snapshotDate', value);
+    if (!value) return;
+    try {
+      const result = await getProjectProgress(projectId, value);
+      if (result.selectedSnapshot) {
+        setContext(result);
+        setFormData({
+          snapshotDate: result.selectedSnapshot.snapshotDate,
+          actualEffortPd: result.selectedSnapshot.actualEffortPd ?? '',
+          actualBudget: result.selectedSnapshot.actualBudget ?? '',
+          actualTeamSize: result.selectedSnapshot.actualTeamSize ?? '',
+          actualCompletionPercent: result.selectedSnapshot.actualCompletionPercent ?? '',
+          remarks: result.selectedSnapshot.remarks || '',
+        });
+        setMessage('Existing snapshot loaded for this date. Saving will update it.');
       }
-
-      setApiMessage(data.message || 'Progress submitted successfully');
-      setShowSuccess(true);
-    } catch (error) {
-      setSubmitError(error.message || 'Submission failed. Please try again.');
-      setShowSuccess(false);
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      setError(err.message || 'Unable to check snapshot date');
     }
   };
 
-  const handlePredictDelay = async () => {
-    setPredicting(true);
-    setSubmitError('');
-
+  const handleSubmit = async () => {
+    setSaving(true);
+    setError('');
     try {
-      const response = await fetch(`${NODE_API_URL}/project-delay/${projectId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to predict delay');
-      }
-
-      setPredictedDelay(data.predicted_final_effort ?? null);
-      setApiMessage('Delay prediction updated');
-      setShowSuccess(true);
-    } catch (error) {
-      setSubmitError(error.message || 'Prediction failed. Please try again.');
-      setShowSuccess(false);
+      const result = await saveProjectProgress(projectId, formData);
+      setContext(result);
+      setMessage('Progress snapshot saved.');
+    } catch (err) {
+      setError(err.message || 'Unable to save progress snapshot');
     } finally {
-      setPredicting(false);
+      setSaving(false);
     }
   };
+
+  if (loading) {
+    return <div className="project-wizard-loading"><CSpinner /> Loading progress...</div>;
+  }
 
   return (
     <div className="fade-in">
       <CRow className="mb-4">
         <CCol xs={12}>
           <div className="d-flex align-items-center mb-3">
-            <CButton
-              color="secondary"
-              variant="outline"
-              onClick={() => navigate('/projects')}
-              className="me-3 smaller-button"
-            >
-              ← Back to Projects
+            <CButton color="secondary" variant="outline" onClick={() => navigate('/projects')} className="me-3 smaller-button">
+              Back to Projects
             </CButton>
-            <h1 className="page-title" style={{
-              background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              fontWeight: '700',
-              margin: 0
-            }}>
-              Progress Tracking
-            </h1>
+            <h1 className="page-title mb-0">Progress Tracking</h1>
           </div>
-          <p className="text-muted">Project ID: {projectId}</p>
+          <p className="text-muted mb-0">{context?.project?.projectCode} - {context?.project?.projectName}</p>
         </CCol>
       </CRow>
 
-      {(showSuccess || submitError) && (
-        <CRow className="mb-4">
-          <CCol xs={12}>
-            {showSuccess && (
-              <CAlert color="success" dismissible>
-                <strong>{apiMessage}</strong>
-                {predictedDelay !== null && (
-                  <div className="mt-2">
-                    Predicted Final Effort: <strong>{predictedDelay}h</strong>
-                  </div>
-                )}
-              </CAlert>
-            )}
-            {submitError && (
-              <CAlert color="danger" dismissible>
-                <strong>Error:</strong> {submitError}
-              </CAlert>
-            )}
-          </CCol>
-        </CRow>
-      )}
+      {message && <CAlert color="success">{message}</CAlert>}
+      {error && <CAlert color="danger">{error}</CAlert>}
+
+      <CCard className="mb-4">
+        <CCardHeader><strong>Current Approved Values</strong></CCardHeader>
+        <CCardBody>
+          <CRow className="g-3">
+            <CCol md={2}><div className="text-muted small">Project Start</div><div className="fw-semibold">{formatDisplayDate(current.startDate)}</div></CCol>
+            <CCol md={2}><div className="text-muted small">Project End</div><div className="fw-semibold">{formatDisplayDate(current.effectiveEndDate || current.plannedEndDate)}</div></CCol>
+            <CCol md={2}><div className="text-muted small">Planned Effort (PD)</div><div className="fw-semibold">{formatNumber(current.plannedEffortPd)}</div></CCol>
+            <CCol md={2}><div className="text-muted small">Planned Budget</div><div className="fw-semibold">{formatCurrency(current.plannedBudget)}</div></CCol>
+            <CCol md={2}><div className="text-muted small">Planned Duration</div><div className="fw-semibold">{formatNumber(current.plannedDuration)} days</div></CCol>
+            <CCol md={2}><div className="text-muted small">Latest Severity</div><CBadge color={severityColors[context?.latestSnapshot?.severity || 'Not Measured']}>{context?.latestSnapshot?.severity || 'Not Measured'}</CBadge></CCol>
+            <CCol md={2}><div className="text-muted small">Planned Team Size</div><div className="fw-semibold">{formatNumber(current.plannedTeamSize)}</div></CCol>
+            <CCol md={2}><div className="text-muted small">Current Estimation</div><div className="fw-semibold">{formatNumber(current.currentEstimation)} PD</div></CCol>
+            <CCol md={2}><div className="text-muted small">Approved CR Schedule Impact</div><div className="fw-semibold">{formatNumber(current.approvedScheduleImpactDays)} days</div></CCol>
+          </CRow>
+        </CCardBody>
+      </CCard>
 
       <CRow>
-        <CCol lg={8}>
+        <CCol lg={5}>
           <CCard className="mb-4">
-            <CCardHeader>
-              <strong>Submit Progress</strong>
-            </CCardHeader>
+            <CCardHeader><strong>Progress Snapshot</strong></CCardHeader>
             <CCardBody>
-              <CForm onSubmit={handleSubmit}>
-                <div className="mb-4">
-                  <label htmlFor="date" className="form-label">
-                    Date <span style={{ color: '#f5576c' }}>*</span>
-                  </label>
-                  <DateDisplayInput
-                    value={formData.date}
-                    onChange={(value) => setFormData((current) => ({ ...current, date: value }))}
-                    invalid={!!formErrors.date}
-                  />
-                  {formErrors.date && (
-                    <CFormFeedback invalid className="d-block">
-                      {formErrors.date}
-                    </CFormFeedback>
-                  )}
-                </div>
-
-                <div className="mb-4">
-                  <label htmlFor="effortSpent" className="form-label">
-                    Effort Spent (hours) <span style={{ color: '#f5576c' }}>*</span>
-                  </label>
-                  <CFormInput
-                    type="number"
-                    id="effortSpent"
-                    name="effortSpent"
-                    value={formData.effortSpent}
-                    onChange={handleInputChange}
-                    placeholder="Enter hours spent on this progress update"
-                    invalid={!!formErrors.effortSpent}
-                    disabled={loading}
-                    step="0.5"
-                    min="0"
-                  />
-                  {formErrors.effortSpent && (
-                    <CFormFeedback invalid className="d-block">
-                      {formErrors.effortSpent}
-                    </CFormFeedback>
-                  )}
-                  <small className="text-muted">
-                    Enter the number of hours spent on project work
-                  </small>
-                </div>
-
-                <div className="mb-4">
-                  <label htmlFor="tasksCompleted" className="form-label">
-                    Tasks Completed <span style={{ color: '#f5576c' }}>*</span>
-                  </label>
-                  <CFormTextarea
-                    id="tasksCompleted"
-                    name="tasksCompleted"
-                    value={formData.tasksCompleted}
-                    onChange={handleInputChange}
-                    rows={4}
-                    placeholder="Describe the tasks that were completed..."
-                    invalid={!!formErrors.tasksCompleted}
-                    disabled={loading}
-                  />
-                  {formErrors.tasksCompleted && (
-                    <CFormFeedback invalid className="d-block">
-                      {formErrors.tasksCompleted}
-                    </CFormFeedback>
-                  )}
-                  <small className="text-muted">
-                    Provide details about what was accomplished
-                  </small>
-                </div>
-
-                <div className="d-flex gap-3">
-                  <CButton type="submit" color="primary" size="md" className="smaller-button" disabled={loading}>
-                    {loading ? (
-                      <>
-                        <CSpinner component="span" size="sm" className="me-2" aria-hidden="true" />
-                        Submitting...
-                      </>
-                    ) : (
-                      <>
-                        <span style={{ marginRight: '0.5rem' }}>📊</span>
-                        Submit Progress
-                      </>
-                    )}
-                  </CButton>
-                  <CButton type="button" color="secondary" variant="outline" size="md" className="smaller-button" onClick={resetForm} disabled={loading}>
-                    <span style={{ marginRight: '0.5rem' }}>🔄</span>
-                    Reset Form
-                  </CButton>
-                </div>
-              </CForm>
-            </CCardBody>
-          </CCard>
-
-          <CCard>
-            <CCardHeader>
-              <strong>Predict Project Delay</strong>
-            </CCardHeader>
-            <CCardBody>
-              <div className="text-center mb-3">
-                <p className="text-muted">
-                  Get an updated prediction of the final effort required for this project based on current progress.
-                </p>
-              </div>
-              <div className="d-flex justify-content-center">
-                <CButton
-                  color="warning"
-                  size="md"
-                  className="smaller-button"
-                  onClick={handlePredictDelay}
-                  disabled={predicting}
-                >
-                  {predicting ? (
-                    <>
-                      <CSpinner component="span" size="sm" className="me-2" aria-hidden="true" />
-                      Predicting...
-                    </>
-                  ) : (
-                    <>
-                      <span style={{ marginRight: '0.5rem' }}>🔮</span>
-                      Predict Delay
-                    </>
-                  )}
-                </CButton>
+              <CRow className="g-3">
+                <CCol xs={12}>
+                  <label className="form-label">Snapshot Date</label>
+                  <DateDisplayInput value={formData.snapshotDate} onChange={handleDateChange} />
+                </CCol>
+                <CCol md={6}>
+                  <label className="form-label">Actual Effort (PD)</label>
+                  <CFormInput type="number" min="0" step="0.01" value={formData.actualEffortPd} onChange={(event) => updateForm('actualEffortPd', event.target.value)} />
+                </CCol>
+                <CCol md={6}>
+                  <label className="form-label">Actual Budget</label>
+                  <CFormInput type="number" min="0" step="0.01" value={formData.actualBudget} onChange={(event) => updateForm('actualBudget', event.target.value)} />
+                </CCol>
+                <CCol md={6}>
+                  <label className="form-label">Actual Team Size</label>
+                  <CFormInput type="number" min="0" step="0.01" value={formData.actualTeamSize} onChange={(event) => updateForm('actualTeamSize', event.target.value)} />
+                </CCol>
+                <CCol md={6}>
+                  <label className="form-label">Actual Completion %</label>
+                  <CFormInput type="number" min="0" max="100" step="0.01" value={formData.actualCompletionPercent} onChange={(event) => updateForm('actualCompletionPercent', event.target.value)} />
+                </CCol>
+                <CCol xs={12}>
+                  <label className="form-label">Remarks</label>
+                  <CFormTextarea rows={3} value={formData.remarks} onChange={(event) => updateForm('remarks', event.target.value)} />
+                </CCol>
+              </CRow>
+              <div className="d-flex gap-2 mt-3">
+                <CButton color="primary" onClick={handleSubmit} disabled={saving}>{saving ? 'Saving...' : 'Save Progress'}</CButton>
+                <CButton color="secondary" variant="outline" onClick={() => navigate('/projects')}>Cancel</CButton>
               </div>
             </CCardBody>
           </CCard>
         </CCol>
 
-        <CCol lg={4}>
+        <CCol lg={7}>
           <CCard className="mb-4">
-            <CCardHeader>
-              <strong>Progress Tracking Info</strong>
+            <CCardHeader className="d-flex justify-content-between align-items-center">
+              <strong>Progress Impact Preview</strong>
+              <CBadge color={severityColors[previewSeverity]}>{previewSeverity}</CBadge>
             </CCardHeader>
-            <CCardBody>
-              <div className="text-center">
-                <div style={{
-                  fontSize: '2.5rem',
-                  marginBottom: '1rem',
-                  background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text'
-                }}>
-                  📈
-                </div>
-                <h5>Track Project Progress</h5>
-                <p className="text-muted small">
-                  Regularly update project progress to maintain accurate predictions and timelines.
-                </p>
-                <div className="mt-3 p-3 bg-light rounded">
-                  <strong>What happens when you submit:</strong>
-                  <ul className="text-start mt-2 mb-0 small">
-                    <li>✅ Progress is recorded</li>
-                    <li>🤖 AI analyzes progress patterns</li>
-                    <li>📊 Predictions are updated</li>
-                    <li>📧 Stakeholders notified</li>
-                  </ul>
-                </div>
-              </div>
+            <CCardBody className="p-0">
+              <CTable hover className="mb-0">
+                <CTableHead>
+                  <CTableRow>
+                    <CTableHeaderCell>Metric</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end">Current Planned</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end">Actual Reported</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end">Variance</CTableHeaderCell>
+                  </CTableRow>
+                </CTableHead>
+                <CTableBody>
+                  {previewRows.map((row) => (
+                    <CTableRow key={row.metric}>
+                      <CTableDataCell>{row.metric}</CTableDataCell>
+                      <CTableDataCell className="text-end">{row.currency ? formatCurrency(row.planned) : `${formatNumber(row.planned)}${row.percent ? '%' : ''}`}</CTableDataCell>
+                      <CTableDataCell className="text-end">{row.currency ? formatCurrency(row.actual) : `${formatNumber(row.actual)}${row.percent ? '%' : ''}`}</CTableDataCell>
+                      <CTableDataCell className="text-end">{row.currency ? formatCurrency(row.variance) : `${formatNumber(row.variance)}${row.percent ? '%' : ''}`}</CTableDataCell>
+                    </CTableRow>
+                  ))}
+                </CTableBody>
+              </CTable>
             </CCardBody>
           </CCard>
 
           <CCard>
-            <CCardHeader>
-              <strong>Guidelines</strong>
-            </CCardHeader>
-            <CCardBody>
-              <div className="d-grid gap-2">
-                <div className="p-2 border rounded">
-                  <strong>Date:</strong> Use the actual date when work was performed
-                </div>
-                <div className="p-2 border rounded">
-                  <strong>Effort:</strong> Record actual hours spent, not estimates
-                </div>
-                <div className="p-2 border rounded">
-                  <strong>Tasks:</strong> Be specific about what was accomplished
-                </div>
-                <div className="p-2 border rounded">
-                  <strong>Frequency:</strong> Update progress at least weekly
-                </div>
-              </div>
+            <CCardHeader><strong>Snapshot History</strong></CCardHeader>
+            <CCardBody className="p-0">
+              <CTable hover className="mb-0">
+                <CTableHead>
+                  <CTableRow>
+                    <CTableHeaderCell>Date</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end">Effort</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end">Budget</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end">Completion</CTableHeaderCell>
+                    <CTableHeaderCell>Severity</CTableHeaderCell>
+                    <CTableHeaderCell>Updated</CTableHeaderCell>
+                  </CTableRow>
+                </CTableHead>
+                <CTableBody>
+                  {(context?.snapshots || []).map((snapshot) => (
+                    <CTableRow key={snapshot.snapshotId}>
+                      <CTableDataCell>{formatDisplayDate(snapshot.snapshotDate)}</CTableDataCell>
+                      <CTableDataCell className="text-end">{formatNumber(snapshot.actualEffortPd)}</CTableDataCell>
+                      <CTableDataCell className="text-end">{formatCurrency(snapshot.actualBudget)}</CTableDataCell>
+                      <CTableDataCell className="text-end">{formatNumber(snapshot.actualCompletionPercent)}%</CTableDataCell>
+                      <CTableDataCell><CBadge color={severityColors[snapshot.severity]}>{snapshot.severity}</CBadge></CTableDataCell>
+                      <CTableDataCell>{formatDisplayDateTime(snapshot.updatedAt)}</CTableDataCell>
+                    </CTableRow>
+                  ))}
+                </CTableBody>
+              </CTable>
             </CCardBody>
           </CCard>
         </CCol>

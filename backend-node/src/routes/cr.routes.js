@@ -7,6 +7,7 @@ const router = express.Router();
 router.get('/', authenticateToken, crController.listMyCrs);
 router.post('/', authenticateToken, authorizeRoles(['PM']), crController.createAndSubmit);
 router.post('/draft', authenticateToken, authorizeRoles(['PM']), crController.createDraft);
+router.get('/project/:projectId/staffing-baseline', authenticateToken, crController.getProjectStaffingBaseline);
 router.get('/project/:projectId', authenticateToken, crController.listByProject);
 router.get('/:id', authenticateToken, crController.getChangeRequest);
 router.put('/:id/draft', authenticateToken, authorizeRoles(['PM']), crController.updateDraft);

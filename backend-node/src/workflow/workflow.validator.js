@@ -20,7 +20,8 @@ const ROLE = {
 };
 
 function normalizeRole(role) {
-  return String(role || '').trim().toUpperCase();
+  const value = String(role || '').trim().toUpperCase();
+  return value === 'AM' ? ROLE.ACCOUNT_MANAGER : value;
 }
 
 function normalizeStatus(status) {

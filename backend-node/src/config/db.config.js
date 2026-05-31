@@ -39,6 +39,7 @@ const DB_CONFIG = {
   waitForConnections: true,
   connectionLimit: parseEnvNumber(process.env.DB_CONNECTION_LIMIT, DEFAULT_DB_CONFIG.connectionLimit),
   queueLimit: parseEnvNumber(process.env.DB_QUEUE_LIMIT, DEFAULT_DB_CONFIG.queueLimit),
+  dateStrings: ['DATE'],
 };
 
 const pool = mysql.createPool(DB_CONFIG);

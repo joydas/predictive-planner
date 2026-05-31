@@ -1,10 +1,13 @@
 const { pool } = require('../config/db.config');
+const forecastService = require('./forecastService');
 
 const ACTIVE_PROJECT_STATUSES = ['APPROVED'];
 const COMPLETED_PROJECT_STATUSES = ['COMPLETE', 'CLOSED'];
+const PROGRESS_STALE_DAYS = 7;
 
 function normalizeRole(user) {
-  return String(user?.role || '').toUpperCase();
+  const role = String(user?.role || '').toUpperCase();
+  return role === 'AM' ? 'ACCOUNT_MANAGER' : role;
 }
 
 function normalizePaging(query, prefix) {
@@ -22,21 +25,92 @@ function normalizeSearch(value) {
   return String(value || '').trim();
 }
 
+function normalizeNumber(value, fallback = 0) {
+  if (value === '' || value === null || value === undefined) return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function toDateOnly(value) {
+  if (!value) return '';
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  return String(value).slice(0, 10);
+}
+
+function getCalendarDays(startDate, endDate) {
+  if (!startDate || !endDate) return 0;
+  const start = new Date(`${toDateOnly(startDate)}T00:00:00`);
+  const end = new Date(`${toDateOnly(endDate)}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return 0;
+  return Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+}
+
+function expectedCompletionPercent(startDate, plannedEndDate, totalCrScheduleImpactDays, snapshotDate) {
+  const plannedDuration = getCalendarDays(startDate, plannedEndDate) + normalizeNumber(totalCrScheduleImpactDays, 0);
+  if (!plannedDuration || !startDate || !snapshotDate) return 0;
+  const elapsed = getCalendarDays(startDate, snapshotDate);
+  return Math.max(0, Math.min(100, (elapsed / plannedDuration) * 100));
+}
+
+function severityFromProgress(row) {
+  if (!row.latestProgressDate) return 'Not Measured';
+  const expected = expectedCompletionPercent(
+    row.projectStartDate,
+    row.plannedEndDate,
+    row.totalCrScheduleImpactDays,
+    row.latestProgressDate,
+  );
+  const variance = Math.abs(expected - normalizeNumber(row.actualCompletionPercent, 0));
+  if (variance <= 10) return 'Normal';
+  if (variance <= 20) return 'Medium';
+  if (variance <= 40) return 'High';
+  return 'Urgent';
+}
+
+function daysBetweenToday(value) {
+  if (!value) return null;
+  const date = new Date(`${toDateOnly(value)}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  const today = new Date();
+  const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.max(0, Math.floor((todayDate.getTime() - date.getTime()) / 86400000));
+}
+
 function visibleApprovedProjectWhere(user, alias = 'p', draftAlias = 'pd') {
   const role = normalizeRole(user);
+  const regressionFilter = role === 'ADMIN'
+    ? ''
+    : ` AND COALESCE(${alias}.is_regression_data, 0) = 0 AND COALESCE(${draftAlias}.is_regression_data, 0) = 0`;
 
   if (role === 'PM') {
     return {
-      sql: `(${alias}.owner_id = ? OR ${draftAlias}.submitted_by_user_id = ?)`,
+      sql: `(${alias}.owner_id = ? OR ${draftAlias}.submitted_by_user_id = ?)${regressionFilter}`,
       params: [user.userId, user.userId],
     };
   }
 
   if (role === 'ACCOUNT_MANAGER') {
     return {
-      sql: `${alias}.approved_by_user_id = ?`,
-      params: [user.userId],
+      sql: `(
+        ${alias}.approved_by_user_id = ?
+        OR EXISTS (
+          SELECT 1
+          FROM app_user assigned_pm
+          WHERE assigned_pm.user_id = COALESCE(${draftAlias}.submitted_by_user_id, ${alias}.owner_id)
+            AND assigned_pm.manager_id = ?
+        )
+      )${regressionFilter}`,
+      params: [user.userId, user.userId],
     };
+  }
+
+  if (role === 'ADMIN') {
+    return { sql: '1 = 1', params: [] };
   }
 
   return { sql: '1 = 0', params: [] };
@@ -44,19 +118,32 @@ function visibleApprovedProjectWhere(user, alias = 'p', draftAlias = 'pd') {
 
 function visibleDraftWorkflowWhere(user, alias = 'pd') {
   const role = normalizeRole(user);
+  const regressionFilter = role === 'ADMIN' ? '' : ` AND COALESCE(${alias}.is_regression_data, 0) = 0`;
 
   if (role === 'PM') {
     return {
-      sql: `(${alias}.owner_id = ? OR ${alias}.submitted_by_user_id = ?)`,
+      sql: `(${alias}.owner_id = ? OR ${alias}.submitted_by_user_id = ?)${regressionFilter}`,
       params: [user.userId, user.userId],
     };
   }
 
   if (role === 'ACCOUNT_MANAGER') {
     return {
-      sql: `${alias}.workflow_status = 'SUBMITTED'`,
-      params: [],
+      sql: `(
+        ${alias}.workflow_status = 'SUBMITTED'
+        AND EXISTS (
+          SELECT 1
+          FROM app_user assigned_pm
+          WHERE assigned_pm.user_id = COALESCE(${alias}.submitted_by_user_id, ${alias}.owner_id)
+            AND assigned_pm.manager_id = ?
+        )
+      )${regressionFilter}`,
+      params: [user.userId],
     };
+  }
+
+  if (role === 'ADMIN') {
+    return { sql: '1 = 1', params: [] };
   }
 
   return { sql: '1 = 0', params: [] };
@@ -99,10 +186,13 @@ function crVisibilityWhere(
   { includeSubmittedForAm = false } = {},
 ) {
   const role = normalizeRole(user);
+  const regressionFilter = role === 'ADMIN'
+    ? ''
+    : ` AND COALESCE(${crAlias}.is_regression_data, 0) = 0 AND COALESCE(${projectAlias}.is_regression_data, 0) = 0 AND COALESCE(${draftAlias}.is_regression_data, 0) = 0`;
 
   if (role === 'PM') {
     return {
-      sql: `(${projectAlias}.owner_id = ? OR ${draftAlias}.submitted_by_user_id = ?)`,
+      sql: `(${projectAlias}.owner_id = ? OR ${draftAlias}.submitted_by_user_id = ?)${regressionFilter}`,
       params: [user.userId, user.userId],
     };
   }
@@ -110,15 +200,38 @@ function crVisibilityWhere(
   if (role === 'ACCOUNT_MANAGER') {
     if (includeSubmittedForAm) {
       return {
-        sql: `(${projectAlias}.approved_by_user_id = ? OR ${crAlias}.workflow_status = 'SUBMITTED')`,
-        params: [user.userId],
+        sql: `(
+          ${projectAlias}.approved_by_user_id = ?
+          OR (
+            ${crAlias}.workflow_status = 'SUBMITTED'
+            AND EXISTS (
+              SELECT 1
+              FROM app_user assigned_pm
+              WHERE assigned_pm.user_id = ${crAlias}.submitted_by_user_id
+                AND assigned_pm.manager_id = ?
+            )
+          )
+        )${regressionFilter}`,
+        params: [user.userId, user.userId],
       };
     }
 
     return {
-      sql: `${projectAlias}.approved_by_user_id = ?`,
-      params: [user.userId],
+      sql: `(
+        ${projectAlias}.approved_by_user_id = ?
+        OR EXISTS (
+          SELECT 1
+          FROM app_user assigned_pm
+          WHERE assigned_pm.user_id = ${crAlias}.submitted_by_user_id
+            AND assigned_pm.manager_id = ?
+        )
+      )${regressionFilter}`,
+      params: [user.userId, user.userId],
     };
+  }
+
+  if (role === 'ADMIN') {
+    return { sql: '1 = 1', params: [] };
   }
 
   return { sql: '1 = 0', params: [] };
@@ -155,11 +268,17 @@ async function getKpis(user) {
 
 function mapProjectRow(row) {
   const actions = [];
+  const latestProgressAgeDays = daysBetweenToday(row.latestProgressDate);
+  const hasProgress = Boolean(row.latestProgressDate);
 
   if (Number(row.pendingCrCount || 0) > 0) actions.push('CR Pending');
-  if (row.plannedEndDate) actions.push('Pending Completion');
+  if (!hasProgress) {
+    actions.push('Progress Pending');
+  } else if (latestProgressAgeDays !== null && latestProgressAgeDays > PROGRESS_STALE_DAYS) {
+    actions.push('Progress Required');
+  }
 
-  if (actions.length === 0) actions.push('Action Required');
+  if (actions.length === 0) actions.push('On Track');
 
   return {
     projectId: row.projectId,
@@ -169,12 +288,22 @@ function mapProjectRow(row) {
     technology: row.technology || '-',
     currentStatus: row.currentStatus || 'APPROVED',
     plannedEndDate: row.plannedEndDate,
+    latestProgressDate: row.latestProgressDate,
+    actualCompletionPercent: hasProgress ? Number(row.actualCompletionPercent || 0) : null,
+    severity: severityFromProgress(row),
     currentPlannedEffort: Number(row.currentPlannedEffort || 0),
     currentPlannedBudget: Number(row.currentPlannedBudget || 0),
     currentPlannedTeamSize: Number(row.currentPlannedTeamSize || 0),
     approvedCrCount: Number(row.approvedCrCount || 0),
     pendingCrCount: Number(row.pendingCrCount || 0),
     pendingActions: actions,
+  };
+}
+
+function attachForecast(project, forecast) {
+  return {
+    ...project,
+    forecast: forecast || { forecastAvailable: false },
   };
 }
 
@@ -211,7 +340,11 @@ async function getActiveProjects(user, query) {
         p.client_name AS clientName,
         p.technology_stack AS technology,
         pd.workflow_status AS currentStatus,
+        JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.deliveryDetails.start_date')) AS projectStartDate,
         JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.deliveryDetails.planned_end_date')) AS plannedEndDate,
+        latest_progress.snapshot_date AS latestProgressDate,
+        latest_progress.actual_completion_percent AS actualCompletionPercent,
+        COALESCE(cr_schedule.totalScheduleImpactDays, 0) AS totalCrScheduleImpactDays,
         p.current_planned_effort AS currentPlannedEffort,
         p.current_planned_budget AS currentPlannedBudget,
         p.current_planned_team_size AS currentPlannedTeamSize,
@@ -220,8 +353,27 @@ async function getActiveProjects(user, query) {
       FROM project p
       INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
       LEFT JOIN change_request cr ON cr.project_id = p.project_id
+      LEFT JOIN project_progress_snapshot latest_progress
+        ON latest_progress.project_id = p.project_id
+      LEFT JOIN project_progress_snapshot newer_progress
+        ON newer_progress.project_id = latest_progress.project_id
+       AND (
+         newer_progress.snapshot_date > latest_progress.snapshot_date
+         OR (
+           newer_progress.snapshot_date = latest_progress.snapshot_date
+           AND newer_progress.snapshot_id > latest_progress.snapshot_id
+         )
+       )
+      LEFT JOIN (
+        SELECT project_id, SUM(schedule_impact_days) AS totalScheduleImpactDays
+        FROM change_request
+        WHERE workflow_status = 'APPROVED'
+        GROUP BY project_id
+      ) cr_schedule
+        ON cr_schedule.project_id = p.project_id
       WHERE ${visibility.sql}
         AND pd.workflow_status = 'APPROVED'
+        AND newer_progress.snapshot_id IS NULL
         ${searchClause.sql}
       GROUP BY p.project_id, pd.workflow_status
       ORDER BY p.updated_at DESC, p.project_id DESC
@@ -232,8 +384,11 @@ async function getActiveProjects(user, query) {
 
   const totalRecords = Number(countRows[0]?.totalRecords || 0);
 
+  const items = rows.map(mapProjectRow);
+  const forecasts = await forecastService.getForecastsForProjects(items.map((item) => item.projectId));
+
   return {
-    items: rows.map(mapProjectRow),
+    items: items.map((item) => attachForecast(item, forecasts[item.projectId])),
     page: paging.page,
     pageSize: paging.pageSize,
     totalRecords,
@@ -255,6 +410,7 @@ function workflowCrStatusForRole(role) {
 
 function mapWorkflowRow(row) {
   const currentStatus = row.currentStatus || 'DRAFT';
+  const pendingSince = row.pendingSince;
 
   let actionRequired = 'Action Required';
 
@@ -269,7 +425,8 @@ function mapWorkflowRow(row) {
     submittedBy: row.submittedBy || '-',
     currentStatus,
     lastUpdated: row.lastUpdated,
-    pendingSince: row.pendingSince,
+    pendingSince,
+    ageDays: daysBetweenToday(pendingSince),
     actionRequired,
   };
 }
@@ -359,16 +516,19 @@ async function getWorkflowQueue(user, query) {
           pd.workflow_status AS currentStatus,
           pd.updated_at AS lastUpdated,
 
-          CASE
-            WHEN pd.workflow_status = 'SUBMITTED'
-              THEN COALESCE(pd.submitted_at, pd.updated_at, pd.created_at)
-            ELSE COALESCE(pd.updated_at, pd.created_at)
-          END AS pendingSince
+          COALESCE(project_history.lastActivityAt, pd.updated_at, pd.created_at) AS pendingSince
 
         FROM project_drafts pd
 
         LEFT JOIN app_user submitter
           ON submitter.user_id = COALESCE(pd.submitted_by_user_id, pd.owner_id)
+
+        LEFT JOIN (
+          SELECT project_id, MAX(created_at) AS lastActivityAt
+          FROM project_workflow_history
+          GROUP BY project_id
+        ) project_history
+          ON project_history.project_id = pd.draft_id
 
         WHERE ${projectVisibility.sql}
           AND pd.workflow_status IN (${workflowProjectPlaceholders})
@@ -384,11 +544,7 @@ async function getWorkflowQueue(user, query) {
           cr.workflow_status AS currentStatus,
           cr.updated_at AS lastUpdated,
 
-          CASE
-            WHEN cr.workflow_status = 'SUBMITTED'
-              THEN COALESCE(cr.submitted_at, cr.updated_at, cr.created_at)
-            ELSE COALESCE(cr.updated_at, cr.created_at)
-          END AS pendingSince
+          COALESCE(cr_history.lastActivityAt, cr.updated_at, cr.created_at) AS pendingSince
 
         FROM change_request cr
 
@@ -400,6 +556,13 @@ async function getWorkflowQueue(user, query) {
 
         LEFT JOIN app_user submitter
           ON submitter.user_id = cr.submitted_by_user_id
+
+        LEFT JOIN (
+          SELECT cr_id, MAX(created_at) AS lastActivityAt
+          FROM cr_workflow_history
+          GROUP BY cr_id
+        ) cr_history
+          ON cr_history.cr_id = cr.cr_id
 
         WHERE ${crVisibility.sql}
           AND cr.workflow_status IN (${workflowCrPlaceholders})

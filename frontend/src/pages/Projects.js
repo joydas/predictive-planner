@@ -70,7 +70,10 @@ const Projects = () => {
     ? Object.keys(projects[0]).filter((key) => !excludedColumns.includes(key))
     : [];
 
-  const formatHeader = (key) => key.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+  const formatHeader = (key) => {
+    if (key === 'estimated_hours') return 'Estimated Effort (PD)';
+    return key.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+  };
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const filteredProjects = projects.filter((project) =>
     displayedColumns.some((column) => {
@@ -218,8 +221,6 @@ const Projects = () => {
                                   ? '—'
                                   : typeof project[column] === 'object'
                                   ? JSON.stringify(project[column])
-                                  : column === 'estimated_hours'
-                                  ? `${project[column]}h`
                                   : project[column]}
                               </CTableDataCell>
                             ))}

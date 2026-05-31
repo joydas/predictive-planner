@@ -6,7 +6,8 @@ import TableFilters from '../../components/dataTable/TableFilters';
 import TableToolbar from '../../components/dataTable/TableToolbar';
 import { listChangeRequests } from '../../services/crService';
 import authService from '../../services/authService';
-import { formatDisplayDateTime } from '../../utils/dateUtils';
+import { formatDisplayDateTime, formatDisplayDate } from '../../utils/dateUtils';
+import { formatCurrency } from '../../utils/resourcePlanning';
 
 const statusOptions = ['DRAFT', 'SUBMITTED', 'RETURNED', 'APPROVED', 'REJECTED'].map((value) => ({ value, label: value }));
 const severityOptions = ['Low', 'Medium', 'High', 'Critical'].map((value) => ({ value, label: value }));
@@ -22,7 +23,8 @@ const statusColors = {
 
 const CRListPage = () => {
   const navigate = useNavigate();
-  const isAccountManager = String(authService.getUserRole() || '').toUpperCase() === 'ACCOUNT_MANAGER';
+  const currentRole = String(authService.getUserRole() || '').toUpperCase();
+  const isAccountManager = ['ACCOUNT_MANAGER', 'AM'].includes(currentRole);
   const [rows, setRows] = useState([]);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
@@ -84,10 +86,10 @@ const CRListPage = () => {
       sortKey: 'status',
       render: (row) => <CBadge color={statusColors[row.currentStatus] || 'secondary'}>{row.currentStatus}</CBadge>,
     },
-    { key: 'scheduleImpactDays', label: 'Schedule Impact', sortKey: 'scheduleImpactDays', render: (row) => `${row.scheduleImpactDays ?? 0} days` },
-    { key: 'estimatedCostImpact', label: 'Estimated Cost', sortKey: 'estimatedCostImpact' },
+    { key: 'scheduleImpactDays', className: 'text-end', label: 'Schedule Impact', sortKey: 'scheduleImpactDays', render: (row) => `${row.scheduleImpactDays ?? 0} days` },
+    { key: 'additionalBudget', className: 'text-end', label: 'Additional Budget Impact', sortKey: 'additionalBudget', render: (row) => formatCurrency(row.additionalBudget || 0) },
     { key: 'latestComment', label: 'Last Comment' },
-    { key: 'updatedAt', label: 'Updated Date', sortKey: 'updatedAt', render: (row) => formatDisplayDateTime(row.updatedAt) },
+    { key: 'updatedAt', className : 'text-center', label: 'Updated Date', sortKey: 'updatedAt', render: (row) => formatDisplayDate(row.updatedAt) },
     {
       key: 'actions',
       label: 'Actions',

@@ -1,0 +1,148 @@
+[
+  {
+    "jobId": "c37e6755b6174d5e8584c6a95560372a",
+    "modelVersion": "ml-20260531T122439708141Z0000",
+    "startedAt": "2026-05-31T12:24:36.404398+00:00",
+    "endedAt": "2026-05-31T12:24:45.771429+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 127,
+    "projectsUsed": 127
+  },
+  {
+    "jobId": "70a6fef62d5a47a9aa65423da8d1f100",
+    "modelVersion": "ml-20260531T121227709082Z0000",
+    "startedAt": "2026-05-31T12:12:25.300921+00:00",
+    "endedAt": "2026-05-31T12:12:33.505155+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 127,
+    "projectsUsed": 127
+  },
+  {
+    "jobId": "8fb860dfc2cb4026876c2f5a20faab84",
+    "modelVersion": "ml-20260531T121203962263Z0000",
+    "startedAt": "2026-05-31T12:12:00.544455+00:00",
+    "endedAt": "2026-05-31T12:12:11.514595+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 127,
+    "projectsUsed": 127
+  },
+  {
+    "jobId": "f23edaa3ce70407e8d4e0bc23909ffd5",
+    "modelVersion": "ml-20260531T111933286582Z0000",
+    "startedAt": "2026-05-31T11:19:30.219091+00:00",
+    "endedAt": "2026-05-31T11:19:38.530123+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 126,
+    "projectsUsed": 126
+  },
+  {
+    "jobId": "4f84a6cbf6b146a595c03dee7085370d",
+    "modelVersion": "ml-20260531T100409736918Z0000",
+    "startedAt": "2026-05-31T10:04:07.531916+00:00",
+    "endedAt": "2026-05-31T10:04:13.729615+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 127,
+    "projectsUsed": 127
+  },
+  {
+    "jobId": "d9b65af69fea4da69894776b80f3d460",
+    "modelVersion": null,
+    "startedAt": "2026-05-31T09:56:35.185941+00:00",
+    "endedAt": "2026-05-31T09:56:41.473934+00:00",
+    "status": "FAILED",
+    "recordsUsed": null,
+    "projectsUsed": null,
+    "error": "'planned_completion_date'"
+  },
+  {
+    "jobId": "72617bca6fd840d8b5641700f9d806ed",
+    "modelVersion": null,
+    "startedAt": "2026-05-31T09:55:31.097530+00:00",
+    "endedAt": "2026-05-31T09:55:38.977047+00:00",
+    "status": "FAILED",
+    "recordsUsed": null,
+    "projectsUsed": null,
+    "error": "'planned_completion_date'"
+  },
+  {
+    "jobId": "ebeb09f8dec0403d93de4e722bc0db13",
+    "modelVersion": "ml-20260531T060913525398Z0000",
+    "startedAt": "2026-05-31T06:09:10.573086+00:00",
+    "endedAt": "2026-05-31T06:09:18.922798+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 127,
+    "projectsUsed": 127
+  },
+  {
+    "jobId": "f98b04621d3846918901dd3c3d838b07",
+    "modelVersion": "ml-20260531T053756883709Z0000",
+    "startedAt": "2026-05-31T05:37:53.819110+00:00",
+    "endedAt": "2026-05-31T05:38:00.739561+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 127,
+    "projectsUsed": 127
+  },
+  {
+    "jobId": "f203eca4ce6c42a485f808f8118122ee",
+    "modelVersion": "ml-20260531T050607295729Z0000",
+    "startedAt": "2026-05-31T05:06:03.389138+00:00",
+    "endedAt": "2026-05-31T05:06:11.127792+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 126,
+    "projectsUsed": 126
+  },
+  {
+    "jobId": "6aefd0c3a3c64994a095f8c67ae50ce3",
+    "modelVersion": "ml-20260531T040320876497Z0000",
+    "startedAt": "2026-05-31T04:03:12.030106+00:00",
+    "endedAt": "2026-05-31T04:03:32.127456+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 126,
+    "projectsUsed": 126
+  },
+  {
+    "jobId": "6327de6a335f479db45d198a2e220090",
+    "modelVersion": "ml-20260530T190348694981Z0000",
+    "startedAt": "2026-05-30T19:03:40.131597+00:00",
+    "endedAt": "2026-05-30T19:04:00.807424+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 124,
+    "projectsUsed": 124
+  },
+  {
+    "jobId": "e381c3941d494266b8c91f250d218adb",
+    "modelVersion": "ml-20260530T185001579801Z0000",
+    "startedAt": "2026-05-30T18:49:53.694230+00:00",
+    "endedAt": "2026-05-30T18:50:17.447206+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 130,
+    "projectsUsed": 130
+  },
+  {
+    "jobId": "99b76be9615644788a3905b9d7879aaa",
+    "modelVersion": "ml-20260530T181843790651Z0000",
+    "startedAt": "2026-05-30T18:18:38.597602+00:00",
+    "endedAt": "2026-05-30T18:18:55.789285+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 128,
+    "projectsUsed": 128
+  },
+  {
+    "jobId": "f96c786c8029414b8274a72422a2be85",
+    "modelVersion": "ml-20260530T180641573587Z0000",
+    "startedAt": "2026-05-30T18:06:33.614713+00:00",
+    "endedAt": "2026-05-30T18:06:51.821625+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 128,
+    "projectsUsed": 128
+  },
+  {
+    "jobId": "b3da8b9a2ee947f9a4d9e9aa4e749a7e",
+    "modelVersion": "ml-20260529T170509487970Z0000",
+    "startedAt": "2026-05-29T17:05:03.717059+00:00",
+    "endedAt": "2026-05-29T17:05:20.526939+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 128,
+    "projectsUsed": 128
+  }
+]

@@ -4,15 +4,20 @@ import { formatDisplayDate } from '../../../utils/dateUtils';
 import { formatCurrency } from '../../../utils/resourcePlanning';
 
 const sectionSummary = [
-  { key: 'basicInfo', label: 'Basic Information' },
-  { key: 'deliveryDetails', label: 'Delivery & Timeline' },
-  { key: 'technology', label: 'Technology & Architecture' },
-  { key: 'risks', label: 'Risks & Dependencies' },
-  { key: 'financial', label: 'Financial Assumptions' },
-  { key: 'teamComposition', label: 'Resource Loading & Planning' },
+  { key: 'basicInfo', label: 'Basic Information', tabIndex: 0 },
+  { key: 'deliveryDetails', label: 'Delivery & Timeline', tabIndex: 0 },
+  { key: 'technology', label: 'Technology & Architecture', tabIndex: 0 },
+  { key: 'risks', label: 'Risks & Dependencies', tabIndex: 0 },
+  { key: 'financial', label: 'Financial Assumptions', tabIndex: 0 },
+  { key: 'teamComposition', label: 'Resource Loading and Planning', tabIndex: 1 },
 ];
 
 const empty = '-';
+
+const numberValue = (value) => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric.toFixed(2) : empty;
+};
 
 const ReviewSubmitStep = ({ state, onEdit, submitComment, onSubmitCommentChange, commentError }) => {
   const isAgile = String(state.basicInfo.delivery_model || '').toLowerCase() === 'agile';
@@ -45,7 +50,7 @@ const ReviewSubmitStep = ({ state, onEdit, submitComment, onSubmitCommentChange,
               <CTableDataCell>{index + 1}. {section.label}</CTableDataCell>
               <CTableDataCell>{getStatus(section.key)}</CTableDataCell>
               <CTableDataCell>
-                <CButton color="link" size="sm" onClick={() => onEdit(index)}>
+                <CButton color="link" size="sm" onClick={() => onEdit(section.tabIndex)}>
                   Edit
                 </CButton>
               </CTableDataCell>
@@ -63,6 +68,7 @@ const ReviewSubmitStep = ({ state, onEdit, submitComment, onSubmitCommentChange,
             <p><strong>Industry:</strong> {state.basicInfo.industry || empty}</p>
             <p><strong>Delivery model:</strong> {state.basicInfo.delivery_model || empty}</p>
             <p><strong>Business criticality:</strong> {state.basicInfo.business_criticality || empty}</p>
+            <p><strong>PM estimated value:</strong> {numberValue(state.basicInfo.pm_estimated_value)} PD</p>
           </CCol>
           <CCol md={6}>
             <h5>Delivery & Timeline</h5>
@@ -100,12 +106,13 @@ const ReviewSubmitStep = ({ state, onEdit, submitComment, onSubmitCommentChange,
             <p><strong>Management reserve:</strong> {state.financial.management_reserve_percent || 0}%</p>
             <p><strong>Contingency reserve:</strong> {state.financial.contingency_reserve_percent || 0}%</p>
             <p><strong>Derived budget:</strong> {formatCurrency(state.financial.budget || 0)}</p>
-            <p><strong>Derived effort:</strong> {state.financial.planned_effort || empty} person-days</p>
+            <p><strong>Derived Effort (PD):</strong> {state.financial.planned_effort || empty}</p>
             <p><strong>Derived team size:</strong> {state.financial.estimated_team_size || empty}</p>
           </CCol>
           <CCol md={6}>
             <h5>ML Recommendation</h5>
             <p><strong>Predicted risk:</strong> {state.mlRecommendation.recommendation?.risk?.riskLevel || empty}</p>
+            <p><strong>AI estimated value:</strong> {numberValue(state.mlRecommendation.recommendation?.estimation?.recommendedValue)} PD</p>
           </CCol>
         </CRow>
         <CRow>

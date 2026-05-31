@@ -45,6 +45,11 @@ async function getProjectRecommendations(projectData, userId) {
   const response = {
     staffing,
     effort,
+    estimation: {
+      recommendedValue: Number(effort.predictedHours || 0),
+      unit: 'PD',
+      advisoryOnly: true,
+    },
     risk,
     baselineSnapshot: {
       effort: Number(effort.predictedHours || 0),

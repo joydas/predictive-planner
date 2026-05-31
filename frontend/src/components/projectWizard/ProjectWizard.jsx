@@ -10,27 +10,19 @@ import {
 import { useProjectWizard } from '../../context/projectWizard.context';
 import { createDraft, updateDraft, submitProject } from '../../services/projectService';
 import WizardTabs from './WizardTabs';
-import BasicInfoStep from './steps/BasicInfoStep';
-import DeliveryDetailsStep from './steps/DeliveryDetailsStep';
 import TeamCompositionStep from './steps/TeamCompositionStep';
-import TechnologyStep from './steps/TechnologyStep';
-import FinancialStep from './steps/FinancialStep';
-import RiskStep from './steps/RiskStep';
+import ProjectInformationStep from './steps/ProjectInformationStep';
 import ReviewSubmitStep from './steps/ReviewSubmitStep';
 import { deriveResourcePlanning } from '../../utils/resourcePlanning';
 import { getPlanningMasterData } from '../../services/masterDataService';
 
 const steps = [
-  { key: 'basicInfo', label: 'Basic Information' },
-  { key: 'deliveryDetails', label: 'Delivery & Timeline' },
-  { key: 'technology', label: 'Technology & Architecture' },
-  { key: 'risks', label: 'Risks & Dependencies' },
-  { key: 'financial', label: 'Financial Assumptions' },
-  { key: 'teamComposition', label: 'Resource Loading & Planning' },
+  { key: 'projectInformation', label: 'Project Information' },
+  { key: 'teamComposition', label: 'Resource Loading and Planning' },
   { key: 'review', label: 'Review & Submit' },
 ];
 
-const ProjectWizard = ({ loading, mode = 'create' }) => {
+const ProjectWizard = ({ loading, mode = 'create', onSubmitted }) => {
   const {
     state,
     setCurrentStep,
@@ -39,6 +31,7 @@ const ProjectWizard = ({ loading, mode = 'create' }) => {
     setMasterData,
     setDraftId,
     setDraftSaved,
+    resetWizard,
   } = useProjectWizard();
 
   const [stepErrors, setStepErrors] = useState({});
@@ -140,16 +133,11 @@ const ProjectWizard = ({ loading, mode = 'create' }) => {
 
   const stepComponents = useMemo(
     () => [
-      <BasicInfoStep data={state.basicInfo} updateSection={(payload) => updateSection('basicInfo', payload)} errors={stepErrors} />, 
-      <DeliveryDetailsStep
-        data={state.deliveryDetails}
-        deliveryModel={state.basicInfo.delivery_model}
-        updateSection={(payload) => updateSection('deliveryDetails', payload)}
+      <ProjectInformationStep
+        state={state}
+        updateSection={updateSection}
         errors={stepErrors}
       />,
-      <TechnologyStep data={state.technology} updateSection={(payload) => updateSection('technology', payload)} errors={stepErrors} />,
-      <RiskStep data={state.risks} updateSection={(payload) => updateSection('risks', payload)} errors={stepErrors} />,
-      <FinancialStep data={state.financial} updateSection={(payload) => updateSection('financial', payload)} errors={stepErrors} />,
       <TeamCompositionStep
         data={state.teamComposition}
         deliveryDetails={state.deliveryDetails}
@@ -176,58 +164,59 @@ const ProjectWizard = ({ loading, mode = 'create' }) => {
     [state, draftPayload, stepErrors, updateSection, setTeamRows, setCurrentStep, submitComment]
   );
 
+  const validateProjectInformation = () => {
+    const errors = {};
+    if (!state.basicInfo.project_name.trim()) errors.project_name = 'Project name is required';
+    if (!state.basicInfo.client_name.trim()) errors.client_name = 'Client name is required';
+    if (!state.basicInfo.industry.trim()) errors.industry = 'Industry is required';
+    if (!state.basicInfo.project_type.trim()) errors.project_type = 'Project type is required';
+    if (!state.basicInfo.delivery_model.trim()) errors.delivery_model = 'Delivery model is required';
+    if (!state.basicInfo.business_criticality.trim()) errors.business_criticality = 'Business criticality is required';
+    if (state.basicInfo.pm_estimated_value === '' || Number(state.basicInfo.pm_estimated_value) <= 0) {
+      errors.pm_estimated_value = 'PM estimated value must be greater than zero';
+    }
+    if (!state.deliveryDetails.start_date) errors.start_date = 'Start date is required';
+    if (!state.deliveryDetails.planned_end_date) errors.planned_end_date = 'Planned end date is required';
+    if (state.deliveryDetails.start_date && state.deliveryDetails.planned_end_date && state.deliveryDetails.planned_end_date < state.deliveryDetails.start_date) {
+      errors.planned_end_date = 'End date cannot be before start date';
+    }
+    if (!state.deliveryDetails.sprint_length) errors.sprint_length = 'Sprint length is required';
+    if (!state.deliveryDetails.release_frequency) errors.release_frequency = 'Release frequency is required';
+    if (String(state.basicInfo.delivery_model || '').toLowerCase() !== 'agile' && state.deliveryDetails.milestone_count === '') {
+      errors.milestone_count = 'Milestone count is required for non-Agile delivery';
+    }
+    if (!state.technology.technology_stack.trim()) errors.technology_stack = 'Technology stack is required';
+    if (!state.technology.architecture_type.trim()) errors.architecture_type = 'Architecture type is required';
+    if (!state.technology.cloud_platform.trim()) errors.cloud_platform = 'Cloud platform is required';
+    if (state.technology.integration_count === '') errors.integration_count = 'Integration count is required';
+    if (!state.technology.external_dependencies.trim()) errors.external_dependencies = 'External dependencies are required';
+    if (!state.technology.complexity) errors.complexity = 'Complexity is required';
+    if (state.risks.dependency_count === '') errors.dependency_count = 'Dependency count is required';
+    if (!state.risks.compliance_requirements.trim()) errors.compliance_requirements = 'Compliance requirements are required';
+    if (!state.risks.criticality.trim()) errors.criticality = 'Criticality is required';
+    if (!state.risks.requirement_stability_index) errors.requirement_stability_index = 'Stability index is required';
+    if (!state.risks.expected_cr_volatility.trim()) errors.expected_cr_volatility = 'CR volatility is required';
+    if (!state.risks.risk_level_indicators.trim()) errors.risk_level_indicators = 'Risk level indicators are required';
+    const managementReserve = Number(state.financial.management_reserve_percent);
+    const contingencyReserve = Number(state.financial.contingency_reserve_percent);
+    if (state.financial.management_reserve_percent === '') {
+      errors.management_reserve_percent = 'Management reserve is required';
+    } else if (!Number.isFinite(managementReserve) || managementReserve < 0 || managementReserve > 100) {
+      errors.management_reserve_percent = 'Management reserve must be between 0 and 100';
+    }
+    if (state.financial.contingency_reserve_percent === '') {
+      errors.contingency_reserve_percent = 'Contingency reserve is required';
+    } else if (!Number.isFinite(contingencyReserve) || contingencyReserve < 0 || contingencyReserve > 100) {
+      errors.contingency_reserve_percent = 'Contingency reserve must be between 0 and 100';
+    }
+    if (!state.financial.billing_model.trim()) errors.billing_model = 'Billing model is required';
+    return errors;
+  };
+
   const validateStep = (step = state.currentStep) => {
     const errors = {};
-    switch (step) {
-      case 0:
-        if (!state.basicInfo.project_name.trim()) errors.project_name = 'Project name is required';
-        if (!state.basicInfo.client_name.trim()) errors.client_name = 'Client name is required';
-        if (!state.basicInfo.industry.trim()) errors.industry = 'Industry is required';
-        if (!state.basicInfo.project_type.trim()) errors.project_type = 'Project type is required';
-        if (!state.basicInfo.delivery_model.trim()) errors.delivery_model = 'Delivery model is required';
-        if (!state.basicInfo.business_criticality.trim()) errors.business_criticality = 'Business criticality is required';
-        break;
-      case 1:
-        if (!state.deliveryDetails.start_date) errors.start_date = 'Start date is required';
-        if (!state.deliveryDetails.planned_end_date) errors.planned_end_date = 'Planned end date is required';
-        if (state.deliveryDetails.start_date && state.deliveryDetails.planned_end_date && state.deliveryDetails.planned_end_date < state.deliveryDetails.start_date) {
-          errors.planned_end_date = 'End date cannot be before start date';
-        }
-        if (!state.deliveryDetails.sprint_length) errors.sprint_length = 'Sprint length is required';
-        if (!state.deliveryDetails.release_frequency) errors.release_frequency = 'Release frequency is required';
-        if (String(state.basicInfo.delivery_model || '').toLowerCase() !== 'agile' && state.deliveryDetails.milestone_count === '') {
-          errors.milestone_count = 'Milestone count is required for non-Agile delivery';
-        }
-        break;
-      case 2:
-        if (!state.technology.technology_stack.trim()) errors.technology_stack = 'Technology stack is required';
-        if (!state.technology.architecture_type.trim()) errors.architecture_type = 'Architecture type is required';
-        if (!state.technology.cloud_platform.trim()) errors.cloud_platform = 'Cloud platform is required';
-        if (state.technology.integration_count === '') errors.integration_count = 'Integration count is required';
-        if (!state.technology.external_dependencies.trim()) errors.external_dependencies = 'External dependencies are required';
-        if (!state.technology.complexity) errors.complexity = 'Complexity is required';
-        break;
-      case 3:
-        if (state.risks.dependency_count === '') errors.dependency_count = 'Dependency count is required';
-        if (!state.risks.compliance_requirements.trim()) errors.compliance_requirements = 'Compliance requirements are required';
-        if (!state.risks.criticality.trim()) errors.criticality = 'Criticality is required';
-        if (!state.risks.requirement_stability_index) errors.requirement_stability_index = 'Stability index is required';
-        if (!state.risks.expected_cr_volatility.trim()) errors.expected_cr_volatility = 'CR volatility is required';
-        if (!state.risks.risk_level_indicators.trim()) errors.risk_level_indicators = 'Risk level indicators are required';
-        break;
-      case 4:
-        if (state.financial.management_reserve_percent === '') errors.management_reserve_percent = 'Management reserve is required';
-        if (state.financial.contingency_reserve_percent === '') errors.contingency_reserve_percent = 'Contingency reserve is required';
-        if (!state.financial.billing_model.trim()) errors.billing_model = 'Billing model is required';
-        break;
-      case 5:
-        break;
-      case 6:
-        Object.assign(errors, validateResourceLoading());
-        break;
-      default:
-        break;
-    }
+    if (step === 0) Object.assign(errors, validateProjectInformation());
+    if (step === 1) Object.assign(errors, validateResourceLoading());
     return errors;
   };
 
@@ -261,9 +250,7 @@ const ProjectWizard = ({ loading, mode = 'create' }) => {
 
   const validateSubmit = () => {
     const errors = {};
-    for (let step = 0; step < steps.length; step += 1) {
-      Object.assign(errors, validateStep(step));
-    }
+    Object.assign(errors, validateProjectInformation());
     Object.assign(errors, validateResourceLoading());
     return errors;
   };
@@ -310,6 +297,8 @@ const ProjectWizard = ({ loading, mode = 'create' }) => {
   };
 
   const handleSubmit = async () => {
+    if (savingDraft) return;
+
     const errors = validateSubmit();
     if (!submitComment.trim()) {
       errors.submitComment = 'PM submit comment is required';
@@ -328,11 +317,19 @@ const ProjectWizard = ({ loading, mode = 'create' }) => {
         projectData: draftPayload,
         comment: submitComment.trim(),
       };
-      await submitProject(payload);
-      setSubmissionMessage(mode === 'edit' ? 'Project resubmitted successfully.' : 'Project submitted successfully.');
+      const result = await submitProject(payload);
+      setStepErrors({});
+      setSubmitComment('');
+      resetWizard();
+      onSubmitted?.({
+        projectId: result.projectId || state.draftId,
+        mode,
+        message: mode === 'edit' ? 'Project resubmitted successfully.' : 'Project submitted successfully.',
+      });
       setSubmissionError('');
     } catch (error) {
       setSubmissionError(error.message || 'Unable to submit project');
+      setSubmissionMessage('');
     } finally {
       setSavingDraft(false);
     }

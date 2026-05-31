@@ -1,6 +1,6 @@
 from functools import lru_cache
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import joblib
@@ -8,6 +8,14 @@ import pandas as pd
 
 from utils.feature_utils import model_feature_columns, normalize_role, severity_score
 from utils.paths import DATASETS_DIR, MODELS_DIR, REPORTS_DIR, ensure_runtime_dirs
+from feature_engineering.forecast_feature_builder import (
+    build_forecast_explainability,
+    build_completion_forecast_input,
+    build_final_budget_forecast_input,
+    build_final_effort_forecast_input,
+    build_on_time_probability_input,
+    find_similar_historical_projects,
+)
 
 
 def _number(value: Any, default: float = 0.0) -> float:
@@ -332,7 +340,7 @@ def feature_diagnostics(payload: dict, feature_columns: list[str], frame: pd.Dat
     }
 
 
-@lru_cache(maxsize=3)
+@lru_cache(maxsize=6)
 def load_artifact(name: str) -> dict:
     path = MODELS_DIR / name
     if not path.exists():
@@ -580,3 +588,283 @@ def predict_risk(payload: dict) -> dict:
     if diagnostics["warnings"]:
         response["diagnostics"] = diagnostics
     return response
+
+
+def _delivery_risk_level(probability: int) -> str:
+    if probability >= 80:
+        return "LOW"
+    if probability >= 60:
+        return "MODERATE"
+    if probability >= 40:
+        return "HIGH"
+    return "CRITICAL"
+
+
+def predict_on_time_delivery_probability(payload: dict) -> dict:
+    artifact = load_artifact("on_time_delivery_probability_model.pkl")
+    if not artifact.get("pipeline"):
+        return {
+            "available": False,
+            "message": "Insufficient historical project data available.",
+        }
+
+    project_id = int(_number(payload.get("projectId"), 0))
+    if not project_id:
+        return {
+            "available": False,
+            "message": "Project id is required for on-time delivery probability.",
+        }
+
+    input_data = build_on_time_probability_input(project_id)
+    feature_columns = artifact["feature_columns"]
+    features = input_data["features"].copy()
+
+    try:
+        completion_forecast = predict_completion_date({"projectId": project_id})
+    except Exception:
+        completion_forecast = {"forecastDelayDays": 0}
+
+    try:
+        effort_forecast = predict_final_effort_forecast({"projectId": project_id})
+    except Exception:
+        effort_forecast = {"forecastFinalEffort": 0}
+
+    try:
+        budget_forecast = predict_final_budget_forecast({"projectId": project_id})
+    except Exception:
+        budget_forecast = {"forecastFinalBudget": 0}
+
+    features["forecast_delay_days"] = float(completion_forecast.get("forecastDelayDays") or 0)
+    features["forecast_final_effort"] = float(effort_forecast.get("forecastFinalEffort") or 0)
+    features["forecast_final_budget"] = float(budget_forecast.get("forecastFinalBudget") or 0)
+
+    frame = pd.DataFrame([{column: features.get(column, 0) for column in feature_columns}])
+    pipeline = artifact["pipeline"]
+    probability_value = 0.0
+    if hasattr(pipeline.named_steps["model"], "predict_proba"):
+        probabilities = pipeline.predict_proba(frame)[0]
+        classes = list(pipeline.named_steps["model"].classes_)
+        if 1 in classes:
+            probability_value = float(probabilities[classes.index(1)])
+
+    probability = int(round(max(0, min(100, probability_value * 100))))
+    risk_level = _delivery_risk_level(probability)
+    explainability = build_forecast_explainability(project_id)
+    explanation = explainability.get("completionDrivers", [])
+
+    return {
+        "available": True,
+        "probability": probability,
+        "riskLevel": risk_level,
+        "confidence": int(round(90 if probability >= 70 else 75 if probability >= 50 else 60)),
+        "explanation": explanation,
+        "forecast": {
+            "completionDelayDays": completion_forecast.get("forecastDelayDays"),
+            "finalEffort": effort_forecast.get("forecastFinalEffort"),
+            "finalBudget": budget_forecast.get("forecastFinalBudget"),
+        },
+    }
+
+
+def _regression_forecast_confidence(
+    pipeline,
+    frame: pd.DataFrame,
+    artifact: dict,
+    prediction: float,
+    scale: float = 4,
+    long_range_penalty: bool = False,
+) -> int:
+    model = pipeline.named_steps.get("model")
+    tree_predictions = []
+    if hasattr(model, "estimators_"):
+        transformed = pipeline.named_steps["preprocessor"].transform(frame)
+        tree_predictions = [float(tree.predict(transformed)[0]) for tree in model.estimators_]
+
+    model_spread = float(pd.Series(tree_predictions).std()) if tree_predictions else 0.0
+    residual_std = _number(artifact.get("metrics", {}).get("residual_std"), 0)
+    mae = _number(artifact.get("metrics", {}).get("mae"), 0)
+    uncertainty = model_spread + residual_std + (mae * 0.5)
+    confidence = 100 - min(70, uncertainty * scale)
+    if long_range_penalty and abs(prediction) > 60:
+        confidence -= 5
+    return int(max(30, min(95, round(confidence))))
+
+
+def _forecast_confidence(pipeline, frame: pd.DataFrame, artifact: dict, prediction: float) -> int:
+    return _regression_forecast_confidence(pipeline, frame, artifact, prediction, scale=4, long_range_penalty=True)
+
+
+def _effort_forecast_confidence(pipeline, frame: pd.DataFrame, artifact: dict, prediction: float) -> int:
+    baseline = max(abs(prediction), 1)
+    mae = _number(artifact.get("metrics", {}).get("mae"), 0)
+    relative_mae = mae / baseline
+    scale = 40 / baseline
+    confidence = _regression_forecast_confidence(pipeline, frame, artifact, prediction, scale=scale)
+    if relative_mae > 0.25:
+        confidence -= 8
+    return int(max(30, min(95, confidence)))
+
+
+def _value_forecast_confidence(pipeline, frame: pd.DataFrame, artifact: dict, prediction: float) -> int:
+    baseline = max(abs(prediction), 1)
+    mae = _number(artifact.get("metrics", {}).get("mae"), 0)
+    relative_mae = mae / baseline
+    scale = 40 / baseline
+    confidence = _regression_forecast_confidence(pipeline, frame, artifact, prediction, scale=scale)
+    if relative_mae > 0.25:
+        confidence -= 8
+    return int(max(30, min(95, confidence)))
+
+
+def predict_completion_date(payload: dict) -> dict:
+    artifact = load_artifact("completion_forecast_model.pkl")
+    if not artifact.get("pipeline"):
+        return {
+            "forecastAvailable": False,
+            "message": "Insufficient historical project data available for forecasting.",
+        }
+
+    project_id = int(_number(payload.get("projectId"), 0))
+    if not project_id:
+        return {"forecastAvailable": False, "message": "Project id is required for forecasting."}
+
+    forecast_input = build_completion_forecast_input(project_id)
+    planned_completion = pd.to_datetime(forecast_input.get("plannedCompletionDate"), errors="coerce")
+    if pd.isna(planned_completion):
+        return {"forecastAvailable": False, "message": "Planned completion date is required for forecasting."}
+
+    feature_columns = artifact["feature_columns"]
+    features = forecast_input["features"]
+    frame = pd.DataFrame([{column: features.get(column, 0) for column in feature_columns}])
+    pipeline = artifact["pipeline"]
+    raw_delay = float(pipeline.predict(frame)[0])
+    forecast_delay_days = int(round(raw_delay))
+    forecast_date = planned_completion.date() + timedelta(days=forecast_delay_days)
+    confidence = _forecast_confidence(pipeline, frame, artifact, raw_delay)
+
+    return {
+        "forecastAvailable": True,
+        "projectId": forecast_input["projectId"],
+        "projectName": forecast_input["projectName"],
+        "plannedCompletionDate": str(planned_completion.date()),
+        "forecastCompletionDate": forecast_date.isoformat(),
+        "forecastDelayDays": forecast_delay_days,
+        "confidence": confidence,
+        "lastForecastRun": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def predict_final_effort_forecast(payload: dict) -> dict:
+    artifact = load_artifact("final_effort_forecast_model.pkl")
+    if not artifact.get("pipeline"):
+        return {
+            "forecastAvailable": False,
+            "message": "Insufficient historical project data available for forecasting.",
+        }
+
+    project_id = int(_number(payload.get("projectId"), 0))
+    if not project_id:
+        return {"forecastAvailable": False, "message": "Project id is required for forecasting."}
+
+    forecast_input = build_final_effort_forecast_input(project_id)
+    feature_columns = artifact["feature_columns"]
+    features = forecast_input["features"]
+    frame = pd.DataFrame([{column: features.get(column, 0) for column in feature_columns}])
+    pipeline = artifact["pipeline"]
+    raw_effort = float(max(pipeline.predict(frame)[0], 0))
+    forecast_final_effort = int(round(raw_effort))
+    current_planned_effort = float(forecast_input.get("currentPlannedEffort") or 0)
+    forecast_variance = int(round(forecast_final_effort - current_planned_effort))
+    confidence = _effort_forecast_confidence(pipeline, frame, artifact, raw_effort)
+
+    return {
+        "forecastAvailable": True,
+        "projectId": forecast_input["projectId"],
+        "projectName": forecast_input["projectName"],
+        "currentPlannedEffort": current_planned_effort,
+        "forecastFinalEffort": forecast_final_effort,
+        "forecastVariance": forecast_variance,
+        "confidence": confidence,
+        "lastForecastRun": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def predict_final_budget_forecast(payload: dict) -> dict:
+    artifact = load_artifact("final_budget_forecast_model.pkl")
+    if not artifact.get("pipeline"):
+        return {
+            "forecastAvailable": False,
+            "message": "Insufficient historical project data available for forecasting.",
+        }
+
+    project_id = int(_number(payload.get("projectId"), 0))
+    if not project_id:
+        return {"forecastAvailable": False, "message": "Project id is required for forecasting."}
+
+    forecast_input = build_final_budget_forecast_input(project_id)
+    feature_columns = artifact["feature_columns"]
+    features = forecast_input["features"]
+    frame = pd.DataFrame([{column: features.get(column, 0) for column in feature_columns}])
+    pipeline = artifact["pipeline"]
+    raw_budget = float(max(pipeline.predict(frame)[0], 0))
+    forecast_final_budget = int(round(raw_budget))
+    current_planned_budget = float(forecast_input.get("currentPlannedBudget") or 0)
+    forecast_variance = int(round(forecast_final_budget - current_planned_budget))
+    confidence = _value_forecast_confidence(pipeline, frame, artifact, raw_budget)
+
+    return {
+        "forecastAvailable": True,
+        "projectId": forecast_input["projectId"],
+        "projectName": forecast_input["projectName"],
+        "currentPlannedBudget": current_planned_budget,
+        "forecastFinalBudget": forecast_final_budget,
+        "forecastVariance": forecast_variance,
+        "confidence": confidence,
+        "lastForecastRun": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def predict_similar_projects(payload: dict) -> dict:
+    project_id = int(_number(payload.get("projectId"), 0))
+    if not project_id:
+        return {"similarProjects": [], "message": "Project id is required for similar project search."}
+
+    raw_candidate_ids = payload.get("candidateProjectIds")
+    candidate_project_ids = None
+    if isinstance(raw_candidate_ids, list):
+        candidate_project_ids = [int(_number(value, 0)) for value in raw_candidate_ids if int(_number(value, 0))]
+
+    similar_projects = find_similar_historical_projects(
+        project_id,
+        top_n=int(_number(payload.get("topN"), 3) or 3),
+        candidate_project_ids=candidate_project_ids,
+    )
+    return {
+        "projectId": project_id,
+        "similarProjects": similar_projects,
+        "featureSpace": [
+            "Industry",
+            "Technology",
+            "Complexity",
+            "Project Type",
+            "Planned Duration",
+            "Planned Effort",
+            "Planned Budget",
+            "Planned Team Size",
+            "CR History",
+            "Progress Velocity",
+            "Progress Snapshot Count",
+        ],
+    }
+
+
+def predict_forecast_explainability(payload: dict) -> dict:
+    project_id = int(_number(payload.get("projectId"), 0))
+    if not project_id:
+        return {
+            "completionDrivers": [],
+            "effortDrivers": [],
+            "budgetDrivers": [],
+            "message": "Project id is required for explainability.",
+        }
+    return build_forecast_explainability(project_id)

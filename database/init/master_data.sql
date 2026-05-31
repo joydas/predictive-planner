@@ -69,6 +69,19 @@ INSERT INTO md_skill (skill_name, skill_category, active_flag) VALUES
 ('Salesforce', 'ERP', 1)
 ON DUPLICATE KEY UPDATE skill_category = VALUES(skill_category), active_flag = VALUES(active_flag);
 
+INSERT INTO md_industry (industry_code, industry_name, is_active) VALUES
+('BFSI', 'Banking, Financial Services and Insurance', 1),
+('HEALTHCARE', 'Healthcare', 1),
+('RETAIL', 'Retail', 1),
+('TELECOM', 'Telecom', 1),
+('MANUFACTURING', 'Manufacturing', 1),
+('ENERGY_UTILITIES', 'Energy and Utilities', 1),
+('PUBLIC_SECTOR', 'Public Sector', 1),
+('TECHNOLOGY', 'Technology', 1),
+('MEDIA_ENTERTAINMENT', 'Media and Entertainment', 1),
+('TRANSPORTATION_LOGISTICS', 'Transportation and Logistics', 1)
+ON DUPLICATE KEY UPDATE industry_name = VALUES(industry_name), is_active = VALUES(is_active);
+
 INSERT INTO md_rate_card (role_id, location_type, rate_per_day, currency, effective_from, active_flag)
 SELECT role_id, 'ONSITE',
   CASE role_category

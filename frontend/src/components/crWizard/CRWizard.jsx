@@ -1,18 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CAlert, CButton, CCard, CCardBody, CCardFooter, CSpinner } from '@coreui/react';
 import WizardTabs from '../projectWizard/WizardTabs';
-import { createCrDraft, submitCrDraft, updateCrDraft } from '../../services/crService';
+import { createCrDraft, getProjectStaffingBaseline, submitCrDraft, updateCrDraft } from '../../services/crService';
+import { getPlanningMasterData } from '../../services/masterDataService';
 import CRBasicInfoStep from './steps/CRBasicInfoStep';
 import ImpactAssessmentStep from './steps/ImpactAssessmentStep';
-import TeamImpactStep from './steps/TeamImpactStep';
-import FinancialImpactStep from './steps/FinancialImpactStep';
 import ReviewSubmitStep from './steps/ReviewSubmitStep';
 
 const steps = [
   { key: 'basic', label: 'Basic Information' },
   { key: 'impact', label: 'Impact Assessment' },
-  { key: 'teamImpact', label: 'Team Impact' },
-  { key: 'financial', label: 'Financial Impact' },
   { key: 'review', label: 'Review & Submit' },
 ];
 
@@ -41,6 +38,8 @@ const defaultState = {
     additionalQaCount: '',
     additionalDevOpsCount: '',
     additionalArchitectCount: '',
+    staffingBaselineSnapshot: [],
+    staffingDeltas: [],
   },
   financial: {
     additionalBudget: '',
@@ -85,9 +84,11 @@ function buildInitialState(initialCr, projectId) {
       additionalQaCount: initialCr.additionalQaCount ?? '',
       additionalDevOpsCount: initialCr.additionalDevOpsCount ?? '',
       additionalArchitectCount: initialCr.additionalArchitectCount ?? '',
+      staffingBaselineSnapshot: initialCr.staffingBaselineSnapshot || [],
+      staffingDeltas: initialCr.staffingDeltas || [],
     },
     financial: {
-      additionalBudget: initialCr.additionalBudget ?? '',
+      additionalBudget: initialCr.additionalBudget ?? initialCr.budgetImpact ?? initialCr.estimatedCostImpact ?? '',
       additionalLicensingCost: initialCr.additionalLicensingCost ?? '',
       infrastructureCostImpact: initialCr.infrastructureCostImpact ?? '',
     },
@@ -98,6 +99,8 @@ const CRWizard = ({ loading, projects, initialCr, projectId, onSubmitted }) => {
   const [state, setState] = useState(() => buildInitialState(initialCr, projectId));
   const [stepErrors, setStepErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  const [loadingStaffing, setLoadingStaffing] = useState(false);
+  const [masterData, setMasterData] = useState({ roles: [], rateCards: [] });
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [submitComment, setSubmitComment] = useState('');
@@ -105,6 +108,47 @@ const CRWizard = ({ loading, projects, initialCr, projectId, onSubmitted }) => {
   useEffect(() => {
     setState(buildInitialState(initialCr, projectId));
   }, [initialCr, projectId]);
+
+  useEffect(() => {
+    let active = true;
+    getPlanningMasterData()
+      .then((data) => {
+        if (active) setMasterData(data || { roles: [], rateCards: [] });
+      })
+      .catch(() => {
+        if (active) setMasterData({ roles: [], rateCards: [] });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const selectedProjectId = state.basic.projectId;
+    if (!selectedProjectId) return undefined;
+    if (initialCr?.staffingBaselineSnapshot?.length) return undefined;
+
+    let active = true;
+    setLoadingStaffing(true);
+    getProjectStaffingBaseline(selectedProjectId, state.crId)
+      .then((result) => {
+        if (!active) return;
+        updateSection('teamImpact', {
+          staffingBaselineSnapshot: result.currentApprovedStaffing || [],
+        });
+      })
+      .catch((err) => {
+        if (active) setError(err.message || 'Unable to load approved staffing baseline');
+      })
+      .finally(() => {
+        if (active) setLoadingStaffing(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [initialCr?.staffingBaselineSnapshot?.length, state.basic.projectId, state.crId]);
 
   const selectedProject = useMemo(
     () => projects.find((project) => Number(project.projectId) === Number(state.basic.projectId)),
@@ -147,7 +191,7 @@ const CRWizard = ({ loading, projects, initialCr, projectId, onSubmitted }) => {
     return errors;
   };
 
-  const saveDraft = async () => {
+  const saveDraft = async ({ manageSaving = true } = {}) => {
     const draftErrors = {};
     if (!state.basic.projectId) draftErrors.projectId = 'Project is required';
     if (!state.basic.title.trim()) draftErrors.title = 'CR title is required';
@@ -156,7 +200,7 @@ const CRWizard = ({ loading, projects, initialCr, projectId, onSubmitted }) => {
       return null;
     }
 
-    setSaving(true);
+    if (manageSaving) setSaving(true);
     try {
       if (state.crId) {
         await updateCrDraft(state.crId, crPayload);
@@ -175,7 +219,7 @@ const CRWizard = ({ loading, projects, initialCr, projectId, onSubmitted }) => {
       setMessage('');
       return null;
     } finally {
-      setSaving(false);
+      if (manageSaving) setSaving(false);
     }
   };
 
@@ -194,6 +238,8 @@ const CRWizard = ({ loading, projects, initialCr, projectId, onSubmitted }) => {
   };
 
   const handleSubmit = async () => {
+    if (saving) return;
+
     const errors = validateStep();
     if (Object.keys(errors).length) {
       setStepErrors(errors);
@@ -204,13 +250,20 @@ const CRWizard = ({ loading, projects, initialCr, projectId, onSubmitted }) => {
     setError('');
     setMessage('');
     try {
-      const crId = state.crId || await saveDraft();
+      const crId = state.crId || await saveDraft({ manageSaving: false });
       if (!crId) return;
       const result = await submitCrDraft(crId, crPayload, submitComment.trim());
-      setMessage('Change request submitted.');
-      onSubmitted?.(result.crId || crId);
+      const submittedCrId = result.crId || crId;
+      setStepErrors({});
+      setSubmitComment('');
+      setState(buildInitialState(null, projectId));
+      onSubmitted?.({
+        crId: submittedCrId,
+        message: initialCr ? 'Change request resubmitted successfully.' : 'Change request submitted successfully.',
+      });
     } catch (err) {
       setError(err.message || 'Unable to submit change request');
+      setMessage('');
     } finally {
       setSaving(false);
     }
@@ -225,9 +278,18 @@ const CRWizard = ({ loading, projects, initialCr, projectId, onSubmitted }) => {
       errors={stepErrors}
       readOnlyProject={!!projectId}
     />,
-    <ImpactAssessmentStep data={state.impact} updateSection={(payload) => updateSection('impact', payload)} errors={stepErrors} />,
-    <TeamImpactStep data={state.teamImpact} updateSection={(payload) => updateSection('teamImpact', payload)} />,
-    <FinancialImpactStep data={state.financial} updateSection={(payload) => updateSection('financial', payload)} />,
+    <ImpactAssessmentStep
+      data={state.impact}
+      selectedProject={selectedProject}
+      teamImpact={state.teamImpact}
+      financial={state.financial}
+      updateSection={(payload) => updateSection('impact', payload)}
+      updateTeamImpact={(payload) => updateSection('teamImpact', payload)}
+      updateFinancial={(payload) => updateSection('financial', payload)}
+      masterData={masterData}
+      loadingStaffing={loadingStaffing}
+      errors={stepErrors}
+    />,
     <ReviewSubmitStep
       state={state}
       selectedProject={selectedProject}
@@ -259,7 +321,7 @@ const CRWizard = ({ loading, projects, initialCr, projectId, onSubmitted }) => {
             Previous
           </CButton>
           <div className="wizard-action-group">
-            <CButton color="outline" onClick={saveDraft} disabled={saving}>
+            <CButton color="outline" onClick={() => saveDraft()} disabled={saving}>
               {saving ? 'Saving...' : 'Save Draft'}
             </CButton>
             {currentStep < steps.length - 1 ? (

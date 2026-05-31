@@ -23,25 +23,23 @@ const ReviewSubmitStep = ({ state, selectedProject, submitComment, onSubmitComme
         <CCol md={6}>
           <h5>Impact Analysis</h5>
           <DetailItem label="Schedule impact days" value={state.impact.scheduleImpactDays} />
-          <DetailItem label="Estimated effort hours" value={state.impact.estimatedEffortHours} />
-          <DetailItem label="Estimated cost impact" value={state.impact.estimatedCostImpact} />
+          <DetailItem label="Estimated Effort (PD)" value={state.impact.estimatedEffortHours} />
+          <DetailItem label="Additional Budget Impact" value={state.financial.additionalBudget} />
           <DetailItem label="Environments affected" value={state.impact.environmentsAffected} />
         </CCol>
       </CRow>
       <CRow>
-        <CCol md={6}>
+        <CCol md={12}>
           <h5>Team Impact</h5>
-          <DetailItem label="PM" value={state.teamImpact.additionalPmCount} />
-          <DetailItem label="Dev" value={state.teamImpact.additionalDevCount} />
-          <DetailItem label="QA" value={state.teamImpact.additionalQaCount} />
-          <DetailItem label="DevOps" value={state.teamImpact.additionalDevOpsCount} />
-          <DetailItem label="Architect" value={state.teamImpact.additionalArchitectCount} />
-        </CCol>
-        <CCol md={6}>
-          <h5>Financials</h5>
-          <DetailItem label="Additional budget" value={state.financial.additionalBudget} />
-          <DetailItem label="Licensing cost" value={state.financial.additionalLicensingCost} />
-          <DetailItem label="Infrastructure cost" value={state.financial.infrastructureCostImpact} />
+          <DetailItem label="Approved staffing rows referenced" value={(state.teamImpact.staffingBaselineSnapshot || []).length} />
+          <DetailItem label="CR staffing delta rows" value={(state.teamImpact.staffingDeltas || []).length} />
+          {(state.teamImpact.staffingDeltas || []).map((row, index) => (
+            <DetailItem
+              key={row.key || index}
+              label={`${row.changeType || 'ADJUST'} ${row.role || 'Role'}`}
+              value={`${row.count || 0} resources, ${row.allocationPercent || 0}% allocation, ${row.plannedEffort || 0} PD`}
+            />
+          ))}
         </CCol>
       </CRow>
     </div>

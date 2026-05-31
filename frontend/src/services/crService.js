@@ -68,6 +68,17 @@ export async function getProjectChangeRequests(projectId) {
   return handleResponse(response);
 }
 
+export async function getProjectStaffingBaseline(projectId, excludeCrId) {
+  const searchParams = new URLSearchParams();
+  if (excludeCrId) searchParams.set('excludeCrId', excludeCrId);
+  const query = searchParams.toString();
+  const response = await fetch(`${API_BASE_URL}/project/${projectId}/staffing-baseline${query ? `?${query}` : ''}`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+  return handleResponse(response);
+}
+
 export async function transitionChangeRequest(crId, action, comment) {
   const response = await fetch(`${API_BASE_URL}/${crId}/${action}`, {
     method: 'POST',

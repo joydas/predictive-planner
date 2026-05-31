@@ -10,7 +10,8 @@ import '../../styles/projectWizard.css';
 const CreateCRPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const isAccountManager = String(authService.getUserRole() || '').toUpperCase() === 'ACCOUNT_MANAGER';
+  const currentRole = String(authService.getUserRole() || '').toUpperCase();
+  const isAccountManager = ['ACCOUNT_MANAGER', 'AM'].includes(currentRole);
   const projectId = searchParams.get('projectId') || '';
   const crId = searchParams.get('crId');
   const [projects, setProjects] = useState([]);
@@ -67,6 +68,15 @@ const CreateCRPage = () => {
     ];
   }, [initialCr, projects]);
 
+  const handleSubmitted = ({ crId: submittedCrId, message }) => {
+    navigate(`/crs/${submittedCrId}`, {
+      replace: true,
+      state: {
+        workflowNotice: message || 'Change request submitted successfully.',
+      },
+    });
+  };
+
   if (isAccountManager) {
     return null;
   }
@@ -86,7 +96,7 @@ const CreateCRPage = () => {
         projects={effectiveProjects}
         initialCr={initialCr}
         projectId={effectiveProjectId}
-        onSubmitted={(submittedCrId) => navigate(`/crs/${submittedCrId}`)}
+        onSubmitted={handleSubmitted}
       />
     </div>
   );

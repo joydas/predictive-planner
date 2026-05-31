@@ -12,9 +12,12 @@ import {
   CSpinner,
 } from '@coreui/react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { completeProject, getProject } from '../../services/projectService';
+import { completeProject, getProject, getProjectProgress } from '../../services/projectService';
+import { getProjectStaffingBaseline } from '../../services/crService';
 import { getPlanningMasterData } from '../../services/masterDataService';
 import { formatCurrency, getRateForRole, parseNumber } from '../../utils/resourcePlanning';
+import DateDisplayInput from '../../components/projectWizard/DateDisplayInput';
+import { formatApiDate } from '../../utils/dateUtils';
 import '../../styles/projectWizard.css';
 
 const blankRow = {
@@ -48,6 +51,17 @@ const optionsWithBaseline = (options, baselineValue) => {
   return [normalizedBaseline, ...options];
 };
 
+const mapStaffingRowsToCompletionRows = (staffingRows = []) => staffingRows.map((row) => ({
+  roleId: row.roleId || '',
+  role: row.role || '',
+  location: row.location || row.locationType || 'OFFSHORE',
+  count: row.count || 1,
+  rate: row.ratePerDay || row.rate || '',
+  effort: row.plannedEffort && row.count
+    ? Number((parseNumber(row.plannedEffort, 0) / parseNumber(row.count, 1)).toFixed(2))
+    : row.effort || '',
+}));
+
 const CompleteProjectPage = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
@@ -55,6 +69,14 @@ const CompleteProjectPage = () => {
   const [masterData, setMasterData] = useState({ roles: [], rateCards: [] });
   const [rows, setRows] = useState([{ ...blankRow }]);
   const [actuals, setActuals] = useState({ managementCost: '', contingencyCost: '' });
+  const [finalActuals, setFinalActuals] = useState({
+    actualEffortPd: '',
+    actualBudget: '',
+    actualTeamSize: '',
+    actualCompletionPercent: '',
+    actualCompletionDate: '',
+  });
+  const [actualFinalEstimatedValue, setActualFinalEstimatedValue] = useState('');
   const [metrics, setMetrics] = useState({
     dependencyCount: '',
     requirementStabilityIndex: '',
@@ -69,8 +91,13 @@ const CompleteProjectPage = () => {
   useEffect(() => {
     let active = true;
     setLoading(true);
-    Promise.all([getProject(projectId), getPlanningMasterData()])
-      .then(([projectResult, masterResult]) => {
+    Promise.all([
+      getProject(projectId),
+      getPlanningMasterData(),
+      getProjectProgress(projectId).catch(() => null),
+      getProjectStaffingBaseline(projectId).catch(() => null),
+    ])
+      .then(([projectResult, masterResult, progressResult, staffingResult]) => {
         if (!active) return;
         const loadedProject = projectResult.project;
         const baselineRisks = loadedProject?.draftData?.risks || {};
@@ -82,18 +109,27 @@ const CompleteProjectPage = () => {
           actualCrVolatility: metricValue(baselineRisks.expected_cr_volatility),
           riskLevelIndicators: metricValue(baselineRisks.risk_level_indicators),
         });
-        const approvedRows = loadedProject?.draftData?.teamComposition?.rows || [];
-        if (approvedRows.length) {
-          setRows(approvedRows.map((row) => ({
-            roleId: row.roleId || '',
-            role: row.role || '',
-            location: row.location || row.locationType || 'OFFSHORE',
-            count: row.count || 1,
-            rate: row.ratePerDay || '',
-            effort: row.plannedEffort && row.count
-              ? Number((parseNumber(row.plannedEffort, 0) / parseNumber(row.count, 1)).toFixed(2))
-              : '',
-          })));
+        setActualFinalEstimatedValue(metricValue(
+          loadedProject?.baselineTracking?.estimation?.actualFinalEstimatedValue
+            ?? loadedProject?.baselineTracking?.estimation?.pmEstimatedValue,
+        ));
+        const latestSnapshot = progressResult?.latestSnapshot;
+        if (latestSnapshot) {
+          setFinalActuals({
+            actualEffortPd: metricValue(latestSnapshot.actualEffortPd),
+            actualBudget: metricValue(latestSnapshot.actualBudget),
+            actualTeamSize: metricValue(latestSnapshot.actualTeamSize),
+            actualCompletionPercent: metricValue(latestSnapshot.actualCompletionPercent),
+            actualCompletionDate: formatApiDate(new Date()),
+          });
+        } else {
+          setFinalActuals((current) => ({ ...current, actualCompletionDate: formatApiDate(new Date()) }));
+        }
+        const currentApprovedRows = staffingResult?.currentApprovedStaffing || [];
+        const baselineRows = loadedProject?.draftData?.teamComposition?.rows || [];
+        const finalResourceRows = currentApprovedRows.length ? currentApprovedRows : baselineRows;
+        if (finalResourceRows.length) {
+          setRows(mapStaffingRowsToCompletionRows(finalResourceRows));
         }
         setError('');
       })
@@ -146,8 +182,14 @@ const CompleteProjectPage = () => {
     try {
       await completeProject(projectId, {
         resourceLoading: rows,
-        actuals,
+        actuals: {
+          ...actuals,
+          actualFinalEstimatedValue,
+          ...finalActuals,
+        },
         groundMetrics: metrics,
+        ...finalActuals,
+        actualFinalEstimatedValue,
         comment,
       });
       navigate(`/projects/view/${projectId}`);
@@ -187,7 +229,7 @@ const CompleteProjectPage = () => {
                 <div>Location</div>
                 <div>Count</div>
                 <div>Rate</div>
-                <div>Effort</div>
+                <div>Effort (PD)</div>
                 <div>Cost</div>
                 <div />
               </div>
@@ -208,7 +250,7 @@ const CompleteProjectPage = () => {
                     <CFormInput type="number" min="0" step="0.01" value={row.rate} onChange={(event) => updateRow(index, 'rate', event.target.value)} />
                     <CFormInput type="number" min="0" step="0.01" value={row.effort} onChange={(event) => updateRow(index, 'effort', event.target.value)} />
                     <div className="derived-cell">{formatCurrency(rowCost)}</div>
-                    <CButton color="danger" variant="outline" size="sm" onClick={() => removeRow(index)} disabled={rows.length === 1}>
+                    <CButton color="danger" size="sm" className="remove-button-danger" onClick={() => removeRow(index)} disabled={rows.length === 1}>
                       Remove
                     </CButton>
                   </div>
@@ -228,6 +270,55 @@ const CompleteProjectPage = () => {
               <CCol md={6}>
                 <label className="form-label">Contingency Cost Spent</label>
                 <CFormInput type="number" min="0" step="0.01" value={actuals.contingencyCost} onChange={(event) => setActuals((current) => ({ ...current, contingencyCost: event.target.value }))} />
+              </CCol>
+            </CRow>
+
+            <h3>Final Estimation</h3>
+            <CRow className="mb-4">
+              <CCol md={4}>
+                <label className="form-label">PM Estimate (PD)</label>
+                <CFormInput value={metricValue(project?.baselineTracking?.estimation?.pmEstimatedValue)} disabled />
+              </CCol>
+              <CCol md={4}>
+                <label className="form-label">AI Estimate (PD)</label>
+                <CFormInput value={metricValue(project?.baselineTracking?.estimation?.aiEstimatedValue)} disabled />
+              </CCol>
+              <CCol md={4}>
+                <label className="form-label">Actual Final Estimated Value (PD)</label>
+                <CFormInput
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={actualFinalEstimatedValue}
+                  onChange={(event) => setActualFinalEstimatedValue(event.target.value)}
+                />
+              </CCol>
+            </CRow>
+
+            <h3>Final Actuals</h3>
+            <CRow className="mb-4">
+              <CCol md={3}>
+                <label className="form-label">Actual Completion Date</label>
+                <DateDisplayInput
+                  value={finalActuals.actualCompletionDate}
+                  onChange={(value) => setFinalActuals((current) => ({ ...current, actualCompletionDate: value }))}
+                />
+              </CCol>
+              <CCol md={3}>
+                <label className="form-label">Actual Effort (PD)</label>
+                <CFormInput type="number" min="0" step="0.01" value={finalActuals.actualEffortPd} onChange={(event) => setFinalActuals((current) => ({ ...current, actualEffortPd: event.target.value }))} />
+              </CCol>
+              <CCol md={3}>
+                <label className="form-label">Actual Budget</label>
+                <CFormInput type="number" min="0" step="0.01" value={finalActuals.actualBudget} onChange={(event) => setFinalActuals((current) => ({ ...current, actualBudget: event.target.value }))} />
+              </CCol>
+              <CCol md={3}>
+                <label className="form-label">Actual Team Size</label>
+                <CFormInput type="number" min="0" step="0.01" value={finalActuals.actualTeamSize} onChange={(event) => setFinalActuals((current) => ({ ...current, actualTeamSize: event.target.value }))} />
+              </CCol>
+              <CCol md={3}>
+                <label className="form-label">Actual Completion %</label>
+                <CFormInput type="number" min="0" max="100" step="0.01" value={finalActuals.actualCompletionPercent} onChange={(event) => setFinalActuals((current) => ({ ...current, actualCompletionPercent: event.target.value }))} />
               </CCol>
             </CRow>
 

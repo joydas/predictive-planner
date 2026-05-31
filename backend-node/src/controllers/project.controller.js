@@ -1,5 +1,8 @@
 const projectService = require('../services/project.service');
 const mlPredictionService = require('../services/mlPrediction.service');
+const forecastService = require('../services/forecastService');
+const similarProjectService = require('../services/similarProjectService');
+const explainabilityService = require('../services/explainabilityService');
 
 async function createDraft(req, res) {
   try {
@@ -121,16 +124,23 @@ async function getProject(req, res) {
       return res.status(404).json({ message: 'Project not found' });
     }
 
-    const role = String(req.user.role || '').toUpperCase();
+    const rawRole = String(req.user.role || '').toUpperCase();
+    const role = rawRole === 'AM' ? 'ACCOUNT_MANAGER' : rawRole;
     const status = String(project.workflowStatus || project.status || '').toUpperCase();
+    if (role !== 'ADMIN' && project.isRegressionData) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
     const isPmOwner = role === 'PM' && (
       Number(project.ownerId) === Number(req.user.userId)
       || Number(project.submittedByUserId) === Number(req.user.userId)
     );
     const isAccountManagerReviewer = role === 'ACCOUNT_MANAGER'
-      && (status === 'SUBMITTED' || Number(project.approvedByUserId) === Number(req.user.userId));
+      && (
+        Number(project.submittedByManagerId || project.ownerManagerId) === Number(req.user.userId)
+        || Number(project.approvedByUserId) === Number(req.user.userId)
+      );
 
-    if (!isPmOwner && !isAccountManagerReviewer) {
+    if (role !== 'ADMIN' && !isPmOwner && !isAccountManagerReviewer) {
       return res.status(403).json({ message: 'Access forbidden for this project' });
     }
 
@@ -139,6 +149,55 @@ async function getProject(req, res) {
   } catch (error) {
     console.error('Project retrieval failed:', error);
     return res.status(error.status || 500).json({ message: error.message || 'Failed to load project' });
+  }
+}
+
+async function getProjectForecast(req, res) {
+  try {
+    const projectId = Number(req.params.id);
+    if (!projectId) {
+      return res.status(400).json({ message: 'Project id is required' });
+    }
+
+    const forecast = await forecastService.getProjectForecast(req.user, projectId);
+    return res.json(forecast);
+  } catch (error) {
+    console.error('Project forecast failed:', error.response?.data || error.message || error);
+    return res.status(error.status || 500).json({ message: error.message || 'Failed to load project forecast' });
+  }
+}
+
+async function getSimilarHistoricalProjects(req, res) {
+  try {
+    const projectId = Number(req.params.id);
+    if (!projectId) {
+      return res.status(400).json({ message: 'Project id is required' });
+    }
+
+    const result = await similarProjectService.getSimilarHistoricalProjects(req.user, projectId);
+    return res.json(result);
+  } catch (error) {
+    console.error('Similar historical projects failed:', error.response?.data || error.message || error);
+    return res.status(error.status || error.response?.status || 500).json({
+      message: error.response?.data?.detail || error.message || 'Failed to load similar historical projects',
+    });
+  }
+}
+
+async function getForecastExplainability(req, res) {
+  try {
+    const projectId = Number(req.params.id);
+    if (!projectId) {
+      return res.status(400).json({ message: 'Project id is required' });
+    }
+
+    const result = await explainabilityService.getForecastExplainability(req.user, projectId);
+    return res.json(result);
+  } catch (error) {
+    console.error('Forecast explainability failed:', error.response?.data || error.message || error);
+    return res.status(error.status || error.response?.status || 500).json({
+      message: error.response?.data?.detail || error.message || 'Failed to load forecast explainability',
+    });
   }
 }
 
@@ -187,6 +246,30 @@ async function completeProject(req, res) {
   }
 }
 
+async function getProjectProgress(req, res) {
+  try {
+    const projectId = Number(req.params.id);
+    if (!projectId) return res.status(400).json({ message: 'Project id is required' });
+    const result = await projectService.getProjectProgress(projectId, req.user, req.query.snapshotDate || req.query.snapshot_date || '');
+    return res.json(result);
+  } catch (error) {
+    console.error('Project progress retrieval failed:', error);
+    return res.status(error.status || 500).json({ message: error.message || 'Failed to load project progress' });
+  }
+}
+
+async function saveProjectProgress(req, res) {
+  try {
+    const projectId = Number(req.params.id);
+    if (!projectId) return res.status(400).json({ message: 'Project id is required' });
+    const result = await projectService.saveProjectProgress(projectId, req.user, req.body || {});
+    return res.json({ message: 'Progress snapshot saved', ...result });
+  } catch (error) {
+    console.error('Project progress save failed:', error);
+    return res.status(error.status || 500).json({ message: error.message || 'Failed to save project progress' });
+  }
+}
+
 function projectTransition(actionType) {
   return async (req, res) => {
     try {
@@ -215,8 +298,13 @@ module.exports = {
   listProjectsAvailableForCr,
   createProject,
   getProject,
+  getProjectForecast,
+  getSimilarHistoricalProjects,
+  getForecastExplainability,
   getWorkflowHistory,
   getMlRecommendation,
+  getProjectProgress,
+  saveProjectProgress,
   completeProject,
   submitExistingProject: projectTransition('SUBMIT'),
   approveProject: projectTransition('APPROVE'),

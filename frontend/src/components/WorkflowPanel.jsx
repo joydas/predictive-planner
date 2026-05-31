@@ -36,7 +36,7 @@ function getAvailableActions(status, role, allowRejectedSubmit) {
     return ['submit'];
   }
 
-  if (normalizedRole === 'ACCOUNT_MANAGER' && normalizedStatus === 'SUBMITTED') {
+  if (['ACCOUNT_MANAGER', 'AM'].includes(normalizedRole) && normalizedStatus === 'SUBMITTED') {
     return ['approve', 'return', 'reject'];
   }
 
@@ -65,6 +65,8 @@ const WorkflowPanel = ({
   React.useEffect(() => {
     const nextActions = actionsKey ? actionsKey.split('|') : [];
     setSelectedAction(nextActions[0] || '');
+    setComment('');
+    setError('');
   }, [actionsKey]);
 
   const handleAction = async () => {
@@ -75,8 +77,12 @@ const WorkflowPanel = ({
     }
 
     setError('');
-    await onAction(selectedAction, comment.trim());
-    setComment('');
+    try {
+      await onAction(selectedAction, comment.trim());
+      setComment('');
+    } catch (err) {
+      setError(err.message || 'Workflow transition failed.');
+    }
   };
 
   return (

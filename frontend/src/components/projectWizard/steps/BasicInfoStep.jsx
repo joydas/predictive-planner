@@ -5,14 +5,30 @@ const projectTypes = ['New Build', 'Modernization', 'Migration', 'Support'];
 const deliveryModels = ['Agile', 'Waterfall', 'Hybrid'];
 const criticalityOptions = ['Low', 'Medium', 'High', 'Critical'];
 
-const BasicInfoStep = ({ data, updateSection, errors }) => {
+const BasicInfoStep = ({ data, industries = [], updateSection, errors }) => {
   const handleChange = (field) => (event) => {
     updateSection({ [field]: event.target.value });
   };
+  const selectedIndustry = industries.find((industry) =>
+    industry.industryCode === data.industry_code
+    || industry.industryName === data.industry
+  );
+  const hasHistoricalIndustry = data.industry && !selectedIndustry && !data.industry_code;
+  const selectedIndustryCode = data.industry_code
+    || selectedIndustry?.industryCode
+    || (hasHistoricalIndustry ? `__historical__:${data.industry}` : '');
+  const handleIndustryChange = (event) => {
+    const industryCode = event.target.value;
+    const industry = industries.find((item) => item.industryCode === industryCode);
+    updateSection({
+      industry_code: industryCode,
+      industry: industry?.industryName || '',
+    });
+  };
 
   return (
-    <div className="wizard-step-panel">
-      <h3>Basic Information</h3>
+    <div className="project-info-section">
+      <h3 className="project-info-section-heading">Basic Information</h3>
       <CForm>
         <CRow className="mb-4">
           <CCol md={6}>
@@ -37,11 +53,21 @@ const BasicInfoStep = ({ data, updateSection, errors }) => {
         <CRow className="mb-4">
           <CCol md={4}>
             <label className="form-label">Industry</label>
-            <CFormInput
-              value={data.industry}
-              onChange={handleChange('industry')}
+            <CFormSelect
+              value={selectedIndustryCode}
+              onChange={handleIndustryChange}
               invalid={!!errors.industry}
-            />
+            >
+              <option value="">Select industry</option>
+              {hasHistoricalIndustry && (
+                <option value={selectedIndustryCode} disabled>{data.industry} (historical)</option>
+              )}
+              {industries.map((industry) => (
+                <option key={industry.industryCode} value={industry.industryCode}>
+                  {industry.industryName}
+                </option>
+              ))}
+            </CFormSelect>
             {errors.industry && <div className="form-error">{errors.industry}</div>}
           </CCol>
           <CCol md={4}>
@@ -79,6 +105,18 @@ const BasicInfoStep = ({ data, updateSection, errors }) => {
               ))}
             </CFormSelect>
             {errors.business_criticality && <div className="form-error">{errors.business_criticality}</div>}
+          </CCol>
+          <CCol md={4}>
+            <label className="form-label">PM Estimated Value (PD)</label>
+            <CFormInput
+              type="number"
+              min="0"
+              step="0.01"
+              value={data.pm_estimated_value}
+              onChange={handleChange('pm_estimated_value')}
+              invalid={!!errors.pm_estimated_value}
+            />
+            {errors.pm_estimated_value && <div className="form-error">{errors.pm_estimated_value}</div>}
           </CCol>
         </CRow>
       </CForm>
