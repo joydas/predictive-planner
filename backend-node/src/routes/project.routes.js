@@ -14,6 +14,8 @@ router.post('/submit', authenticateToken, authorizeRoles(['PM']), projectControl
 router.get('/:id/progress', authenticateToken, authorizeRoles(['PM']), projectController.getProjectProgress);
 router.post('/:id/progress', authenticateToken, authorizeRoles(['PM']), projectController.saveProjectProgress);
 router.get('/:id/forecast', authenticateToken, projectController.getProjectForecast);
+router.get('/:id/similar-projects', authenticateToken, projectController.getSimilarHistoricalProjects);
+router.get('/:id/explainability', authenticateToken, projectController.getForecastExplainability);
 router.get('/:id', authenticateToken, projectController.getProject);
 router.get('/:id/workflow-history', authenticateToken, projectController.getWorkflowHistory);
 router.post('/:id/submit', authenticateToken, projectController.submitExistingProject);

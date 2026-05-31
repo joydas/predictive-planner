@@ -13,6 +13,7 @@ import {
 } from '@coreui/react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { completeProject, getProject, getProjectProgress } from '../../services/projectService';
+import { getProjectStaffingBaseline } from '../../services/crService';
 import { getPlanningMasterData } from '../../services/masterDataService';
 import { formatCurrency, getRateForRole, parseNumber } from '../../utils/resourcePlanning';
 import DateDisplayInput from '../../components/projectWizard/DateDisplayInput';
@@ -50,6 +51,17 @@ const optionsWithBaseline = (options, baselineValue) => {
   return [normalizedBaseline, ...options];
 };
 
+const mapStaffingRowsToCompletionRows = (staffingRows = []) => staffingRows.map((row) => ({
+  roleId: row.roleId || '',
+  role: row.role || '',
+  location: row.location || row.locationType || 'OFFSHORE',
+  count: row.count || 1,
+  rate: row.ratePerDay || row.rate || '',
+  effort: row.plannedEffort && row.count
+    ? Number((parseNumber(row.plannedEffort, 0) / parseNumber(row.count, 1)).toFixed(2))
+    : row.effort || '',
+}));
+
 const CompleteProjectPage = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
@@ -79,8 +91,13 @@ const CompleteProjectPage = () => {
   useEffect(() => {
     let active = true;
     setLoading(true);
-    Promise.all([getProject(projectId), getPlanningMasterData(), getProjectProgress(projectId).catch(() => null)])
-      .then(([projectResult, masterResult, progressResult]) => {
+    Promise.all([
+      getProject(projectId),
+      getPlanningMasterData(),
+      getProjectProgress(projectId).catch(() => null),
+      getProjectStaffingBaseline(projectId).catch(() => null),
+    ])
+      .then(([projectResult, masterResult, progressResult, staffingResult]) => {
         if (!active) return;
         const loadedProject = projectResult.project;
         const baselineRisks = loadedProject?.draftData?.risks || {};
@@ -108,18 +125,11 @@ const CompleteProjectPage = () => {
         } else {
           setFinalActuals((current) => ({ ...current, actualCompletionDate: formatApiDate(new Date()) }));
         }
-        const approvedRows = loadedProject?.draftData?.teamComposition?.rows || [];
-        if (approvedRows.length) {
-          setRows(approvedRows.map((row) => ({
-            roleId: row.roleId || '',
-            role: row.role || '',
-            location: row.location || row.locationType || 'OFFSHORE',
-            count: row.count || 1,
-            rate: row.ratePerDay || '',
-            effort: row.plannedEffort && row.count
-              ? Number((parseNumber(row.plannedEffort, 0) / parseNumber(row.count, 1)).toFixed(2))
-              : '',
-          })));
+        const currentApprovedRows = staffingResult?.currentApprovedStaffing || [];
+        const baselineRows = loadedProject?.draftData?.teamComposition?.rows || [];
+        const finalResourceRows = currentApprovedRows.length ? currentApprovedRows : baselineRows;
+        if (finalResourceRows.length) {
+          setRows(mapStaffingRowsToCompletionRows(finalResourceRows));
         }
         setError('');
       })

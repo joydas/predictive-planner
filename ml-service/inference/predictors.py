@@ -9,9 +9,11 @@ import pandas as pd
 from utils.feature_utils import model_feature_columns, normalize_role, severity_score
 from utils.paths import DATASETS_DIR, MODELS_DIR, REPORTS_DIR, ensure_runtime_dirs
 from feature_engineering.forecast_feature_builder import (
+    build_forecast_explainability,
     build_completion_forecast_input,
     build_final_budget_forecast_input,
     build_final_effort_forecast_input,
+    find_similar_historical_projects,
 )
 
 
@@ -743,3 +745,49 @@ def predict_final_budget_forecast(payload: dict) -> dict:
         "confidence": confidence,
         "lastForecastRun": datetime.now(timezone.utc).isoformat(),
     }
+
+
+def predict_similar_projects(payload: dict) -> dict:
+    project_id = int(_number(payload.get("projectId"), 0))
+    if not project_id:
+        return {"similarProjects": [], "message": "Project id is required for similar project search."}
+
+    raw_candidate_ids = payload.get("candidateProjectIds")
+    candidate_project_ids = None
+    if isinstance(raw_candidate_ids, list):
+        candidate_project_ids = [int(_number(value, 0)) for value in raw_candidate_ids if int(_number(value, 0))]
+
+    similar_projects = find_similar_historical_projects(
+        project_id,
+        top_n=int(_number(payload.get("topN"), 3) or 3),
+        candidate_project_ids=candidate_project_ids,
+    )
+    return {
+        "projectId": project_id,
+        "similarProjects": similar_projects,
+        "featureSpace": [
+            "Industry",
+            "Technology",
+            "Complexity",
+            "Project Type",
+            "Planned Duration",
+            "Planned Effort",
+            "Planned Budget",
+            "Planned Team Size",
+            "CR History",
+            "Progress Velocity",
+            "Progress Snapshot Count",
+        ],
+    }
+
+
+def predict_forecast_explainability(payload: dict) -> dict:
+    project_id = int(_number(payload.get("projectId"), 0))
+    if not project_id:
+        return {
+            "completionDrivers": [],
+            "effortDrivers": [],
+            "budgetDrivers": [],
+            "message": "Project id is required for explainability.",
+        }
+    return build_forecast_explainability(project_id)

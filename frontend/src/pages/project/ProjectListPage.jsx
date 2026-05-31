@@ -7,7 +7,7 @@ import TableToolbar from '../../components/dataTable/TableToolbar';
 import SeverityInfoHint from '../../components/SeverityInfoHint';
 import { listProjects } from '../../services/projectService';
 import authService from '../../services/authService';
-import { formatDisplayDateTime,formatDisplayDate } from '../../utils/dateUtils';
+import { formatDisplayDate } from '../../utils/dateUtils';
 import { listIndustries } from '../../services/masterDataService';
 
 
@@ -128,30 +128,30 @@ const ProjectListPage = () => {
       sortKey: 'status',
       render: (row) => <CBadge color={statusColors[row.currentStatus] || 'secondary'}>{row.currentStatus}</CBadge>,
     },
-    { key: 'createdAt', className : 'text-center', label: 'Created', sortKey: 'createdAt', render: (row) => formatDisplayDate(row.createdAt) },
-    { key: 'updatedAt', className : 'text-center', label: 'Updated', sortKey: 'updatedAt', render: (row) => formatDisplayDate(row.updatedAt) },
+    { key: 'startDate', className : 'text-center', label: 'Start Date', sortKey: 'startDate', render: (row) => formatDisplayDate(row.startDate) },
+    { key: 'effectiveEndDate', className : 'text-center', label: 'End Date', sortKey: 'effectiveEndDate', render: (row) => formatDisplayDate(row.effectiveEndDate || row.plannedEndDate) },
     // { key: 'reviewerComment', label: 'Reviewer Comment' },
     {
       key: 'actions',
       label: 'Actions',
       render: (row) => (
         <div className="d-flex gap-2">
-          {row.currentStatus === 'APPROVED' ? (
+          {['APPROVED', 'COMPLETE'].includes(row.currentStatus) ? (
             <>
               <CButton color="primary" variant="outline" size="sm" onClick={() => navigate(`/projects/view/${row.publishedProjectId || row.projectId}`)}>
                 View
               </CButton>
-              {row.canCreateCr && (
+              {row.currentStatus === 'APPROVED' && row.canCreateCr && (
                 <CButton color="secondary" variant="outline" size="sm" onClick={() => navigate(`/crs/create?projectId=${row.publishedProjectId || row.projectId}`)}>
                   Create CR
                 </CButton>
               )}
-              {row.canTrackProgress && !isAccountManager && (
+              {row.currentStatus === 'APPROVED' && row.canTrackProgress && !isAccountManager && (
                 <CButton color="info" variant="outline" size="sm" onClick={() => navigate(`/progress/${row.publishedProjectId || row.projectId}`)}>
                   Progress
                 </CButton>
               )}
-              {row.canComplete && !isAccountManager && (
+              {row.currentStatus === 'APPROVED' && row.canComplete && !isAccountManager && (
                 <CButton color="success" variant="outline" size="sm" onClick={() => navigate(`/projects/complete/${row.publishedProjectId || row.projectId}`)}>
                   Complete
                 </CButton>

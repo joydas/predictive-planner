@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from datetime import date
+import time
 from typing import Any
 
+import numpy as np
 import pandas as pd
 from sqlalchemy import bindparam, inspect, text
 
@@ -35,6 +37,26 @@ FORECAST_FEATURE_COLUMNS = [
 ]
 
 MIN_FORECAST_TRAINING_ROWS = 5
+SIMILAR_PROJECT_FEATURE_COLUMNS = [
+    "industry",
+    "technology",
+    "complexity",
+    "project_type",
+    "planned_duration_days",
+    "current_planned_effort",
+    "current_planned_budget",
+    "current_planned_team_size",
+    "approved_cr_count",
+    "total_cr_effort_impact",
+    "total_cr_budget_impact",
+    "total_cr_duration_impact",
+    "average_progress_velocity",
+    "progress_snapshot_count",
+]
+_SIMILAR_COMPLETED_CACHE: dict[str, Any] = {"expires_at": 0, "dataset": None}
+_SIMILAR_CACHE_SECONDS = 300
+_EXPLAINABILITY_CACHE: dict[str, Any] = {"expires_at": 0, "benchmark": None}
+_EXPLAINABILITY_CACHE_SECONDS = 300
 
 
 def _to_number(value: Any, default: float = 0.0) -> float:
@@ -86,6 +108,7 @@ def _read_project_rows(project_id: int | None = None, completed_only: bool = Fal
     project_filter = "AND p.project_id = :project_id" if project_id is not None else ""
     completed_filter = "AND pd.workflow_status IN ('COMPLETE', 'CLOSED') AND COALESCE(p.actual_completion_date, latest_completion.actual_completion_date) IS NOT NULL" if completed_only else ""
     regression_filter = _regression_filter("p")
+    test_data_filter = "AND UPPER(COALESCE(p.project_type, JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.basicInfo.project_type')), '')) <> 'TEST DATA'"
     params = {"project_id": project_id} if project_id is not None else {}
     return pd.read_sql_query(
         text(
@@ -124,6 +147,7 @@ def _read_project_rows(project_id: int | None = None, completed_only: bool = Fal
               {completed_filter}
               {project_filter}
               {regression_filter}
+              {test_data_filter}
             """
         ),
         get_engine(),
@@ -462,3 +486,238 @@ def build_final_budget_forecast_input(project_id: int) -> dict:
         "currentPlannedBudget": _to_number(row["current_planned_budget"]),
         "features": row[FORECAST_FEATURE_COLUMNS].to_dict(),
     }
+
+
+def _completed_feature_benchmark() -> dict[str, float]:
+    now = time.time()
+    cached = _EXPLAINABILITY_CACHE.get("benchmark")
+    if cached is not None and now < _EXPLAINABILITY_CACHE.get("expires_at", 0):
+        return dict(cached)
+
+    dataset = _assemble_features(_read_project_rows(completed_only=True), include_target=False)
+    numeric = [column for column in FORECAST_FEATURE_COLUMNS if column not in {"industry", "technology", "project_type"}]
+    benchmark = {}
+    for column in numeric:
+        if column in dataset.columns and not dataset.empty:
+            benchmark[column] = float(pd.to_numeric(dataset[column], errors="coerce").fillna(0).median())
+        else:
+            benchmark[column] = 0.0
+    _EXPLAINABILITY_CACHE.update({"benchmark": benchmark, "expires_at": now + _EXPLAINABILITY_CACHE_SECONDS})
+    return dict(benchmark)
+
+
+def _driver(label: str, score: float) -> dict[str, Any]:
+    return {"label": label, "score": float(score)}
+
+
+def _top_driver_labels(drivers: list[dict[str, Any]], fallback: list[str], limit: int = 3) -> list[str]:
+    ranked = [item for item in drivers if item.get("score", 0) > 0]
+    ranked.sort(key=lambda item: item["score"], reverse=True)
+    labels = []
+    for item in ranked:
+        label = str(item["label"])
+        if label not in labels:
+            labels.append(label)
+        if len(labels) >= limit:
+            return labels
+    for label in fallback:
+        if label not in labels:
+            labels.append(label)
+        if len(labels) >= limit:
+            break
+    return labels
+
+
+def build_forecast_explainability(project_id: int) -> dict:
+    dataset = _assemble_features(_read_project_rows(project_id=project_id), include_target=False)
+    if dataset.empty:
+        raise ValueError(f"Project not found for explainability: {project_id}")
+
+    row = dataset.iloc[0]
+    features = row[FORECAST_FEATURE_COLUMNS].to_dict()
+    benchmark = _completed_feature_benchmark()
+
+    def value(name: str) -> float:
+        return _to_number(features.get(name), 0)
+
+    def median(name: str, fallback: float = 0) -> float:
+        return max(_to_number(benchmark.get(name), fallback), fallback)
+
+    complexity = value("complexity")
+    cr_count = value("approved_cr_count")
+    cr_effort = value("total_cr_effort_impact")
+    cr_budget = value("total_cr_budget_impact")
+    cr_duration = value("total_cr_duration_impact")
+    progress_count = value("progress_snapshot_count")
+    velocity = value("average_progress_velocity")
+    velocity_trend = value("progress_velocity_trend")
+    latest_completion = value("latest_completion_percent")
+    planned_effort = value("current_planned_effort")
+    planned_budget = value("current_planned_budget")
+    team_size = value("current_planned_team_size")
+    planned_duration = value("planned_duration_days")
+    effort_to_date = value("actual_effort_to_date")
+    budget_to_date = value("actual_budget_to_date")
+
+    completion_drivers = [
+        _driver("Progress velocity below portfolio average", max(0, median("average_progress_velocity") - velocity) * 100),
+        _driver("Progress trend is slowing", max(0, -velocity_trend) * 100),
+        _driver("Multiple approved CRs", max(0, cr_count - 1) * 8),
+        _driver("Approved CRs extended the schedule", max(0, cr_duration)),
+        _driver("High complexity project", max(0, complexity - 2) * 6),
+        _driver("Limited progress history", max(0, 3 - progress_count) * 5),
+        _driver("Current completion is still low", max(0, 50 - latest_completion) / 5),
+    ]
+
+    effort_drivers = [
+        _driver("High planned effort", max(0, planned_effort - median("current_planned_effort")) / max(median("current_planned_effort", 1), 1) * 20),
+        _driver("Large team size", max(0, team_size - median("current_planned_team_size")) * 4),
+        _driver("Approved CR effort impact", max(0, cr_effort) / 20),
+        _driver("High complexity project", max(0, complexity - 2) * 6),
+        _driver("Actual effort to date is significant", max(0, effort_to_date - median("actual_effort_to_date")) / max(median("actual_effort_to_date", 1), 1) * 12),
+        _driver("Long project duration", max(0, planned_duration - median("planned_duration_days")) / 15),
+    ]
+
+    budget_drivers = [
+        _driver("High planned budget", max(0, planned_budget - median("current_planned_budget")) / max(median("current_planned_budget", 1), 1) * 20),
+        _driver("Budget increase from approved CRs", max(0, cr_budget) / max(median("total_cr_budget_impact", 10000), 10000) * 12),
+        _driver("Large staffing footprint", max(0, team_size - median("current_planned_team_size")) * 4),
+        _driver("Extended duration", max(0, planned_duration + cr_duration - median("planned_duration_days")) / 15),
+        _driver("Actual spend to date is significant", max(0, budget_to_date - median("actual_budget_to_date")) / max(median("actual_budget_to_date", 1), 1) * 12),
+        _driver("High complexity project", max(0, complexity - 2) * 5),
+    ]
+
+    return {
+        "projectId": int(row["project_id"]),
+        "projectName": row["project_name"],
+        "completionDrivers": _top_driver_labels(
+            completion_drivers,
+            ["Project complexity", "Progress velocity", "Approved CR history"],
+        ),
+        "effortDrivers": _top_driver_labels(
+            effort_drivers,
+            ["Planned effort", "Team size", "Approved CR effort impact"],
+        ),
+        "budgetDrivers": _top_driver_labels(
+            budget_drivers,
+            ["Planned budget", "Staffing footprint", "Approved CR budget impact"],
+        ),
+    }
+
+
+def _completed_similarity_dataset() -> pd.DataFrame:
+    now = time.time()
+    cached = _SIMILAR_COMPLETED_CACHE.get("dataset")
+    if cached is not None and now < _SIMILAR_COMPLETED_CACHE.get("expires_at", 0):
+        return cached.copy()
+
+    projects = _read_project_rows(completed_only=True)
+    dataset = _assemble_features(projects, include_target=False)
+    if dataset.empty:
+        _SIMILAR_COMPLETED_CACHE.update({"dataset": dataset, "expires_at": now + _SIMILAR_CACHE_SECONDS})
+        return dataset.copy()
+
+    actuals = projects[
+        [
+            "project_id",
+            "actual_effort",
+            "actual_budget",
+            "start_date",
+            "actual_completion_date",
+            "planned_completion_date",
+        ]
+    ].copy()
+    actuals["actual_duration_days"] = actuals.apply(
+        lambda row: _days_between(row["start_date"], row["actual_completion_date"], inclusive=True),
+        axis=1,
+    )
+    actuals["planned_duration_days_detail"] = actuals.apply(
+        lambda row: _days_between(row["start_date"], row["planned_completion_date"], inclusive=True),
+        axis=1,
+    )
+    dataset = dataset.merge(actuals, on="project_id", how="left")
+    _SIMILAR_COMPLETED_CACHE.update({"dataset": dataset, "expires_at": now + _SIMILAR_CACHE_SECONDS})
+    return dataset.copy()
+
+
+def _prepare_similarity_matrix(target: pd.DataFrame, candidates: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    feature_columns = SIMILAR_PROJECT_FEATURE_COLUMNS
+    combined = pd.concat(
+        [target[feature_columns], candidates[feature_columns]],
+        ignore_index=True,
+    )
+    categorical = ["industry", "technology", "project_type"]
+    numeric = [column for column in feature_columns if column not in categorical]
+
+    encoded = pd.get_dummies(combined, columns=categorical, dummy_na=False)
+    for column in numeric:
+        encoded[column] = pd.to_numeric(encoded[column], errors="coerce").fillna(0)
+
+    numeric_frame = encoded[numeric].astype(float)
+    means = numeric_frame.mean(axis=0)
+    stds = numeric_frame.std(axis=0).replace(0, 1)
+    encoded[numeric] = (numeric_frame - means) / stds
+
+    matrix = encoded.astype(float).to_numpy()
+    target_vector = matrix[:1]
+    candidate_matrix = matrix[1:]
+    return target_vector, candidate_matrix
+
+
+def _cosine_similarity(target_vector: np.ndarray, candidate_matrix: np.ndarray) -> np.ndarray:
+    target_norm = np.linalg.norm(target_vector, axis=1)[0]
+    candidate_norms = np.linalg.norm(candidate_matrix, axis=1)
+    denominator = target_norm * candidate_norms
+    denominator[denominator == 0] = 1
+    return (candidate_matrix @ target_vector[0]) / denominator
+
+
+def find_similar_historical_projects(
+    project_id: int,
+    top_n: int = 3,
+    candidate_project_ids: list[int] | None = None,
+) -> list[dict]:
+    target = _assemble_features(_read_project_rows(project_id=project_id), include_target=False)
+    if target.empty:
+        raise ValueError(f"Project not found for similar historical projects: {project_id}")
+
+    candidates = _completed_similarity_dataset()
+    if candidates.empty:
+        return []
+
+    candidates = candidates[candidates["project_id"] != int(project_id)].copy()
+    if candidate_project_ids is not None:
+        allowed_ids = {int(value) for value in candidate_project_ids if value}
+        candidates = candidates[candidates["project_id"].isin(allowed_ids)].copy()
+    if candidates.empty:
+        return []
+
+    target_vector, candidate_matrix = _prepare_similarity_matrix(target, candidates)
+    scores = _cosine_similarity(target_vector, candidate_matrix)
+    ranked = candidates.assign(_similarity=scores).sort_values("_similarity", ascending=False).head(top_n)
+
+    results = []
+    for _, row in ranked.iterrows():
+        similarity = int(round(max(0, min(100, ((float(row["_similarity"]) + 1) / 2) * 100))))
+        results.append(
+            {
+                "projectId": int(row["project_id"]),
+                "projectName": row["project_name"],
+                "similarity": similarity,
+                "industry": row["industry"],
+                "technology": row["technology"],
+                "projectType": row["project_type"],
+                "plannedEffort": _to_number(row["current_planned_effort"]),
+                "actualEffort": _to_number(row["actual_effort"]),
+                "plannedBudget": _to_number(row["current_planned_budget"]),
+                "actualBudget": _to_number(row["actual_budget"]),
+                "plannedDurationDays": int(_to_number(row["planned_duration_days_detail"] or row["planned_duration_days"], 0)),
+                "actualDurationDays": int(_to_number(row["actual_duration_days"], 0)),
+                "plannedTeamSize": _to_number(row["current_planned_team_size"]),
+                "approvedCrCount": int(_to_number(row["approved_cr_count"], 0)),
+                "totalCrEffortImpact": _to_number(row["total_cr_effort_impact"]),
+                "totalCrBudgetImpact": _to_number(row["total_cr_budget_impact"]),
+                "totalCrDurationImpact": _to_number(row["total_cr_duration_impact"]),
+            }
+        )
+    return results

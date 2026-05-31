@@ -76,6 +76,14 @@ export async function getProjectForecast(projectId) {
   return handleResponse(response);
 }
 
+export async function getSimilarHistoricalProjects(projectId) {
+  const response = await fetch(`${API_BASE_URL}/${projectId}/similar-projects`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+  return handleResponse(response);
+}
+
 export async function listProjectsAvailableForCr() {
   const response = await fetch(`${API_BASE_URL}/available-for-cr`, {
     method: 'GET',

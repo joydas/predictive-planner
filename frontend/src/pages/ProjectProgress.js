@@ -180,12 +180,15 @@ const ProjectProgress = () => {
         <CCardHeader><strong>Current Approved Values</strong></CCardHeader>
         <CCardBody>
           <CRow className="g-3">
+            <CCol md={2}><div className="text-muted small">Project Start</div><div className="fw-semibold">{formatDisplayDate(current.startDate)}</div></CCol>
+            <CCol md={2}><div className="text-muted small">Project End</div><div className="fw-semibold">{formatDisplayDate(current.effectiveEndDate || current.plannedEndDate)}</div></CCol>
             <CCol md={2}><div className="text-muted small">Planned Effort (PD)</div><div className="fw-semibold">{formatNumber(current.plannedEffortPd)}</div></CCol>
             <CCol md={2}><div className="text-muted small">Planned Budget</div><div className="fw-semibold">{formatCurrency(current.plannedBudget)}</div></CCol>
-            <CCol md={2}><div className="text-muted small">Planned Team Size</div><div className="fw-semibold">{formatNumber(current.plannedTeamSize)}</div></CCol>
             <CCol md={2}><div className="text-muted small">Planned Duration</div><div className="fw-semibold">{formatNumber(current.plannedDuration)} days</div></CCol>
-            <CCol md={2}><div className="text-muted small">Current Estimation</div><div className="fw-semibold">{formatNumber(current.currentEstimation)} PD</div></CCol>
             <CCol md={2}><div className="text-muted small">Latest Severity</div><CBadge color={severityColors[context?.latestSnapshot?.severity || 'Not Measured']}>{context?.latestSnapshot?.severity || 'Not Measured'}</CBadge></CCol>
+            <CCol md={2}><div className="text-muted small">Planned Team Size</div><div className="fw-semibold">{formatNumber(current.plannedTeamSize)}</div></CCol>
+            <CCol md={2}><div className="text-muted small">Current Estimation</div><div className="fw-semibold">{formatNumber(current.currentEstimation)} PD</div></CCol>
+            <CCol md={2}><div className="text-muted small">Approved CR Schedule Impact</div><div className="fw-semibold">{formatNumber(current.approvedScheduleImpactDays)} days</div></CCol>
           </CRow>
         </CCardBody>
       </CCard>

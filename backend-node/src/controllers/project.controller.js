@@ -1,6 +1,8 @@
 const projectService = require('../services/project.service');
 const mlPredictionService = require('../services/mlPrediction.service');
 const forecastService = require('../services/forecastService');
+const similarProjectService = require('../services/similarProjectService');
+const explainabilityService = require('../services/explainabilityService');
 
 async function createDraft(req, res) {
   try {
@@ -162,6 +164,40 @@ async function getProjectForecast(req, res) {
   }
 }
 
+async function getSimilarHistoricalProjects(req, res) {
+  try {
+    const projectId = Number(req.params.id);
+    if (!projectId) {
+      return res.status(400).json({ message: 'Project id is required' });
+    }
+
+    const result = await similarProjectService.getSimilarHistoricalProjects(req.user, projectId);
+    return res.json(result);
+  } catch (error) {
+    console.error('Similar historical projects failed:', error.response?.data || error.message || error);
+    return res.status(error.status || error.response?.status || 500).json({
+      message: error.response?.data?.detail || error.message || 'Failed to load similar historical projects',
+    });
+  }
+}
+
+async function getForecastExplainability(req, res) {
+  try {
+    const projectId = Number(req.params.id);
+    if (!projectId) {
+      return res.status(400).json({ message: 'Project id is required' });
+    }
+
+    const result = await explainabilityService.getForecastExplainability(req.user, projectId);
+    return res.json(result);
+  } catch (error) {
+    console.error('Forecast explainability failed:', error.response?.data || error.message || error);
+    return res.status(error.status || error.response?.status || 500).json({
+      message: error.response?.data?.detail || error.message || 'Failed to load forecast explainability',
+    });
+  }
+}
+
 async function getWorkflowHistory(req, res) {
   try {
     const projectId = Number(req.params.id);
@@ -260,6 +296,8 @@ module.exports = {
   createProject,
   getProject,
   getProjectForecast,
+  getSimilarHistoricalProjects,
+  getForecastExplainability,
   getWorkflowHistory,
   getMlRecommendation,
   getProjectProgress,

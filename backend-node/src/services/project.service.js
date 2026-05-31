@@ -4,6 +4,7 @@ const projectPublishingService = require('./projectPublishing.service');
 const workflowService = require('../workflow/workflow.service');
 const mlPredictionService = require('./mlPrediction.service');
 const masterDataRepository = require('../repositories/masterData.repository');
+const forecastService = require('./forecastService');
 
 function normalizeNumber(value, fallback = 0) {
   if (value === '' || value === null || value === undefined) return fallback;
@@ -26,6 +27,15 @@ function requireNonNegativeNumber(value, label, { required = false } = {}) {
     throw error;
   }
   return parsed;
+}
+
+function addCalendarDays(dateValue, days = 0) {
+  const base = toDateOnly(dateValue);
+  if (!base) return null;
+  const date = new Date(`${base}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  date.setDate(date.getDate() + Number(days || 0));
+  return toDateOnly(date);
 }
 
 function requirePercentInRange(value, label, { required = false } = {}) {
@@ -638,8 +648,10 @@ function buildProgressContext(project, snapshots = [], selectedSnapshot = null) 
   const delivery = project?.draftData?.deliveryDetails || {};
   const current = project?.baselineTracking?.current || {};
   const estimation = project?.baselineTracking?.estimation || {};
+  const approvedScheduleImpactDays = normalizeNumber(project?.totalCrScheduleImpactDays, 0);
   const plannedDuration = getCalendarDays(delivery.start_date, delivery.planned_end_date)
-    + normalizeNumber(project?.totalCrScheduleImpactDays, 0);
+    + approvedScheduleImpactDays;
+  const effectiveEndDate = addCalendarDays(delivery.planned_end_date, approvedScheduleImpactDays);
   return {
     project: {
       projectId: project.projectId,
@@ -654,6 +666,8 @@ function buildProgressContext(project, snapshots = [], selectedSnapshot = null) 
       plannedDuration,
       startDate: delivery.start_date,
       plannedEndDate: delivery.planned_end_date,
+      effectiveEndDate,
+      approvedScheduleImpactDays,
       currentEstimation: estimation.actualFinalEstimatedValue ?? estimation.pmEstimatedValue,
     },
     latestSnapshot: snapshots[0] || null,
@@ -715,6 +729,11 @@ async function saveProjectProgress(projectId, user, payload) {
     actualCompletionPercent,
     remarks: String(payload.remarks || '').trim(),
   });
+  try {
+    await forecastService.recordProjectForecastSnapshotForDate(projectId, snapshotDate);
+  } catch (error) {
+    console.warn('Forecast snapshot generation after progress save failed:', error.message);
+  }
   const snapshots = await projectRepository.findProgressSnapshots(projectId);
   return buildProgressContext(project, snapshots, snapshot);
 }
@@ -822,7 +841,12 @@ async function getProject(projectId) {
   if (approvedProject) {
     return approvedProject;
   }
-  return projectRepository.getDraftProjectById(projectId);
+  const draftProject = await projectRepository.getDraftProjectById(projectId);
+  if (draftProject?.publishedProjectId) {
+    const publishedProject = await projectRepository.getProjectById(draftProject.publishedProjectId);
+    if (publishedProject) return publishedProject;
+  }
+  return draftProject;
 }
 
 async function getDraftProject(draftId) {

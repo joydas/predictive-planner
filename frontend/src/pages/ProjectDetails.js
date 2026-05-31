@@ -9,11 +9,12 @@ import {
   CCol,
   CRow,
   CSpinner,
+  CTooltip,
 } from '@coreui/react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import WorkflowPanel from '../components/WorkflowPanel';
 import WizardTabs from '../components/projectWizard/WizardTabs';
-import { getProject, getProjectForecast, transitionProject } from '../services/projectService';
+import { getProject, getProjectForecast, getSimilarHistoricalProjects, transitionProject } from '../services/projectService';
 import authService from '../services/authService';
 import { formatDisplayDate } from '../utils/dateUtils';
 import { formatCurrency, getWorkingDays, parseNumber } from '../utils/resourcePlanning';
@@ -183,6 +184,7 @@ const ProjectDetails = () => {
   const [project, setProject] = useState(null);
   const [workflowHistory, setWorkflowHistory] = useState([]);
   const [forecast, setForecast] = useState(null);
+  const [similarProjects, setSimilarProjects] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
@@ -192,16 +194,21 @@ const ProjectDetails = () => {
   const loadProject = useCallback(async () => {
     try {
       setLoading(true);
-      const [data, forecastResult] = await Promise.all([
+      const [data, forecastResult, similarResult] = await Promise.all([
         getProject(projectId),
         getProjectForecast(projectId).catch((err) => ({
           forecastAvailable: false,
           message: err.message || 'Forecast is currently unavailable.',
         })),
+        getSimilarHistoricalProjects(projectId).catch((err) => ({
+          similarProjects: [],
+          message: err.message || 'Similar historical projects are currently unavailable.',
+        })),
       ]);
       setProject(data.project);
       setWorkflowHistory(data.workflowHistory || []);
       setForecast(forecastResult);
+      setSimilarProjects(similarResult);
       setError('');
     } catch (err) {
       setError(err.message || 'Failed to load project');
@@ -269,6 +276,8 @@ const ProjectDetails = () => {
   const isPm = String(role || '').toUpperCase() === 'PM';
   const isEditableForPm = isPm && ['DRAFT', 'RETURNED'].includes(status);
   const canCreateCr = isPm && status === 'APPROVED';
+  const canCaptureProgress = isPm && status === 'APPROVED';
+  const canCompleteProject = isPm && status === 'APPROVED';
   const draftData = project.draftData || {};
   const basicInfo = draftData.basicInfo || {};
   const deliveryDetails = draftData.deliveryDetails || {};
@@ -336,6 +345,16 @@ const ProjectDetails = () => {
             {canCreateCr && (
               <CButton color="primary" variant="outline" onClick={() => navigate(`/crs/create?projectId=${project.projectId}`)}>
                 Add CR
+              </CButton>
+            )}
+            {canCaptureProgress && (
+              <CButton color="info" variant="outline" onClick={() => navigate(`/progress/${project.projectId}`)}>
+                Capture Progress
+              </CButton>
+            )}
+            {canCompleteProject && (
+              <CButton color="success" variant="outline" onClick={() => navigate(`/projects/complete/${project.projectId}`)}>
+                Complete Project
               </CButton>
             )}
           </div>
@@ -491,9 +510,72 @@ const ProjectDetails = () => {
             plannedEffort={displayPlannedEffort}
             plannedBudget={displayDeliveryBudget}
           />
+          <SimilarHistoricalProjectsCard result={similarProjects} />
         </CCol>
       </CRow>
     </div>
+  );
+};
+
+const SimilarHistoricalProjectsCard = ({ result }) => {
+  const [expandedId, setExpandedId] = useState(null);
+  const projects = Array.isArray(result?.similarProjects) ? result.similarProjects : [];
+
+  return (
+    <CCard className="mt-3">
+      <CCardHeader className="d-flex justify-content-between align-items-center gap-2">
+        <strong>Similar Historical Projects</strong>
+        <CTooltip
+          content="Similarity is determined using industry, technology, complexity, effort, budget, team size, duration, CR history, and progress behavior. Higher percentages indicate stronger similarity."
+        >
+          <span className="text-muted small" aria-label="How Similarity Is Calculated">i</span>
+        </CTooltip>
+      </CCardHeader>
+      <CCardBody>
+        {projects.length ? projects.map((item) => {
+          const expanded = Number(expandedId) === Number(item.projectId);
+          return (
+            <div key={item.projectId} className="border-bottom pb-3 mb-3">
+              <div className="d-flex justify-content-between align-items-start gap-2">
+                <div>
+                  <div className="fw-semibold">{item.projectName || `Project ${item.projectId}`}</div>
+                  <div className="text-muted small">{valueOrDash(item.industry)} - {valueOrDash(item.technology)}</div>
+                </div>
+                <CBadge color="info">{Math.round(Number(item.similarity || 0))}% Match</CBadge>
+              </div>
+              <div className="mt-2">
+                <DetailItem label="Actual Effort" value={`${valueOrDash(item.actualEffort)} PD`} />
+                <DetailItem label="Actual Budget" value={formatCurrency(item.actualBudget || 0)} />
+                <DetailItem label="Actual Duration" value={`${valueOrDash(item.actualDurationDays)} Days`} />
+              </div>
+              <CButton
+                color="secondary"
+                variant="outline"
+                size="sm"
+                onClick={() => setExpandedId(expanded ? null : item.projectId)}
+              >
+                {expanded ? 'Hide Details' : 'Show Details'}
+              </CButton>
+              {expanded && (
+                <div className="mt-3">
+                  <DetailItem label="Planned Effort" value={`${valueOrDash(item.plannedEffort)} PD`} />
+                  <DetailItem label="Planned Budget" value={formatCurrency(item.plannedBudget || 0)} />
+                  <DetailItem label="Planned Duration" value={`${valueOrDash(item.plannedDurationDays)} Days`} />
+                  <DetailItem label="Approved CR Count" value={item.approvedCrCount} />
+                  <DetailItem label="CR Effort Impact" value={`${valueOrDash(item.totalCrEffortImpact)} PD`} />
+                  <DetailItem label="CR Budget Impact" value={formatCurrency(item.totalCrBudgetImpact || 0)} />
+                  <DetailItem label="CR Duration Impact" value={`${valueOrDash(item.totalCrDurationImpact)} Days`} />
+                </div>
+              )}
+            </div>
+          );
+        }) : (
+          <CAlert color="info" className="mb-0">
+            {result?.message || 'No completed historical projects are available for similarity analysis.'}
+          </CAlert>
+        )}
+      </CCardBody>
+    </CCard>
   );
 };
 

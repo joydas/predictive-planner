@@ -436,6 +436,9 @@ const PROJECT_SORT_COLUMNS = {
   createdDate: 'p.created_at',
   updatedAt: 'p.updated_at',
   updatedDate: 'p.updated_at',
+  startDate: 'startDate',
+  endDate: 'endDate',
+  effectiveEndDate: 'endDate',
   projectName: "JSON_UNQUOTE(JSON_EXTRACT(p.draft_data, '$.basicInfo.project_name'))",
   name: "JSON_UNQUOTE(JSON_EXTRACT(p.draft_data, '$.basicInfo.project_name'))",
   status: 'p.workflow_status',
@@ -518,6 +521,10 @@ function mapProjectListRow(row) {
     industry: row.industry || '-',
     deliveryModel: row.deliveryModel || '-',
     currentStatus: row.currentStatus || 'DRAFT',
+    startDate: toDateOnly(row.startDate),
+    plannedEndDate: toDateOnly(row.plannedEndDate),
+    effectiveEndDate: toDateOnly(row.effectiveEndDate || row.endDate),
+    approvedScheduleImpactDays: normalizeNumber(row.approvedScheduleImpactDays, 0),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     reviewerComment: row.reviewerComment || '-',
@@ -537,7 +544,20 @@ async function findProjectsForPm(filters) {
   const page = Math.max(1, Number(filters.page) || 1);
   const pageSize = Math.min(100, Math.max(1, Number(filters.pageSize) || 10));
   const offset = (page - 1) * pageSize;
-  const sortColumn = PROJECT_SORT_COLUMNS[filters.sortBy] || PROJECT_SORT_COLUMNS.updatedAt;
+  const sortAliases = {
+    createdAt: 'createdAt',
+    createdDate: 'createdAt',
+    updatedAt: 'updatedAt',
+    updatedDate: 'updatedAt',
+    startDate: 'startDate',
+    endDate: 'effectiveEndDate',
+    effectiveEndDate: 'effectiveEndDate',
+    projectName: 'projectName',
+    name: 'projectName',
+    status: 'currentStatus',
+    currentStatus: 'currentStatus',
+  };
+  const sortColumn = sortAliases[filters.sortBy] || 'updatedAt';
   const sortOrder = String(filters.sortOrder || 'DESC').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
   const where = buildProjectListWhere(filters);
 
@@ -573,6 +593,10 @@ async function findProjectsForPm(filters) {
              JSON_UNQUOTE(JSON_EXTRACT(p.draft_data, '$.basicInfo.delivery_model')) AS deliveryModel,
              p.workflow_status AS currentStatus,
              'Not Measured' AS severity,
+             JSON_UNQUOTE(JSON_EXTRACT(p.draft_data, '$.deliveryDetails.start_date')) AS startDate,
+             JSON_UNQUOTE(JSON_EXTRACT(p.draft_data, '$.deliveryDetails.planned_end_date')) AS plannedEndDate,
+             JSON_UNQUOTE(JSON_EXTRACT(p.draft_data, '$.deliveryDetails.planned_end_date')) AS effectiveEndDate,
+             0 AS approvedScheduleImpactDays,
              p.created_at AS createdAt,
              p.updated_at AS updatedAt,
              reviewer.action_comment AS reviewerComment
@@ -636,6 +660,13 @@ async function findProjectsForPm(filters) {
                ) <= 40 THEN 'High'
                ELSE 'Urgent'
              END AS severity,
+             JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.start_date')) AS startDate,
+             JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.planned_end_date')) AS plannedEndDate,
+             DATE_ADD(
+               JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.planned_end_date')),
+               INTERVAL COALESCE(cr_schedule.totalScheduleImpactDays, 0) DAY
+             ) AS effectiveEndDate,
+             COALESCE(cr_schedule.totalScheduleImpactDays, 0) AS approvedScheduleImpactDays,
              ap.created_at AS createdAt,
              p.updated_at AS updatedAt,
              reviewer.action_comment AS reviewerComment
@@ -675,7 +706,7 @@ async function findProjectsForPm(filters) {
       WHERE ${where.sql}
         AND p.is_published = 1
       ) project_rows
-      ORDER BY updatedAt ${sortOrder}, projectId DESC
+      ORDER BY ${sortColumn} ${sortOrder}, projectId DESC
       LIMIT ? OFFSET ?
     `,
     [...where.params, ...where.params, pageSize, offset],

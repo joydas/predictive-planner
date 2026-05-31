@@ -139,13 +139,13 @@ function averageConfidence(...forecasts) {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
-function buildSnapshot(projectId, forecast) {
+function buildSnapshot(projectId, forecast, snapshotDate = null) {
   const completion = forecast.completionDate || forecast;
   const effort = forecast.finalEffort || {};
   const budget = forecast.finalBudget || {};
   return {
     projectId,
-    snapshotDate: new Date().toISOString().slice(0, 10),
+    snapshotDate: toDateOnly(snapshotDate) || new Date().toISOString().slice(0, 10),
     forecastCompletionDate: completion.forecastAvailable ? toDateOnly(completion.forecastCompletionDate) : null,
     forecastDelayDays: completion.forecastAvailable ? toNumber(completion.forecastDelayDays) : null,
     forecastFinalEffort: effort.forecastAvailable ? toNumber(effort.forecastFinalEffort) : null,
@@ -154,14 +154,14 @@ function buildSnapshot(projectId, forecast) {
   };
 }
 
-async function upsertForecastSnapshot(projectId, forecast) {
-  const snapshot = buildSnapshot(projectId, forecast);
+async function upsertForecastSnapshot(projectId, forecast, snapshotDate = null, options = {}) {
+  const snapshot = buildSnapshot(projectId, forecast, snapshotDate);
   const hasAnyForecast = snapshot.forecastCompletionDate
     || snapshot.forecastDelayDays !== null
     || snapshot.forecastFinalEffort !== null
     || snapshot.forecastFinalBudget !== null
     || snapshot.forecastConfidence !== null;
-  if (!hasAnyForecast) return null;
+  if (!hasAnyForecast && !options.persistAttempt) return null;
 
   await ensureSnapshotTable();
   await pool.promise().query(
@@ -296,7 +296,7 @@ function calculateForecastTrend(history) {
   };
 }
 
-async function callProjectForecast(projectId) {
+async function callProjectForecast(projectId, options = {}) {
   const [completionForecast, finalEffortForecast, finalBudgetForecast] = await Promise.all([
     callCompletionForecastModel(projectId).catch((error) => unavailableForecast(forecastErrorMessage(error))),
     callFinalEffortForecastModel(projectId).catch((error) => unavailableForecast(forecastErrorMessage(error))),
@@ -309,7 +309,9 @@ async function callProjectForecast(projectId) {
     finalEffort: finalEffortForecast,
     finalBudget: finalBudgetForecast,
   };
-  await upsertForecastSnapshot(projectId, forecast);
+  await upsertForecastSnapshot(projectId, forecast, options.snapshotDate, {
+    persistAttempt: Boolean(options.persistAttempt),
+  });
   const history = await readForecastHistory(projectId);
 
   return {
@@ -350,4 +352,8 @@ async function getForecastsForProjects(projectIds = []) {
 module.exports = {
   getProjectForecast,
   getForecastsForProjects,
+  recordProjectForecastSnapshotForDate: (projectId, snapshotDate) => callProjectForecast(projectId, {
+    snapshotDate,
+    persistAttempt: true,
+  }),
 };

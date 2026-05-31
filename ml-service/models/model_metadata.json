@@ -1,54 +1,55 @@
 {
-  "model_version": "ml-20260530T190348694981Z0000",
-  "training_timestamp": "2026-05-30T19:03:48.694981+00:00",
+  "model_version": "ml-20260531T060913525398Z0000",
+  "training_timestamp": "2026-05-31T06:09:13.525398+00:00",
   "dataset_version": "project_training_dataset_v1",
   "feature_version": "project_features_v1",
   "dataset_path": "C:\\OurWorkspace\\Dipanjan\\AI\\predictive-planner\\ml-service\\datasets\\project_training_dataset.csv",
-  "project_count": 124,
-  "row_count": 124,
+  "project_count": 127,
+  "row_count": 127,
   "evaluation_metrics": {
     "staffing": {
       "mae_per_role": {
-        "Automation_Tester": 0.40403225806451615,
+        "Automation_Tester": 0.40989583333333335,
+        "Cloud_Engineer": 0.14817708333333332,
         "DevOps_Engineer": 0.0,
-        "Java_Developer": 0.04677419354838707,
-        "Java_Lead": 0.02419354838709677,
-        "Manual_Tester": 0.4397849462365592,
-        "Project_Manager": 0.2064516129032258,
-        "Python_Developer": 1.4126344086021505,
-        "Python_Lead": 0.04489247311827957,
+        "Java_Developer": 0.0359375,
+        "Java_Lead": 0.0010416666666666667,
+        "Manual_Tester": 0.41666666666666663,
+        "Project_Manager": 0.21874999999999997,
+        "Python_Developer": 0.37890625,
+        "Python_Lead": 0.019531250000000003,
         "QA_Lead": 0.0,
-        "React_Developer": 0.19704301075268818,
-        "React_Lead": 0.028763440860215053,
-        "SAP_Consultant": 0.1620967741935484,
-        "Solution_Architect": 0.15456989247311825
+        "React_Developer": 0.7838541666666666,
+        "React_Lead": 0.06927083333333334,
+        "SAP_Consultant": 0.13098958333333333,
+        "Solution_Architect": 0.15755208333333334
       }
     },
     "effort": {
-      "rmse": 137.37628261164133,
-      "mae": 67.2962365591398,
-      "r2": 0.9796728131295546
+      "rmse": 107.50179121771582,
+      "mae": 57.436718750000004,
+      "r2": 0.9880099580154935
     },
     "schedule_risk": {
-      "accuracy": 1.0,
+      "accuracy": 0.96875,
       "precision": 0.0,
       "recall": 0.0
     },
     "completion_forecast": {
       "trained": false,
-      "training_rows": 4,
+      "training_rows": 2,
       "minimum_required_rows": 5,
       "message": "Insufficient historical project data available for forecasting."
     },
     "final_effort_forecast": {
       "trained": false,
-      "training_rows": 4,
+      "training_rows": 2,
       "minimum_required_rows": 5,
       "message": "Insufficient historical project data available for forecasting."
     },
     "final_budget_forecast": {
       "trained": false,
-      "training_rows": 4,
+      "training_rows": 2,
       "minimum_required_rows": 5,
       "message": "Insufficient historical project data available for forecasting."
     }
@@ -56,7 +57,7 @@
   "warnings": [
     {
       "report": "staffing_diversity_validation",
-      "issue_count": 28,
+      "issue_count": 32,
       "path": "C:\\OurWorkspace\\Dipanjan\\AI\\predictive-planner\\ml-service\\reports\\staffing_diversity_validation_report.csv"
     }
   ],

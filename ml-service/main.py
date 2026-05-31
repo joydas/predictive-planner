@@ -10,7 +10,9 @@ from inference.predictors import (
     predict_effort,
     predict_final_budget_forecast,
     predict_final_effort_forecast,
+    predict_forecast_explainability,
     predict_risk,
+    predict_similar_projects,
     predict_staffing,
 )
 from model_admin import current_info, get_job_logs, read_state, start_retraining
@@ -100,6 +102,22 @@ def final_budget_forecast_prediction(data: dict):
         return predict_final_budget_forecast(data)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/predict/similar-projects")
+def similar_projects_prediction(data: dict):
+    try:
+        return predict_similar_projects(data)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/predict/explainability")
+def forecast_explainability_prediction(data: dict):
+    try:
+        return predict_forecast_explainability(data)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
