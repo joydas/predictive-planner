@@ -5,6 +5,11 @@ from urllib.parse import quote_plus
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
+from dotenv import load_dotenv
+from pathlib import Path
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
 
 def _first_env(*keys: str, default: str = "") -> str:
     for key in keys:
