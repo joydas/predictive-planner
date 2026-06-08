@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CAlert,
   CBadge,
@@ -29,6 +29,8 @@ const statusColor = {
 
 const valueOrDash = (value) => (value === null || value === undefined || value === '' ? '-' : value);
 const TRAINING_OUTPUT_STORAGE_KEY = 'mlTrainingOutputLogs';
+const RETRAIN_STARTING_MESSAGE = 'Starting job....';
+const RETRAIN_OUTPUT_DELAY_MS = 2000;
 
 const loadStoredTrainingLogs = () => {
   try {
@@ -47,6 +49,7 @@ const MlAdministrationPage = () => {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const suppressLogUpdatesUntilRef = useRef(0);
 
   const status = String(modelInfo?.trainingStatus || 'IDLE').toUpperCase();
   const isRunning = status === 'RUNNING';
@@ -80,20 +83,33 @@ const MlAdministrationPage = () => {
 
   useEffect(() => {
     const latestLogs = modelInfo?.logs || [];
+    if (Date.now() < suppressLogUpdatesUntilRef.current) return;
     if (!latestLogs.length) return;
     setOutputLogs(latestLogs);
     window.localStorage.setItem(TRAINING_OUTPUT_STORAGE_KEY, JSON.stringify(latestLogs));
   }, [modelInfo]);
 
   const handleRetrain = async () => {
+    const startedAt = Date.now();
+    suppressLogUpdatesUntilRef.current = startedAt + RETRAIN_OUTPUT_DELAY_MS;
     setStarting(true);
     setError('');
     setMessage('');
+    setOutputLogs([RETRAIN_STARTING_MESSAGE]);
+    window.localStorage.setItem(TRAINING_OUTPUT_STORAGE_KEY, JSON.stringify([RETRAIN_STARTING_MESSAGE]));
     try {
       const result = await retrainMlModels();
       setMessage(result.accepted === false ? 'Training is already running.' : `Training started. Job: ${result.jobId}`);
+      const remainingDelay = Math.max(0, RETRAIN_OUTPUT_DELAY_MS - (Date.now() - startedAt));
+      if (remainingDelay) {
+        await new Promise((resolve) => {
+          window.setTimeout(resolve, remainingDelay);
+        });
+      }
+      suppressLogUpdatesUntilRef.current = 0;
       await loadModelInfo({ quiet: true });
     } catch (err) {
+      suppressLogUpdatesUntilRef.current = 0;
       setError(err.message || 'Failed to start retraining');
     } finally {
       setStarting(false);
