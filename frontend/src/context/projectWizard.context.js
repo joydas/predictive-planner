@@ -76,10 +76,12 @@ const initialState = {
 const ProjectWizardContext = createContext(null);
 
 function mergeWithInitialState(draft = {}) {
+  const sourceDraftId = draft.draftId ?? draft.projectDraftId ?? initialState.draftId;
   const draftRows = draft.teamComposition?.rows || [];
   return {
     ...initialState,
     ...draft,
+    draftId: sourceDraftId,
     basicInfo: {
       ...initialState.basicInfo,
       ...(draft.basicInfo || {}),
@@ -179,6 +181,7 @@ function reducer(state, action) {
       };
     case 'LOAD_DRAFT': {
       const loadedDraft = mergeWithInitialState(action.payload);
+      const sourceDraftId = action.draftId ?? loadedDraft.draftId ?? state.draftId;
       const preservedMasterData = {
         ...loadedDraft.masterData,
         ...state.masterData,
@@ -193,7 +196,7 @@ function reducer(state, action) {
           ...loadedDraft.financial,
           rateCards: preservedRateCards,
         },
-        draftId: action.draftId || state.draftId,
+        draftId: sourceDraftId,
         isDraftSaved: true,
       };
     }
