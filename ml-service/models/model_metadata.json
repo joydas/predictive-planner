@@ -1,6 +1,6 @@
 {
-  "model_version": "ml-20260531T153704902483Z0000",
-  "training_timestamp": "2026-05-31T15:37:04.902483+00:00",
+  "model_version": "ml-20260608T084201428377Z0000",
+  "training_timestamp": "2026-06-08T08:42:01.428377+00:00",
   "dataset_version": "project_training_dataset_v1",
   "feature_version": "project_features_v1",
   "dataset_path": "C:\\OurWorkspace\\Dipanjan\\AI\\predictive-planner\\ml-service\\datasets\\project_training_dataset.csv",
@@ -49,26 +49,26 @@
     "completion_forecast": {
       "trained": true,
       "training_rows": 7,
-      "rmse": 1.13369314238619,
-      "mae": 0.9277777777777777,
-      "r2": 0.8974303796195762,
-      "residual_std": 1.132129434823266
+      "rmse": 1.1339264709947356,
+      "mae": 0.9119047619047619,
+      "r2": 0.8973881549845176,
+      "residual_std": 1.133586184056732
     },
     "final_effort_forecast": {
       "trained": true,
       "training_rows": 7,
-      "rmse": 43.55932685325027,
-      "mae": 30.387301587301586,
-      "r2": 0.9402134587627798,
-      "residual_std": 43.03824674393273
+      "rmse": 43.440029004703185,
+      "mae": 30.476190476190478,
+      "r2": 0.9405404903924773,
+      "residual_std": 42.77791135827424
     },
     "final_budget_forecast": {
       "trained": true,
       "training_rows": 7,
-      "rmse": 28471.678160258725,
-      "mae": 20179.78174603175,
-      "r2": 0.9326966400480078,
-      "residual_std": 28040.2879254743
+      "rmse": 28299.157618542144,
+      "mae": 20274.404761904767,
+      "r2": 0.9335098013738452,
+      "residual_std": 27777.781193636412
     },
     "on_time_probability": {
       "trained": true,

@@ -33,7 +33,7 @@ const CreateProjectPage = () => {
     setLoading(true);
     getDraft(draftId)
       .then((result) => {
-        setInitialDraft({ draftId: result.draft.draftId, ...parseDraftData(result.draft.draftData) });
+        setInitialDraft({ ...parseDraftData(result.draft.draftData), draftId: result.draft.draftId });
       })
       .catch((error) => {
         setLoadError(error.message || 'Unable to load draft');

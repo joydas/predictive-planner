@@ -11,7 +11,8 @@ import { formatDisplayDate } from '../../utils/dateUtils';
 import { listIndustries } from '../../services/masterDataService';
 
 
-const statusOptions = ['DRAFT', 'SUBMITTED', 'RETURNED', 'APPROVED', 'COMPLETE', 'REJECTED'].map((value) => ({ value, label: value }));
+const allStatusOptions = ['DRAFT', 'SUBMITTED', 'RETURNED', 'APPROVED', 'COMPLETE', 'REJECTED'].map((value) => ({ value, label: value }));
+const reviewerStatusOptions = allStatusOptions.filter((option) => option.value !== 'DRAFT');
 const deliveryModelOptions = ['Agile', 'Waterfall', 'Hybrid', 'Scrum', 'Kanban'].map((value) => ({ value, label: value }));
 
 const statusColors = {
@@ -35,6 +36,7 @@ const ProjectListPage = () => {
   const navigate = useNavigate();
   const currentRole = String(authService.getUserRole() || '').toUpperCase();
   const isAccountManager = ['ACCOUNT_MANAGER', 'AM'].includes(currentRole);
+  const statusOptions = isAccountManager ? reviewerStatusOptions : allStatusOptions;
   const [rows, setRows] = useState([]);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');

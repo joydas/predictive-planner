@@ -1,8 +1,8 @@
 project_id,project_name,planned_completion_date,industry,technology,complexity,project_type,planned_duration_days,current_planned_effort,current_planned_budget,current_planned_team_size,pm_estimated_value,ai_estimated_value,approved_cr_count,total_cr_effort_impact,total_cr_budget_impact,total_cr_duration_impact,latest_completion_percent,progress_snapshot_count,days_since_last_progress_update,average_progress_velocity,progress_velocity_trend,actual_effort_to_date,actual_budget_to_date,actual_team_size,actual_final_budget
-146,Project 1,2026-03-31,"Banking, Financial Services and Insurance",Java,2,New Build,90,463.0,270585.0,8.0,480.0,253.82,1.0,15.0,5625.0,0.0,100.0,4,58,1.0806451612903225,-0.6547619047619048,470.0,280000.0,0,280000.0
-147,Project 2,2026-03-31,Healthcare,Java,1,New Build,90,596.0,324730.0,10.0,500.0,565.48,1.0,20.0,8250.0,5.0,100.0,3,25,0.6808510638297872,0.45454545454545453,620.0,332000.0,0,332000.0
-148,Project 3,2026-05-31,Healthcare,Java,1,New Build,31,131.0,79883.75,7.0,100.0,530.51,1.0,5.0,2000.0,0.0,95.0,1,4,0.0,0.0,122.0,76000.0,0,76000.0
-149,Project 3,2026-05-31,Healthcare,Java,1,New Build,31,126.0,77883.75,6.0,100.0,530.51,0.0,0.0,0.0,0.0,100.0,3,0,3.3333333333333335,1.75,132.0,2500.0,0,2500.0
-150,Project 31,2026-05-31,Healthcare,React,1,New Build,31,313.0,168937.5,14.0,240.0,271.44,1.0,40.0,18000.0,5.0,100.0,3,0,2.380952380952381,0.2857142857142857,320.0,170000.0,0,170000.0
+146,Project 1,2026-03-31,"Banking, Financial Services and Insurance",Java,2,New Build,90,463.0,270585.0,8.0,480.0,253.82,1.0,15.0,5625.0,0.0,100.0,4,66,1.0806451612903225,-0.6547619047619048,470.0,280000.0,0,280000.0
+147,Project 2,2026-03-31,Healthcare,Java,1,New Build,90,596.0,324730.0,10.0,500.0,565.48,1.0,20.0,8250.0,5.0,100.0,3,33,0.6808510638297872,0.45454545454545453,620.0,332000.0,0,332000.0
+148,Project 3,2026-05-31,Healthcare,Java,1,New Build,31,131.0,79883.75,7.0,100.0,530.51,1.0,5.0,2000.0,0.0,95.0,1,12,0.0,0.0,122.0,76000.0,0,76000.0
+149,Project 3,2026-05-31,Healthcare,Java,1,New Build,31,126.0,77883.75,6.0,100.0,530.51,0.0,0.0,0.0,0.0,100.0,3,8,3.3333333333333335,1.75,132.0,2500.0,0,2500.0
+150,Project 31,2026-05-31,Healthcare,React,1,New Build,31,313.0,168937.5,14.0,240.0,271.44,1.0,40.0,18000.0,5.0,100.0,3,3,2.380952380952381,0.2857142857142857,320.0,170000.0,0,170000.0
 151,Project 312,2026-05-31,Healthcare,Java,1,New Build,31,126.0,77883.75,6.0,100.0,269.79,0.0,0.0,0.0,0.0,0.0,0,999,0.0,0.0,0.0,0.0,0,67725.0
-152,My Project,2026-05-31,Energy and Utilities,Angular,1,New Build,29,280.0,148925.0,14.0,300.0,183.9,0.0,0.0,0.0,0.0,100.0,2,2,5.0,0.0,280.0,150000.0,0,150000.0
+152,My Project,2026-05-31,Energy and Utilities,Angular,1,New Build,29,280.0,148925.0,14.0,300.0,183.9,0.0,0.0,0.0,0.0,100.0,2,10,5.0,0.0,280.0,150000.0,0,150000.0

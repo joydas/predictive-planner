@@ -473,6 +473,7 @@ function buildProjectListWhere(filters) {
       OR p.approved_by_user_id = ?
     )`);
     params.push(filters.userId, filters.userId);
+    where.push("p.workflow_status <> 'DRAFT'");
   } else {
     where.push('(p.submitted_by_user_id = ? OR p.owner_id = ?)');
     params.push(filters.userId, filters.userId);
