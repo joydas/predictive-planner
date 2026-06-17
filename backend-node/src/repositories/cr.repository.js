@@ -1,4 +1,5 @@
 const { pool } = require('../config/db.config');
+const TenantContext = require('../utils/tenantContext');
 
 async function ensureCrSchema() {
   const projectRepository = require('./project.repository');
@@ -41,13 +42,15 @@ async function addColumnIfMissing(tableName, columnName, alterSql) {
 const CR_SELECT = `
   cr.cr_id AS crId,
   cr.cr_id AS id,
+  cr.organization_id AS organizationId,
   COALESCE(cr.cr_code, CONCAT('CR-', LPAD(cr.cr_id, 6, '0'))) AS crNumber,
   cr.project_id AS projectId,
   CONCAT('PRJ-', LPAD(cr.project_id, 6, '0')) AS projectCode,
   p.project_name AS projectName,
-  pd.workflow_status AS projectWorkflowStatus,
+  COALESCE(p.workflow_status, pd.workflow_status) AS projectWorkflowStatus,
   cr.cr_title AS title,
   COALESCE(cr.cr_description, cr.root_cause) AS description,
+  cr.cr_category AS crType,
   cr.cr_category AS category,
   cr.severity,
   cr.priority,
@@ -230,20 +233,22 @@ function applyStaffingDeltas(baselineRows = [], deltas = []) {
 
 async function createDraft(crData, createdBy) {
   await ensureCrSchema();
+  const organizationId = TenantContext.getOrganizationId();
   const [result] = await pool.promise().query(
     `
       INSERT INTO change_request
       SET ${writableColumns},
           status = 'DRAFT',
           workflow_status = 'DRAFT',
-          submitted_by_user_id = ?
+          submitted_by_user_id = ?,
+          organization_id = ?
     `,
-    [...payloadValues(crData), createdBy],
+    [...payloadValues(crData), createdBy, organizationId],
   );
 
   await pool.promise().query(
-    "UPDATE change_request SET cr_code = CONCAT('CR-', LPAD(cr_id, 6, '0')) WHERE cr_id = ?",
-    [result.insertId],
+    "UPDATE change_request SET cr_code = CONCAT('CR-', LPAD(cr_id, 6, '0')) WHERE cr_id = ? AND organization_id = ?",
+    [result.insertId, organizationId],
   );
 
   return { crId: result.insertId };
@@ -251,30 +256,32 @@ async function createDraft(crData, createdBy) {
 
 async function updateDraft(crId, crData) {
   await ensureCrSchema();
+  const organizationId = TenantContext.getOrganizationId();
   const [result] = await pool.promise().query(
     `
       UPDATE change_request
       SET ${writableColumns}, updated_at = NOW()
-      WHERE cr_id = ? AND workflow_status IN ('DRAFT', 'RETURNED')
+      WHERE cr_id = ? AND organization_id = ? AND workflow_status IN ('DRAFT', 'RETURNED')
     `,
-    [...payloadValues(crData), crId],
+    [...payloadValues(crData), crId, organizationId],
   );
   return result.affectedRows > 0;
 }
 
 async function getChangeRequestById(crId) {
   await ensureCrSchema();
+  const organizationId = TenantContext.getOrganizationId();
   const [rows] = await pool.promise().query(
     `
       SELECT ${CR_SELECT}
       FROM change_request cr
-      INNER JOIN project p ON p.project_id = cr.project_id
-      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
-      LEFT JOIN app_user submitter ON submitter.user_id = cr.submitted_by_user_id
-      WHERE cr.cr_id = ?
+      INNER JOIN project p ON p.project_id = cr.project_id AND p.organization_id = cr.organization_id
+      LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id AND pd.organization_id = p.organization_id
+      LEFT JOIN app_user submitter ON submitter.user_id = cr.submitted_by_user_id AND submitter.organization_id = cr.organization_id
+      WHERE cr.cr_id = ? AND cr.organization_id = ?
       LIMIT 1
     `,
-    [crId],
+    [crId, organizationId],
   );
 
   if (!rows[0]) return null;
@@ -286,18 +293,19 @@ async function getChangeRequestById(crId) {
 }
 
 async function getChangeRequestForUpdate(connection, crId) {
+  const organizationId = TenantContext.getOrganizationId();
   const [rows] = await connection.query(
     `
       SELECT ${CR_SELECT}
       FROM change_request cr
-      INNER JOIN project p ON p.project_id = cr.project_id
-      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
-      LEFT JOIN app_user submitter ON submitter.user_id = cr.submitted_by_user_id
-      WHERE cr.cr_id = ?
+      INNER JOIN project p ON p.project_id = cr.project_id AND p.organization_id = cr.organization_id
+      LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id AND pd.organization_id = p.organization_id
+      LEFT JOIN app_user submitter ON submitter.user_id = cr.submitted_by_user_id AND submitter.organization_id = cr.organization_id
+      WHERE cr.cr_id = ? AND cr.organization_id = ?
       LIMIT 1
       FOR UPDATE
     `,
-    [crId],
+    [crId, organizationId],
   );
 
   if (!rows[0]) return null;
@@ -310,6 +318,7 @@ async function getChangeRequestForUpdate(connection, crId) {
 
 async function getProjectBaseStaffingSnapshot(projectId) {
   await ensureCrSchema();
+  const organizationId = TenantContext.getOrganizationId();
   const [rows] = await pool.promise().query(
     `
       SELECT team_snapshot_id AS snapshotId,
@@ -324,10 +333,10 @@ async function getProjectBaseStaffingSnapshot(projectId) {
              planned_effort AS plannedEffort,
              planned_cost AS plannedCost
       FROM project_team_snapshot
-      WHERE project_id = ?
+      WHERE project_id = ? AND organization_id = ?
       ORDER BY team_snapshot_id
     `,
-    [projectId],
+    [projectId, organizationId],
   );
   return rows.map((row, index) => normalizeStaffingRow({
     ...row,
@@ -337,7 +346,8 @@ async function getProjectBaseStaffingSnapshot(projectId) {
 
 async function getApprovedStaffingDeltas(projectId, excludeCrId = null) {
   await ensureCrSchema();
-  const params = [projectId];
+  const organizationId = TenantContext.getOrganizationId();
+  const params = [projectId, organizationId];
   let excludeSql = '';
   if (excludeCrId) {
     excludeSql = 'AND cr_id <> ?';
@@ -348,7 +358,7 @@ async function getApprovedStaffingDeltas(projectId, excludeCrId = null) {
     `
       SELECT cr_staffing_delta AS staffingDeltas
       FROM change_request
-      WHERE project_id = ?
+      WHERE project_id = ? AND organization_id = ?
         AND workflow_status = 'APPROVED'
         ${excludeSql}
       ORDER BY approved_at ASC, cr_id ASC
@@ -376,6 +386,7 @@ async function getCurrentApprovedStaffing(projectId, excludeCrId = null) {
 }
 
 async function accumulateApprovedCrImpact(connection, changeRequest) {
+  const organizationId = TenantContext.getOrganizationId();
   const effortImpact = Number(changeRequest.effortImpact);
   const budgetImpact = Number(changeRequest.budgetImpact);
   const teamSizeImpact = Number(changeRequest.teamSizeImpact);
@@ -383,7 +394,7 @@ async function accumulateApprovedCrImpact(connection, changeRequest) {
   const [result] = await connection.query(
     `
       UPDATE project p
-      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
+      LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id AND pd.organization_id = p.organization_id
       SET p.current_planned_effort = COALESCE(p.current_planned_effort, 0) + ?,
           p.current_planned_budget = COALESCE(p.current_planned_budget, 0) + ?,
           p.current_planned_team_size = COALESCE(p.current_planned_team_size, 0) + ?,
@@ -392,8 +403,8 @@ async function accumulateApprovedCrImpact(connection, changeRequest) {
           p.total_cr_team_impact = COALESCE(p.total_cr_team_impact, 0) + ?,
           p.actual_final_estimated_value = COALESCE(p.actual_final_estimated_value, p.pm_estimated_value, 0) + ?,
           p.total_cr_estimation_impact = COALESCE(p.total_cr_estimation_impact, 0) + ?
-      WHERE p.project_id = ?
-        AND pd.workflow_status = 'APPROVED'
+      WHERE p.project_id = ? AND p.organization_id = ?
+        AND COALESCE(p.workflow_status, pd.workflow_status) IN ('APPROVED', 'ACTIVE')
     `,
     [
       effortImpact,
@@ -405,6 +416,7 @@ async function accumulateApprovedCrImpact(connection, changeRequest) {
       estimationImpact,
       estimationImpact,
       changeRequest.projectId,
+      organizationId,
     ],
   );
   return result.affectedRows > 0;
@@ -412,17 +424,18 @@ async function accumulateApprovedCrImpact(connection, changeRequest) {
 
 async function getChangeRequestsByProject(projectId) {
   await ensureCrSchema();
+  const organizationId = TenantContext.getOrganizationId();
   const [rows] = await pool.promise().query(
     `
       SELECT ${CR_SELECT}
       FROM change_request cr
-      INNER JOIN project p ON p.project_id = cr.project_id
-      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
-      LEFT JOIN app_user submitter ON submitter.user_id = cr.submitted_by_user_id
-      WHERE cr.project_id = ?
+      INNER JOIN project p ON p.project_id = cr.project_id AND p.organization_id = cr.organization_id
+      LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id AND pd.organization_id = p.organization_id
+      LEFT JOIN app_user submitter ON submitter.user_id = cr.submitted_by_user_id AND submitter.organization_id = cr.organization_id
+      WHERE cr.project_id = ? AND cr.organization_id = ?
       ORDER BY cr.updated_at DESC, cr.cr_id DESC
     `,
-    [projectId],
+    [projectId, organizationId],
   );
 
   return rows;
@@ -446,8 +459,9 @@ const CR_SORT_COLUMNS = {
 function buildCrListWhere(filters) {
   const rawRole = String(filters.role || '').toUpperCase();
   const actorRole = rawRole === 'AM' ? 'ACCOUNT_MANAGER' : rawRole;
-  const where = [];
-  const params = [];
+  const organizationId = TenantContext.getOrganizationId();
+  const where = ['cr.organization_id = ?'];
+  const params = [organizationId];
 
   if (actorRole === 'ACCOUNT_MANAGER') {
     where.push(`(
@@ -456,6 +470,7 @@ function buildCrListWhere(filters) {
         FROM app_user assigned_pm
         WHERE assigned_pm.user_id = cr.submitted_by_user_id
           AND assigned_pm.manager_id = ?
+          AND assigned_pm.organization_id = cr.organization_id
       )
       OR cr.approved_by_user_id = ?
     )`);
@@ -529,7 +544,7 @@ function mapCrListRow(row) {
     updatedAt: row.updatedAt,
     createdAt: row.createdAt,
     canEdit: ['DRAFT', 'RETURNED'].includes(row.currentStatus)
-      && String(row.projectWorkflowStatus || '').toUpperCase() !== 'COMPLETE',
+      && !['COMPLETE', 'COMPLETED'].includes(String(row.projectWorkflowStatus || '').toUpperCase()),
     projectWorkflowStatus: row.projectWorkflowStatus,
   };
 }
@@ -547,8 +562,8 @@ async function findCrsForPm(filters) {
     `
       SELECT COUNT(*) AS totalRecords
       FROM change_request cr
-      INNER JOIN project p ON p.project_id = cr.project_id
-      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
+      INNER JOIN project p ON p.project_id = cr.project_id AND p.organization_id = cr.organization_id
+      LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id AND pd.organization_id = p.organization_id
       WHERE ${where.sql}
     `,
     where.params,
@@ -560,7 +575,7 @@ async function findCrsForPm(filters) {
              COALESCE(cr.cr_code, CONCAT('CR-', LPAD(cr.cr_id, 6, '0'))) AS crNumber,
              cr.project_id AS projectId,
              p.project_name AS projectName,
-             pd.workflow_status AS projectWorkflowStatus,
+             COALESCE(p.workflow_status, pd.workflow_status) AS projectWorkflowStatus,
              cr.cr_category AS category,
              cr.severity,
              cr.priority,
@@ -573,8 +588,8 @@ async function findCrsForPm(filters) {
              cr.created_at AS createdAt,
              cr.updated_at AS updatedAt
       FROM change_request cr
-      INNER JOIN project p ON p.project_id = cr.project_id
-      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
+      INNER JOIN project p ON p.project_id = cr.project_id AND p.organization_id = cr.organization_id
+      LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id AND pd.organization_id = p.organization_id
       WHERE ${where.sql}
       ORDER BY ${sortColumn} ${sortOrder}, cr.cr_id DESC
       LIMIT ? OFFSET ?
@@ -594,9 +609,10 @@ async function findCrsForPm(filters) {
 
 async function countByProject(projectId) {
   await ensureCrSchema();
+  const organizationId = TenantContext.getOrganizationId();
   const [rows] = await pool.promise().query(
-    'SELECT COUNT(*) AS crCount FROM change_request WHERE project_id = ?',
-    [projectId],
+    'SELECT COUNT(*) AS crCount FROM change_request WHERE project_id = ? AND organization_id = ?',
+    [projectId, organizationId],
   );
   return rows[0].crCount;
 }

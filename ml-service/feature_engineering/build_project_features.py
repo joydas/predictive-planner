@@ -67,7 +67,7 @@ def build_project_features_from_projects(projects: pd.DataFrame) -> pd.DataFrame
     return features
 
 
-def build_project_features(engine=None) -> pd.DataFrame:
+def build_project_features(engine=None, organization_id: int | None = None) -> pd.DataFrame:
     engine = engine or get_engine()
-    projects = read_table(engine, "project")
+    projects = read_table(engine, "project", organization_id=organization_id)
     return build_project_features_from_projects(projects)

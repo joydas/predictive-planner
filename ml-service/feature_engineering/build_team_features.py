@@ -4,25 +4,46 @@ from config.db import get_engine
 from utils.feature_utils import canonical_role_name, normalize_role, numeric, read_sql_or_empty, read_table
 
 
-def _load_team_snapshot(engine) -> pd.DataFrame:
-    team = read_sql_or_empty(
-        engine,
-        """
-        SELECT
-          pts.project_id,
-          COALESCE(mr.role_name, pts.role) AS source_role,
-          pts.role,
-          pts.resource_count,
-          pts.avg_experience_years,
-          pts.location,
-          pts.location_type
-        FROM project_team_snapshot pts
-        LEFT JOIN md_role mr ON mr.role_id = pts.role_id
-        """,
-    )
+from sqlalchemy import text
+
+
+def _load_team_snapshot(engine, organization_id: int | None = None) -> pd.DataFrame:
+    if organization_id is not None:
+        team = read_sql_or_empty(
+            engine,
+            text("""
+            SELECT
+              pts.project_id,
+              COALESCE(mr.role_name, pts.role) AS source_role,
+              pts.role,
+              pts.resource_count,
+              pts.avg_experience_years,
+              pts.location,
+              pts.location_type
+            FROM project_team_snapshot pts
+            LEFT JOIN md_role mr ON mr.role_id = pts.role_id
+            WHERE pts.organization_id = :org_id
+            """).bindparams(org_id=organization_id)
+        )
+    else:
+        team = read_sql_or_empty(
+            engine,
+            """
+            SELECT
+              pts.project_id,
+              COALESCE(mr.role_name, pts.role) AS source_role,
+              pts.role,
+              pts.resource_count,
+              pts.avg_experience_years,
+              pts.location,
+              pts.location_type
+            FROM project_team_snapshot pts
+            LEFT JOIN md_role mr ON mr.role_id = pts.role_id
+            """,
+        )
     if not team.empty:
         return team
-    return read_table(engine, "project_team_snapshot")
+    return read_table(engine, "project_team_snapshot", organization_id=organization_id)
 
 
 def _active_role_targets(engine) -> list[str]:
@@ -40,9 +61,9 @@ def _active_role_targets(engine) -> list[str]:
     return sorted({normalize_role(role) for role in roles["role_name"].dropna()})
 
 
-def build_team_features(engine=None) -> pd.DataFrame:
+def build_team_features(engine=None, organization_id: int | None = None) -> pd.DataFrame:
     engine = engine or get_engine()
-    team = _load_team_snapshot(engine)
+    team = _load_team_snapshot(engine, organization_id=organization_id)
     if team.empty:
         return pd.DataFrame(columns=["project_id"])
 

@@ -79,3 +79,52 @@ export function formatCurrency(value, currency = 'USD') {
     maximumFractionDigits: 2,
   }).format(parseNumber(value, 0));
 }
+
+export const normalizeDisplayResourceRow = (row = {}, deliveryDetails = {}) => ({
+  ...row,
+  locationType: row.locationType || row.location_type || row.location || 'ONSITE',
+  count: parseNumber(row.count ?? row.resource_count, 0),
+  allocationPercent: parseNumber(row.allocationPercent ?? row.allocation_percent ?? row.allocation ?? 100, 100),
+  startDate: row.startDate || row.allocationStartDate || row.allocation_start_date || deliveryDetails.start_date || '',
+  endDate: row.endDate || row.allocationEndDate || row.allocation_end_date || deliveryDetails.planned_end_date || '',
+  ratePerDay: parseNumber(row.ratePerDay ?? row.rate_per_day ?? row.rate, 0),
+  plannedEffort: parseNumber(row.plannedEffort ?? row.planned_effort ?? row.effort, 0),
+  plannedCost: parseNumber(row.plannedCost ?? row.planned_cost ?? row.cost, 0),
+});
+
+export const deriveDisplayResourcePlanning = (rows = [], financial = {}, deliveryDetails = {}) => {
+  const normalizedRows = rows.map((row) => normalizeDisplayResourceRow(row, deliveryDetails));
+  const displayRows = normalizedRows.map((row) => {
+    const count = parseNumber(row.count, 0);
+    const allocationPercent = parseNumber(row.allocationPercent, 100);
+    const allocationMultiplier = allocationPercent / 100;
+    const ratePerDay = parseNumber(row.ratePerDay, 0);
+    const workingDays = getWorkingDays(row.startDate, row.endDate);
+    const plannedEffort = count * allocationMultiplier * workingDays;
+    const plannedCost = plannedEffort * ratePerDay;
+
+    return {
+      ...row,
+      durationDays: workingDays,
+      workingDays,
+      count,
+      allocationPercent,
+      ratePerDay,
+      plannedEffort,
+      plannedCost,
+    };
+  });
+  const baseResourceCost = displayRows.reduce((sum, row) => sum + parseNumber(row.plannedCost, 0), 0);
+  const planned_effort = displayRows.reduce((sum, row) => sum + parseNumber(row.plannedEffort, 0), 0);
+  const estimated_team_size = displayRows.reduce((sum, row) => sum + parseNumber(row.count, 0), 0);
+  const managementReservePercent = parseNumber(financial.management_reserve_percent, 0);
+  const contingencyReservePercent = parseNumber(financial.contingency_reserve_percent, 0);
+
+  return {
+    rows: displayRows,
+    baseResourceCost,
+    planned_effort,
+    estimated_team_size,
+    budget: baseResourceCost * (1 + (managementReservePercent + contingencyReservePercent) / 100),
+  };
+};

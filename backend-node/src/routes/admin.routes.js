@@ -11,6 +11,7 @@ router.put('/users/:userId', adminController.updateUser);
 router.get('/ml', adminController.getMlAdministration);
 router.post('/ml/retrain', adminController.retrainMlModels);
 router.get('/ml/jobs/:jobId', adminController.getMlTrainingJob);
+router.post('/ml/callback', adminController.mlRetrainCallback);
 router.get('/data/projects', adminController.listDataManagementProjects);
 router.get('/data/projects/delete-summary', adminController.getProjectDeleteSummary);
 router.delete('/data/projects', adminController.deleteProject);

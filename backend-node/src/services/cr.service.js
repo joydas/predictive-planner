@@ -2,6 +2,7 @@ const { pool } = require('../config/db.config');
 const crRepository = require('../repositories/cr.repository');
 const projectRepository = require('../repositories/project.repository');
 const workflowService = require('../workflow/workflow.service');
+const notificationService = require('./notification.service');
 
 function normalizeNumber(value, fallback = 0) {
   const parsed = Number(value);
@@ -298,6 +299,12 @@ async function submitChangeRequest(user, crId, payload, comment) {
     comment,
   });
 
+  // Notification
+  const cr = await crRepository.getChangeRequestById(crId);
+  if (cr) {
+    await notificationService.notifyCrUpdate(cr, 'CR_SUBMITTED', 'CR Submitted', `Change Request "${cr.title}" has been submitted.`);
+  }
+
   return { crId, transition };
 }
 
@@ -381,13 +388,22 @@ async function transitionChangeRequest(crId, user, actionType, comment) {
   }
 
   if (String(actionType || '').toUpperCase() !== 'APPROVE') {
-    return workflowService.transitionWorkflow({
+    const transition = await workflowService.transitionWorkflow({
       entityType: 'CR',
       entityId: crId,
       user,
       actionType,
       comment,
     });
+
+    // Notification
+    if (actionType === 'RETURN') {
+        await notificationService.notifyCrUpdate(changeRequest, 'CR_REJECTED', 'CR Returned', `Change Request "${changeRequest.title}" has been returned for revisions.`);
+    } else if (actionType === 'REJECT') {
+        await notificationService.notifyCrUpdate(changeRequest, 'CR_REJECTED', 'CR Rejected', `Change Request "${changeRequest.title}" has been rejected.`);
+    }
+
+    return transition;
   }
 
   await projectRepository.ensureApprovedProjectTables();
@@ -422,6 +438,10 @@ async function transitionChangeRequest(crId, user, actionType, comment) {
       throw error;
     }
     await connection.commit();
+
+    // Notification
+    await notificationService.notifyCrUpdate(lockedChangeRequest, 'CR_APPROVED', 'CR Approved', `Change Request "${lockedChangeRequest.title}" has been approved.`);
+
     return transition;
   } catch (error) {
     await connection.rollback();

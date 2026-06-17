@@ -15,7 +15,7 @@ function visibilityWhere(user, projectAlias = 'p', draftAlias = 'pd') {
   if (role === 'ADMIN') return { sql: '1 = 1', params: [] };
   if (role === 'PM') {
     return {
-      sql: `(${projectAlias}.owner_id = ? OR ${draftAlias}.submitted_by_user_id = ?)`,
+      sql: `(${projectAlias}.owner_id = ? OR COALESCE(${projectAlias}.submitted_by_user_id, ${draftAlias}.submitted_by_user_id) = ?)`,
       params: [user.userId, user.userId],
     };
   }
@@ -26,7 +26,7 @@ function visibilityWhere(user, projectAlias = 'p', draftAlias = 'pd') {
         OR EXISTS (
           SELECT 1
           FROM app_user assigned_pm
-          WHERE assigned_pm.user_id = COALESCE(${draftAlias}.submitted_by_user_id, ${projectAlias}.owner_id)
+          WHERE assigned_pm.user_id = COALESCE(${projectAlias}.submitted_by_user_id, ${draftAlias}.submitted_by_user_id, ${projectAlias}.owner_id)
             AND assigned_pm.manager_id = ?
         )
       )`,
@@ -57,7 +57,7 @@ async function canAccessProject(user, projectId) {
     `
       SELECT p.project_id AS projectId
       FROM project p
-      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
+      LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
       WHERE p.project_id = ?
         AND ${visibility.sql}
       LIMIT 1
@@ -75,9 +75,9 @@ async function visibleCompletedBusinessProjectIds(user) {
     `
       SELECT p.project_id AS projectId
       FROM project p
-      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
+      LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
       WHERE ${visibility.sql}
-        AND pd.workflow_status IN ('COMPLETE', 'CLOSED')
+        AND COALESCE(p.workflow_status, pd.workflow_status) IN ('COMPLETED', 'COMPLETE', 'CLOSED')
         AND COALESCE(UPPER(p.project_type), UPPER(JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.basicInfo.project_type'))), '') <> 'TEST DATA'
         ${regressionFilter}
       ORDER BY p.actual_completion_date DESC, p.project_id DESC

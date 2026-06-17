@@ -1,4 +1,5 @@
 const { pool } = require('../config/db.config');
+const TenantContext = require('../utils/tenantContext');
 
 const db = pool.promise();
 
@@ -26,8 +27,10 @@ function normalizeResourceRow(row) {
 }
 
 async function listResources(filters = {}) {
+  const organizationId = TenantContext.getOrganizationId();
   const params = [];
-  const where = ['rm.active_flag = 1'];
+  const where = ['rm.active_flag = 1', 'rm.organization_id = ?'];
+  params.push(organizationId);
 
   if (filters.role) {
     where.push('r.role_name = ?');
@@ -82,10 +85,12 @@ async function listResources(filters = {}) {
       r.role_name AS primaryRoleName,
       COALESCE(GROUP_CONCAT(DISTINCT s.skill_name SEPARATOR ','), '') AS skills,
       COALESCE(SUM(CASE WHEN ra.allocation_status = 'ACTIVE'
+                AND ra.organization_id = rm.organization_id
                 AND (ra.allocation_end_date IS NULL OR ra.allocation_end_date >= CURDATE())
                 AND (ra.allocation_start_date IS NULL OR ra.allocation_start_date <= CURDATE())
                 THEN ra.allocation_percent ELSE 0 END), 0) AS utilizationPercent,
       COALESCE(SUM(CASE WHEN ra.allocation_status = 'ACTIVE'
+                AND ra.organization_id = rm.organization_id
                 AND (ra.allocation_end_date IS NULL OR ra.allocation_end_date >= ?)
                 AND (ra.allocation_start_date IS NULL OR ra.allocation_start_date <= ?)
                 THEN ra.allocation_percent ELSE 0 END), 0) AS availabilityWindowUtilization,
@@ -95,7 +100,7 @@ async function listResources(filters = {}) {
     LEFT JOIN md_role r ON r.role_id = rm.primary_role_id
     LEFT JOIN resource_skill_map rsm ON rsm.resource_id = rm.resource_id
     LEFT JOIN md_skill s ON s.skill_id = rsm.skill_id
-    LEFT JOIN resource_allocation ra ON ra.resource_id = rm.resource_id
+    LEFT JOIN resource_allocation ra ON ra.resource_id = rm.resource_id AND ra.organization_id = rm.organization_id
     WHERE ${where.join(' AND ')}
     GROUP BY rm.resource_id
     ${hasWindow ? 'HAVING availabilityWindowUtilization < 100' : ''}
@@ -107,35 +112,38 @@ async function listResources(filters = {}) {
 }
 
 async function getApprovedProjectDates(projectId) {
+  const organizationId = TenantContext.getOrganizationId();
   const [rows] = await db.query(
     `
       SELECT
         JSON_UNQUOTE(JSON_EXTRACT(approved_data, '$.deliveryDetails.start_date')) AS startDate,
         JSON_UNQUOTE(JSON_EXTRACT(approved_data, '$.deliveryDetails.planned_end_date')) AS endDate
       FROM project
-      WHERE project_id = ?
+      WHERE project_id = ? AND organization_id = ?
       LIMIT 1
     `,
-    [projectId]
+    [projectId, organizationId]
   );
   return rows[0] || null;
 }
 
 async function getResourceById(resourceId) {
+  const organizationId = TenantContext.getOrganizationId();
   const [rows] = await db.query(
     `
       SELECT resource_id AS resourceId,
              active_flag AS activeFlag
       FROM resource_master
-      WHERE resource_id = ?
+      WHERE resource_id = ? AND organization_id = ?
       LIMIT 1
     `,
-    [resourceId]
+    [resourceId, organizationId]
   );
   return rows[0] || null;
 }
 
 async function createAllocation(allocation) {
+  const organizationId = TenantContext.getOrganizationId();
   const {
     projectId,
     resourceId,
@@ -203,8 +211,8 @@ async function createAllocation(allocation) {
   const [result] = await db.query(
     `
       INSERT INTO resource_allocation
-        (project_id, resource_id, role_id, allocation_percent, allocation_start_date, allocation_end_date, allocation_status)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+        (project_id, resource_id, role_id, allocation_percent, allocation_start_date, allocation_end_date, allocation_status, organization_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `,
     [
       projectId,
@@ -214,6 +222,7 @@ async function createAllocation(allocation) {
       startDate,
       endDate,
       allocationStatus || 'ACTIVE',
+      organizationId,
     ]
   );
 
@@ -221,8 +230,9 @@ async function createAllocation(allocation) {
 }
 
 async function listAllocations(filters = {}) {
-  const params = [];
-  const where = ['ra.allocation_status IN (\'ACTIVE\', \'PENDING\', \'PLANNED\')'];
+  const organizationId = TenantContext.getOrganizationId();
+  const params = [organizationId];
+  const where = ['ra.allocation_status IN (\'ACTIVE\', \'PENDING\', \'PLANNED\')', 'ra.organization_id = ?'];
 
   if (filters.projectId) {
     where.push('ra.project_id = ?');
@@ -249,8 +259,8 @@ async function listAllocations(filters = {}) {
       ra.allocation_status AS allocationStatus,
       ra.created_at AS createdAt
     FROM resource_allocation ra
-    LEFT JOIN project p ON p.project_id = ra.project_id
-    LEFT JOIN resource_master rm ON rm.resource_id = ra.resource_id
+    LEFT JOIN project p ON p.project_id = ra.project_id AND p.organization_id = ra.organization_id
+    LEFT JOIN resource_master rm ON rm.resource_id = ra.resource_id AND rm.organization_id = ra.organization_id
     LEFT JOIN md_role r ON r.role_id = ra.role_id
     WHERE ${where.join(' AND ')}
     ORDER BY ra.allocation_start_date ASC, ra.allocation_end_date ASC

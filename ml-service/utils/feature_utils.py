@@ -88,10 +88,18 @@ def utc_timestamp() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def read_table(engine, table_name: str) -> pd.DataFrame:
+def read_table(engine, table_name: str, organization_id: int | None = None) -> pd.DataFrame:
     inspector = inspect(engine)
     if not inspector.has_table(table_name):
         return pd.DataFrame()
+
+    if organization_id is not None:
+        # Check if table has organization_id column
+        columns = [col["name"] for col in inspector.get_columns(table_name)]
+        if "organization_id" in columns:
+            query = text(f"SELECT * FROM {table_name} WHERE organization_id = :org_id")
+            return pd.read_sql_query(query, engine, params={"org_id": organization_id})
+
     return pd.read_sql_table(table_name, engine)
 
 

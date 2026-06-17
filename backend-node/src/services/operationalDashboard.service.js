@@ -1,8 +1,9 @@
 const { pool } = require('../config/db.config');
 const forecastService = require('./forecastService');
+const TenantContext = require('../utils/tenantContext');
 
-const ACTIVE_PROJECT_STATUSES = ['APPROVED'];
-const COMPLETED_PROJECT_STATUSES = ['COMPLETE', 'CLOSED'];
+const ACTIVE_PROJECT_STATUSES = ['APPROVED', 'ACTIVE'];
+const COMPLETED_PROJECT_STATUSES = ['COMPLETED', 'COMPLETE', 'CLOSED'];
 const PROGRESS_STALE_DAYS = 7;
 
 function normalizeRole(user) {
@@ -83,34 +84,39 @@ function daysBetweenToday(value) {
 
 function visibleApprovedProjectWhere(user, alias = 'p', draftAlias = 'pd') {
   const role = normalizeRole(user);
+  const organizationId = TenantContext.getOrganizationId();
   const regressionFilter = role === 'ADMIN'
     ? ''
     : ` AND COALESCE(${alias}.is_regression_data, 0) = 0 AND COALESCE(${draftAlias}.is_regression_data, 0) = 0`;
 
   if (role === 'PM') {
     return {
-      sql: `(${alias}.owner_id = ? OR ${draftAlias}.submitted_by_user_id = ?)${regressionFilter}`,
-      params: [user.userId, user.userId],
+      sql: `${alias}.organization_id = ? AND (${alias}.owner_id = ? OR COALESCE(${alias}.submitted_by_user_id, ${draftAlias}.submitted_by_user_id) = ?)${regressionFilter}`,
+      params: [organizationId, user.userId, user.userId],
     };
   }
 
   if (role === 'ACCOUNT_MANAGER') {
     return {
-      sql: `(
+      sql: `${alias}.organization_id = ? AND (
         ${alias}.approved_by_user_id = ?
         OR EXISTS (
           SELECT 1
           FROM app_user assigned_pm
-          WHERE assigned_pm.user_id = COALESCE(${draftAlias}.submitted_by_user_id, ${alias}.owner_id)
+          WHERE assigned_pm.user_id = COALESCE(${alias}.submitted_by_user_id, ${draftAlias}.submitted_by_user_id, ${alias}.owner_id)
             AND assigned_pm.manager_id = ?
+            AND assigned_pm.organization_id = ${alias}.organization_id
         )
       )${regressionFilter}`,
-      params: [user.userId, user.userId],
+      params: [organizationId, user.userId, user.userId],
     };
   }
 
   if (role === 'ADMIN') {
-    return { sql: '1 = 1', params: [] };
+    return {
+      sql: `${alias}.organization_id = ?`,
+      params: [organizationId],
+    };
   }
 
   return { sql: '1 = 0', params: [] };
@@ -118,32 +124,37 @@ function visibleApprovedProjectWhere(user, alias = 'p', draftAlias = 'pd') {
 
 function visibleDraftWorkflowWhere(user, alias = 'pd') {
   const role = normalizeRole(user);
+  const organizationId = TenantContext.getOrganizationId();
   const regressionFilter = role === 'ADMIN' ? '' : ` AND COALESCE(${alias}.is_regression_data, 0) = 0`;
 
   if (role === 'PM') {
     return {
-      sql: `(${alias}.owner_id = ? OR ${alias}.submitted_by_user_id = ?)${regressionFilter}`,
-      params: [user.userId, user.userId],
+      sql: `${alias}.organization_id = ? AND (${alias}.owner_id = ? OR ${alias}.submitted_by_user_id = ?)${regressionFilter}`,
+      params: [organizationId, user.userId, user.userId],
     };
   }
 
   if (role === 'ACCOUNT_MANAGER') {
     return {
-      sql: `(
+      sql: `${alias}.organization_id = ? AND (
         ${alias}.workflow_status = 'SUBMITTED'
         AND EXISTS (
           SELECT 1
           FROM app_user assigned_pm
           WHERE assigned_pm.user_id = COALESCE(${alias}.submitted_by_user_id, ${alias}.owner_id)
             AND assigned_pm.manager_id = ?
+            AND assigned_pm.organization_id = ${alias}.organization_id
         )
       )${regressionFilter}`,
-      params: [user.userId],
+      params: [organizationId, user.userId],
     };
   }
 
   if (role === 'ADMIN') {
-    return { sql: '1 = 1', params: [] };
+    return {
+      sql: `${alias}.organization_id = ?`,
+      params: [organizationId],
+    };
   }
 
   return { sql: '1 = 0', params: [] };
@@ -186,21 +197,22 @@ function crVisibilityWhere(
   { includeSubmittedForAm = false } = {},
 ) {
   const role = normalizeRole(user);
+  const organizationId = TenantContext.getOrganizationId();
   const regressionFilter = role === 'ADMIN'
     ? ''
     : ` AND COALESCE(${crAlias}.is_regression_data, 0) = 0 AND COALESCE(${projectAlias}.is_regression_data, 0) = 0 AND COALESCE(${draftAlias}.is_regression_data, 0) = 0`;
 
   if (role === 'PM') {
     return {
-      sql: `(${projectAlias}.owner_id = ? OR ${draftAlias}.submitted_by_user_id = ?)${regressionFilter}`,
-      params: [user.userId, user.userId],
+      sql: `${crAlias}.organization_id = ? AND (${projectAlias}.owner_id = ? OR COALESCE(${projectAlias}.submitted_by_user_id, ${draftAlias}.submitted_by_user_id) = ?)${regressionFilter}`,
+      params: [organizationId, user.userId, user.userId],
     };
   }
 
   if (role === 'ACCOUNT_MANAGER') {
     if (includeSubmittedForAm) {
       return {
-        sql: `(
+        sql: `${crAlias}.organization_id = ? AND (
           ${projectAlias}.approved_by_user_id = ?
           OR (
             ${crAlias}.workflow_status = 'SUBMITTED'
@@ -209,29 +221,34 @@ function crVisibilityWhere(
               FROM app_user assigned_pm
               WHERE assigned_pm.user_id = ${crAlias}.submitted_by_user_id
                 AND assigned_pm.manager_id = ?
+                AND assigned_pm.organization_id = ${crAlias}.organization_id
             )
           )
         )${regressionFilter}`,
-        params: [user.userId, user.userId],
+        params: [organizationId, user.userId, user.userId],
       };
     }
 
     return {
-      sql: `(
+      sql: `${crAlias}.organization_id = ? AND (
         ${projectAlias}.approved_by_user_id = ?
         OR EXISTS (
           SELECT 1
           FROM app_user assigned_pm
           WHERE assigned_pm.user_id = ${crAlias}.submitted_by_user_id
             AND assigned_pm.manager_id = ?
+            AND assigned_pm.organization_id = ${crAlias}.organization_id
         )
       )${regressionFilter}`,
-      params: [user.userId, user.userId],
+      params: [organizationId, user.userId, user.userId],
     };
   }
 
   if (role === 'ADMIN') {
-    return { sql: '1 = 1', params: [] };
+    return {
+      sql: `${crAlias}.organization_id = ?`,
+      params: [organizationId],
+    };
   }
 
   return { sql: '1 = 0', params: [] };
@@ -243,13 +260,13 @@ async function getKpis(user) {
   const [rows] = await pool.promise().query(
     `
       SELECT
-        SUM(CASE WHEN pd.workflow_status = 'APPROVED' THEN 1 ELSE 0 END) AS approvedProjects,
-        SUM(CASE WHEN pd.workflow_status IN ('COMPLETE', 'CLOSED') THEN 1 ELSE 0 END) AS completedProjects,
-        SUM(CASE WHEN pd.workflow_status = 'APPROVED' THEN 1 ELSE 0 END) AS activeProjects,
-        SUM(CASE WHEN pd.workflow_status = 'APPROVED' THEN COALESCE(p.current_planned_effort, 0) ELSE 0 END) AS totalPlannedEffort,
-        SUM(CASE WHEN pd.workflow_status = 'APPROVED' THEN COALESCE(p.current_planned_team_size, 0) ELSE 0 END) AS totalResourceCount
+        SUM(CASE WHEN COALESCE(p.workflow_status, pd.workflow_status) IN ('APPROVED', 'ACTIVE') THEN 1 ELSE 0 END) AS approvedProjects,
+        SUM(CASE WHEN COALESCE(p.workflow_status, pd.workflow_status) IN ('COMPLETED', 'COMPLETE', 'CLOSED') THEN 1 ELSE 0 END) AS completedProjects,
+        SUM(CASE WHEN COALESCE(p.workflow_status, pd.workflow_status) IN ('APPROVED', 'ACTIVE') THEN 1 ELSE 0 END) AS activeProjects,
+        SUM(CASE WHEN COALESCE(p.workflow_status, pd.workflow_status) IN ('APPROVED', 'ACTIVE') THEN COALESCE(p.current_planned_effort, 0) ELSE 0 END) AS totalPlannedEffort,
+        SUM(CASE WHEN COALESCE(p.workflow_status, pd.workflow_status) IN ('APPROVED', 'ACTIVE') THEN COALESCE(p.current_planned_team_size, 0) ELSE 0 END) AS totalResourceCount
       FROM project p
-      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
+      LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id AND pd.organization_id = p.organization_id
       WHERE ${visibility.sql}
     `,
     [...visibility.params],
@@ -323,9 +340,9 @@ async function getActiveProjects(user, query) {
     `
       SELECT COUNT(*) AS totalRecords
       FROM project p
-      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
+      LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
       WHERE ${visibility.sql}
-        AND pd.workflow_status = 'APPROVED'
+        AND COALESCE(p.workflow_status, pd.workflow_status) IN ('APPROVED', 'ACTIVE')
         ${searchClause.sql}
     `,
     params,
@@ -339,7 +356,7 @@ async function getActiveProjects(user, query) {
         p.project_name AS projectName,
         p.client_name AS clientName,
         p.technology_stack AS technology,
-        pd.workflow_status AS currentStatus,
+        COALESCE(p.workflow_status, pd.workflow_status) AS currentStatus,
         JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.deliveryDetails.start_date')) AS projectStartDate,
         JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.deliveryDetails.planned_end_date')) AS plannedEndDate,
         latest_progress.snapshot_date AS latestProgressDate,
@@ -351,12 +368,12 @@ async function getActiveProjects(user, query) {
         SUM(CASE WHEN cr.workflow_status = 'APPROVED' THEN 1 ELSE 0 END) AS approvedCrCount,
         SUM(CASE WHEN cr.workflow_status = 'SUBMITTED' THEN 1 ELSE 0 END) AS pendingCrCount
       FROM project p
-      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
-      LEFT JOIN change_request cr ON cr.project_id = p.project_id
+      LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id AND pd.organization_id = p.organization_id
+      LEFT JOIN change_request cr ON cr.project_id = p.project_id AND cr.organization_id = p.organization_id
       LEFT JOIN project_progress_snapshot latest_progress
-        ON latest_progress.project_id = p.project_id
+        ON latest_progress.project_id = p.project_id AND latest_progress.organization_id = p.organization_id
       LEFT JOIN project_progress_snapshot newer_progress
-        ON newer_progress.project_id = latest_progress.project_id
+        ON newer_progress.project_id = latest_progress.project_id AND newer_progress.organization_id = latest_progress.organization_id
        AND (
          newer_progress.snapshot_date > latest_progress.snapshot_date
          OR (
@@ -365,17 +382,17 @@ async function getActiveProjects(user, query) {
          )
        )
       LEFT JOIN (
-        SELECT project_id, SUM(schedule_impact_days) AS totalScheduleImpactDays
+        SELECT project_id, organization_id, SUM(schedule_impact_days) AS totalScheduleImpactDays
         FROM change_request
         WHERE workflow_status = 'APPROVED'
-        GROUP BY project_id
+        GROUP BY project_id, organization_id
       ) cr_schedule
-        ON cr_schedule.project_id = p.project_id
+        ON cr_schedule.project_id = p.project_id AND cr_schedule.organization_id = p.organization_id
       WHERE ${visibility.sql}
-        AND pd.workflow_status = 'APPROVED'
+        AND COALESCE(p.workflow_status, pd.workflow_status) IN ('APPROVED', 'ACTIVE')
         AND newer_progress.snapshot_id IS NULL
         ${searchClause.sql}
-      GROUP BY p.project_id, pd.workflow_status
+      GROUP BY p.project_id, COALESCE(p.workflow_status, pd.workflow_status)
       ORDER BY p.updated_at DESC, p.project_id DESC
       LIMIT ? OFFSET ?
     `,
@@ -439,6 +456,8 @@ async function getWorkflowQueue(user, query) {
 
   const projectVisibility = visibleDraftWorkflowWhere(user, 'pd');
   const projectSearch = projectSearchWhere(search, { draft: 'pd' });
+  const directProjectVisibility = visibleApprovedProjectWhere(user, 'p', 'pd');
+  const directProjectSearch = projectSearchWhere(search, { project: 'p' });
 
   const crVisibility = crVisibilityWhere(
     user,
@@ -475,6 +494,9 @@ async function getWorkflowQueue(user, query) {
     ...projectVisibility.params,
     ...workflowProjectStatuses,
     ...projectSearch.params,
+    ...directProjectVisibility.params,
+    ...workflowProjectStatuses,
+    ...directProjectSearch.params,
     ...crVisibility.params,
     ...workflowCrStatuses,
     ...crSearchParams,
@@ -493,9 +515,19 @@ async function getWorkflowQueue(user, query) {
         UNION ALL
 
         SELECT COUNT(*) AS totalRecords
+        FROM project p
+        LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
+        WHERE p.source_draft_id IS NULL
+          AND ${directProjectVisibility.sql}
+          AND p.workflow_status IN (${workflowProjectPlaceholders})
+          ${directProjectSearch.sql}
+
+        UNION ALL
+
+        SELECT COUNT(*) AS totalRecords
         FROM change_request cr
         INNER JOIN project p ON p.project_id = cr.project_id
-        INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
+        LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
         WHERE ${crVisibility.sql}
           AND cr.workflow_status IN (${workflowCrPlaceholders})
           ${crSearchSql}
@@ -522,17 +554,54 @@ async function getWorkflowQueue(user, query) {
 
         LEFT JOIN app_user submitter
           ON submitter.user_id = COALESCE(pd.submitted_by_user_id, pd.owner_id)
+          AND submitter.organization_id = pd.organization_id
 
         LEFT JOIN (
-          SELECT project_id, MAX(created_at) AS lastActivityAt
+          SELECT project_id, organization_id, MAX(created_at) AS lastActivityAt
           FROM project_workflow_history
-          GROUP BY project_id
+          GROUP BY project_id, organization_id
         ) project_history
           ON project_history.project_id = pd.draft_id
+          AND project_history.organization_id = pd.organization_id
 
         WHERE ${projectVisibility.sql}
           AND pd.workflow_status IN (${workflowProjectPlaceholders})
           ${projectSearch.sql}
+
+        UNION ALL
+
+        SELECT
+          'Project' AS type,
+          p.project_id AS id,
+          p.project_name AS name,
+          submitter.user_name AS submittedBy,
+          p.workflow_status AS currentStatus,
+          p.updated_at AS lastUpdated,
+
+          COALESCE(project_history.lastActivityAt, p.updated_at, p.created_at) AS pendingSince
+
+        FROM project p
+
+        LEFT JOIN project_drafts pd
+          ON pd.draft_id = p.source_draft_id
+          AND pd.organization_id = p.organization_id
+
+        LEFT JOIN app_user submitter
+          ON submitter.user_id = COALESCE(p.submitted_by_user_id, p.owner_id)
+          AND submitter.organization_id = p.organization_id
+
+        LEFT JOIN (
+          SELECT project_id, organization_id, MAX(created_at) AS lastActivityAt
+          FROM project_workflow_history
+          GROUP BY project_id, organization_id
+        ) project_history
+          ON project_history.project_id = p.project_id
+          AND project_history.organization_id = p.organization_id
+
+        WHERE p.source_draft_id IS NULL
+          AND ${directProjectVisibility.sql}
+          AND p.workflow_status IN (${workflowProjectPlaceholders})
+          ${directProjectSearch.sql}
 
         UNION ALL
 
@@ -550,19 +619,23 @@ async function getWorkflowQueue(user, query) {
 
         INNER JOIN project p
           ON p.project_id = cr.project_id
+          AND p.organization_id = cr.organization_id
 
-        INNER JOIN project_drafts pd
+        LEFT JOIN project_drafts pd
           ON pd.draft_id = p.source_draft_id
+          AND pd.organization_id = p.organization_id
 
         LEFT JOIN app_user submitter
           ON submitter.user_id = cr.submitted_by_user_id
+          AND submitter.organization_id = cr.organization_id
 
         LEFT JOIN (
-          SELECT cr_id, MAX(created_at) AS lastActivityAt
+          SELECT cr_id, organization_id, MAX(created_at) AS lastActivityAt
           FROM cr_workflow_history
-          GROUP BY cr_id
+          GROUP BY cr_id, organization_id
         ) cr_history
           ON cr_history.cr_id = cr.cr_id
+          AND cr_history.organization_id = cr.organization_id
 
         WHERE ${crVisibility.sql}
           AND cr.workflow_status IN (${workflowCrPlaceholders})
@@ -633,9 +706,11 @@ async function getCrSnapshot(user) {
 
       INNER JOIN project p
         ON p.project_id = cr.project_id
+        AND p.organization_id = cr.organization_id
 
-      INNER JOIN project_drafts pd
+      LEFT JOIN project_drafts pd
         ON pd.draft_id = p.source_draft_id
+        AND pd.organization_id = p.organization_id
 
       WHERE ${visibility.sql}
     `,

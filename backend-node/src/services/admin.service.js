@@ -1,6 +1,7 @@
 const authService = require('./auth.service');
 const userRepository = require('../repositories/user.repository');
 const axios = require('axios');
+const notificationService = require('./notification.service');
 const { pool } = require('../config/db.config');
 
 const ROLE_VALUES = ['ADMIN', 'AM', 'PM'];
@@ -61,11 +62,11 @@ function validateUserPayload(payload, { requirePassword = false } = {}) {
   };
 }
 
-async function assertValidManager(managerId) {
+async function assertValidManager(managerId, organizationId) {
   if (!managerId) return;
-  const manager = await userRepository.findById(managerId);
+  const manager = await userRepository.findById(managerId, organizationId);
   if (!manager || !manager.activeFlag || !['AM', 'ACCOUNT_MANAGER'].includes(String(manager.role || '').toUpperCase())) {
-    const error = new Error('Assigned Account Manager must be an active AM user');
+    const error = new Error('Assigned Account Manager must be an active AM user within the same organization');
     error.status = 400;
     throw error;
   }
@@ -73,33 +74,36 @@ async function assertValidManager(managerId) {
 
 async function listUsers(user) {
   assertAdmin(user);
+  const organizationId = user.organizationId;
   const [users, accountManagers] = await Promise.all([
-    userRepository.listUsers(),
-    userRepository.listActiveAccountManagers(),
+    userRepository.listUsers(organizationId),
+    userRepository.listActiveAccountManagers(organizationId),
   ]);
   return { items: users, accountManagers };
 }
 
 async function createUser(user, payload) {
   assertAdmin(user);
+  const organizationId = user.organizationId;
   const normalized = validateUserPayload(payload, { requirePassword: true });
-  await assertValidManager(normalized.managerId);
+  await assertValidManager(normalized.managerId, organizationId);
   const passwordHash = await authService.hashPassword(normalized.password);
-  return userRepository.createUser({ ...normalized, passwordHash });
+  return userRepository.createUser({ ...normalized, organizationId, passwordHash });
 }
 
 async function updateUser(user, userId, payload) {
   assertAdmin(user);
-  const existing = await userRepository.findById(userId);
+  const organizationId = user.organizationId;
+  const existing = await userRepository.findById(userId, organizationId);
   if (!existing) {
     const error = new Error('User not found');
     error.status = 404;
     throw error;
   }
   const normalized = validateUserPayload(payload);
-  await assertValidManager(normalized.managerId);
+  await assertValidManager(normalized.managerId, organizationId);
   const passwordHash = normalized.password ? await authService.hashPassword(normalized.password) : null;
-  return userRepository.updateUser(userId, { ...normalized, passwordHash });
+  return userRepository.updateUser(userId, organizationId, { ...normalized, passwordHash });
 }
 
 async function getMlAdministration(user) {
@@ -110,7 +114,14 @@ async function getMlAdministration(user) {
 
 async function retrainMlModels(user) {
   assertAdmin(user);
-  const response = await axios.post(`${ML_API_URL}/admin/ml/retrain`, {}, { timeout: 10000 });
+  const response = await axios.post(`${ML_API_URL}/admin/ml/retrain`, {
+    userId: user.userId,
+    organizationId: user.organizationId
+  }, { timeout: 10000 });
+  
+  // Notification
+  await notificationService.notifyModelEvent(user.organizationId, user.userId, 'RETRAIN_STARTED', 'ML Retraining Started', 'A new ML model retraining job has been initiated.');
+  
   return response.data;
 }
 
@@ -213,7 +224,7 @@ async function listDataManagementProjects(user, params = {}) {
       COALESCE(p.project_code, CONCAT('PRJ-', LPAD(p.project_id, 6, '0'))) AS projectCode,
       COALESCE(p.project_name, 'Untitled Project') AS projectName,
       COALESCE(p.client_name, '-') AS clientName,
-      'LEGACY' AS status,
+      COALESCE(p.workflow_status, p.status, 'LEGACY') AS status,
       creator.user_name AS createdBy,
       p.created_at AS createdDate,
       COALESCE(p.is_regression_data, 0) AS isRegressionData

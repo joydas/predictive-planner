@@ -2,6 +2,7 @@ const { pool } = require('../config/db.config');
 const projectService = require('./project.service');
 const crService = require('./cr.service');
 const forecastService = require('./forecastService');
+const TenantContext = require('../utils/tenantContext');
 
 const PROJECT_COUNT_OPTIONS = [5, 10, 25, 50];
 const STAGES = {
@@ -132,6 +133,7 @@ async function ensureRegressionSchema() {
   await query(`
     CREATE TABLE IF NOT EXISTS regression_run (
       run_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      organization_id BIGINT UNSIGNED NOT NULL,
       requested_by_user_id BIGINT UNSIGNED NOT NULL,
       requested_project_count INT NOT NULL DEFAULT 10,
       status VARCHAR(32) NOT NULL DEFAULT 'RUNNING',
@@ -151,12 +153,14 @@ async function ensureRegressionSchema() {
       PRIMARY KEY (run_id),
       INDEX idx_regression_run_status (status),
       INDEX idx_regression_run_started_at (started_at),
-      INDEX idx_regression_run_requested_by (requested_by_user_id)
+      INDEX idx_regression_run_requested_by (requested_by_user_id),
+      INDEX idx_regression_run_org (organization_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
   await query(`
     CREATE TABLE IF NOT EXISTS regression_run_detail (
       detail_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      organization_id BIGINT UNSIGNED NOT NULL,
       run_id BIGINT UNSIGNED NOT NULL,
       step_name VARCHAR(150) NOT NULL,
       entity_type VARCHAR(50) NULL,
@@ -167,7 +171,8 @@ async function ensureRegressionSchema() {
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (detail_id),
       INDEX idx_regression_run_detail_run (run_id),
-      INDEX idx_regression_run_detail_status (status)
+      INDEX idx_regression_run_detail_status (status),
+      INDEX idx_regression_run_detail_org (organization_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
   await addColumnIfMissing('project', 'is_regression_data', 'ALTER TABLE project ADD COLUMN is_regression_data TINYINT(1) NOT NULL DEFAULT 0 AFTER approved_data');
@@ -182,21 +187,25 @@ async function ensureRegressionSchema() {
 async function updateRun(runId, fields) {
   const entries = Object.entries(fields).filter(([, value]) => value !== undefined);
   if (!entries.length) return;
+  const organizationId = TenantContext.getOrganizationId();
   const sql = entries.map(([key]) => `${key} = ?`).join(', ');
-  await query(`UPDATE regression_run SET ${sql}, updated_at = NOW() WHERE run_id = ?`, [
+  await query(`UPDATE regression_run SET ${sql}, updated_at = NOW() WHERE run_id = ? AND organization_id = ?`, [
     ...entries.map(([, value]) => value),
     runId,
+    organizationId,
   ]);
 }
 
 async function logStep(runId, stepName, status, { entityType = null, entityId = null, message = null, error = null } = {}) {
+  const organizationId = TenantContext.getOrganizationId();
   await query(
     `
       INSERT INTO regression_run_detail
-        (run_id, step_name, entity_type, entity_id, status, message, error_message)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+        (organization_id, run_id, step_name, entity_type, entity_id, status, message, error_message)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `,
     [
+      organizationId,
       runId,
       stepName,
       entityType,
@@ -212,9 +221,9 @@ async function logStep(runId, stepName, status, { entityType = null, entityId = 
       SET passed_steps = passed_steps + ?,
           failed_steps = failed_steps + ?,
           updated_at = NOW()
-      WHERE run_id = ?
+      WHERE run_id = ? AND organization_id = ?
     `,
-    [status === 'PASS' ? 1 : 0, status === 'FAIL' ? 1 : 0, runId],
+    [status === 'PASS' ? 1 : 0, status === 'FAIL' ? 1 : 0, runId, organizationId],
   );
 }
 
@@ -230,6 +239,7 @@ async function runStep(runId, stepName, fn, context = {}) {
 }
 
 async function getRegressionActors() {
+  const organizationId = TenantContext.getOrganizationId();
   const rows = await query(
     `
       SELECT
@@ -238,23 +248,25 @@ async function getRegressionActors() {
         am.user_id AS amUserId,
         am.user_name AS amUserName
       FROM app_user pm
-      INNER JOIN app_user am ON am.user_id = pm.manager_id
+      INNER JOIN app_user am ON am.user_id = pm.manager_id AND am.organization_id = pm.organization_id
       WHERE UPPER(pm.role_name) = 'PM'
         AND UPPER(am.role_name) IN ('AM', 'ACCOUNT_MANAGER')
         AND COALESCE(pm.active_flag, 1) = 1
         AND COALESCE(am.active_flag, 1) = 1
+        AND pm.organization_id = ?
       ORDER BY pm.user_id
       LIMIT 1
     `,
+    [organizationId],
   );
   if (!rows.length) {
-    const error = new Error('Regression suite requires at least one active PM mapped to an active AM.');
+    const error = new Error('Regression suite requires at least one active PM mapped to an active AM in the current organization.');
     error.status = 400;
     throw error;
   }
   return {
-    pm: { userId: rows[0].pmUserId, role: 'PM', name: rows[0].pmUserName, isRegressionSuiteActor: true },
-    am: { userId: rows[0].amUserId, role: 'AM', name: rows[0].amUserName, isRegressionSuiteActor: true },
+    pm: { userId: rows[0].pmUserId, role: 'PM', name: rows[0].pmUserName, isRegressionSuiteActor: true, organizationId },
+    am: { userId: rows[0].amUserId, role: 'AM', name: rows[0].amUserName, isRegressionSuiteActor: true, organizationId },
   };
 }
 
@@ -392,13 +404,15 @@ function buildProjectPayload(index, roleCatalog) {
 }
 
 async function markRegression(tableName, whereSql, params) {
+  const organizationId = TenantContext.getOrganizationId();
   if (await columnExists(tableName, 'is_regression_data')) {
-    await query(`UPDATE ${tableName} SET is_regression_data = 1 ${whereSql}`, params);
+    await query(`UPDATE ${tableName} SET is_regression_data = 1 ${whereSql} AND organization_id = ?`, [...params, organizationId]);
   }
 }
 
 async function validateCount(tableName, whereSql, params) {
-  const rows = await query(`SELECT COUNT(*) AS total FROM ${tableName} ${whereSql}`, params);
+  const organizationId = TenantContext.getOrganizationId();
+  const rows = await query(`SELECT COUNT(*) AS total FROM ${tableName} ${whereSql} AND organization_id = ?`, [...params, organizationId]);
   return Number(rows[0]?.total || 0);
 }
 
@@ -491,6 +505,7 @@ function buildCompletionPayload(projectContext, projectMeta) {
 }
 
 async function loadProjectContext(projectId) {
+  const organizationId = TenantContext.getOrganizationId();
   const rows = await query(
     `
       SELECT
@@ -501,10 +516,10 @@ async function loadProjectContext(projectId) {
         current_planned_team_size AS plannedTeamSize,
         source_draft_id AS sourceDraftId
       FROM project
-      WHERE project_id = ?
+      WHERE project_id = ? AND organization_id = ?
       LIMIT 1
     `,
-    [projectId],
+    [projectId, organizationId],
   );
   return rows[0] || null;
 }
@@ -696,6 +711,7 @@ async function executeRegressionRun(runId, options) {
 async function startRegressionSuite(user, payload = {}) {
   assertAdmin(user);
   await ensureRegressionSchema();
+  const organizationId = TenantContext.getOrganizationId();
   const projectCount = PROJECT_COUNT_OPTIONS.includes(Number(payload.projectCount))
     ? Number(payload.projectCount)
     : 10;
@@ -704,7 +720,7 @@ async function startRegressionSuite(user, payload = {}) {
     error.status = 409;
     throw error;
   }
-  const runningRows = await query("SELECT run_id AS runId FROM regression_run WHERE status = 'RUNNING' LIMIT 1");
+  const runningRows = await query("SELECT run_id AS runId FROM regression_run WHERE status = 'RUNNING' AND organization_id = ? LIMIT 1", [organizationId]);
   if (runningRows.length) {
     const error = new Error(`Regression suite run #${runningRows[0].runId} is already in progress`);
     error.status = 409;
@@ -714,10 +730,10 @@ async function startRegressionSuite(user, payload = {}) {
   const result = await query(
     `
       INSERT INTO regression_run
-        (requested_by_user_id, requested_project_count, status, current_stage)
-      VALUES (?, ?, 'RUNNING', ?)
+        (organization_id, requested_by_user_id, requested_project_count, status, current_stage)
+      VALUES (?, ?, ?, 'RUNNING', ?)
     `,
-    [user.userId, projectCount, STAGES.CREATING_PROJECTS],
+    [organizationId, user.userId, projectCount, STAGES.CREATING_PROJECTS],
   );
   const runId = result.insertId || result[0]?.insertId;
   activeRunPromise = executeRegressionRun(runId, { projectCount });
@@ -730,10 +746,11 @@ async function startRegressionSuite(user, payload = {}) {
 async function listRegressionRuns(user, params = {}) {
   assertAdmin(user);
   await ensureRegressionSchema();
+  const organizationId = TenantContext.getOrganizationId();
   const page = Math.max(1, Number(params.page || 1));
   const pageSize = Math.min(Math.max(1, Number(params.pageSize || 10)), 50);
   const offset = (page - 1) * pageSize;
-  const countRows = await query('SELECT COUNT(*) AS total FROM regression_run');
+  const countRows = await query('SELECT COUNT(*) AS total FROM regression_run WHERE organization_id = ?', [organizationId]);
   const rows = await query(
     `
       SELECT
@@ -753,10 +770,11 @@ async function listRegressionRuns(user, params = {}) {
         ended_at AS endedAt,
         TIMESTAMPDIFF(SECOND, started_at, COALESCE(ended_at, NOW())) AS durationSeconds
       FROM regression_run
+      WHERE organization_id = ?
       ORDER BY run_id DESC
       LIMIT ? OFFSET ?
     `,
-    [pageSize, offset],
+    [organizationId, pageSize, offset],
   );
   return {
     items: rows,
@@ -771,6 +789,7 @@ async function listRegressionRuns(user, params = {}) {
 async function getRegressionRun(user, runId) {
   assertAdmin(user);
   await ensureRegressionSchema();
+  const organizationId = TenantContext.getOrganizationId();
   const rows = await query(
     `
       SELECT
@@ -790,10 +809,10 @@ async function getRegressionRun(user, runId) {
         ended_at AS endedAt,
         TIMESTAMPDIFF(SECOND, started_at, COALESCE(ended_at, NOW())) AS durationSeconds
       FROM regression_run
-      WHERE run_id = ?
+      WHERE run_id = ? AND organization_id = ?
       LIMIT 1
     `,
-    [runId],
+    [runId, organizationId],
   );
   if (!rows.length) {
     const error = new Error('Regression run not found');
@@ -812,11 +831,11 @@ async function getRegressionRun(user, runId) {
         error_message AS errorMessage,
         created_at AS createdAt
       FROM regression_run_detail
-      WHERE run_id = ?
+      WHERE run_id = ? AND organization_id = ?
       ORDER BY detail_id DESC
       LIMIT 250
     `,
-    [runId],
+    [runId, organizationId],
   );
   return { run: rows[0], details };
 }

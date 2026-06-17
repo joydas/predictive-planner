@@ -8,7 +8,7 @@ async function createDraft(req, res) {
   try {
     const draftData = req.body;
     const draft = await projectService.createDraft(req.user, draftData);
-    return res.status(201).json({ message: 'Draft created', draftId: draft.draftId });
+    return res.status(201).json({ message: 'Draft created', draftId: draft.draftId, projectId: draft.projectId || draft.draftId });
   } catch (error) {
     console.error('Draft creation failed:', error);
     return res.status(error.status || 500).json({ message: error.message || 'Failed to create draft' });

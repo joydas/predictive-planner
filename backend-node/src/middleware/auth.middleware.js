@@ -1,9 +1,10 @@
 const jwt = require('jsonwebtoken');
 const { jwtSecret } = require('../config/jwt.config');
+const TenantContext = require('../utils/tenantContext');
 
 /**
  * Authenticate requests using the Authorization Bearer token header.
- * On success, attaches the decoded JWT payload to req.user.
+ * On success, attaches the decoded JWT payload to req.user and initializes TenantContext.
  */
 function authenticateToken(req, res, next) {
   const authHeader = req.headers.authorization || req.headers.Authorization;
@@ -19,7 +20,19 @@ function authenticateToken(req, res, next) {
     }
 
     req.user = payload;
-    next();
+    
+    // Initialize TenantContext for the rest of the request lifecycle
+    TenantContext.run(
+      {
+        userId: payload.userId,
+        organizationId: payload.organizationId,
+        role: payload.role,
+        email: payload.email
+      },
+      () => {
+        next();
+      }
+    );
   });
 }
 

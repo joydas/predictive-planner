@@ -147,52 +147,71 @@ const DataManagementPage = () => {
     setSelected((current) => ({ ...current, [key]: checked }));
   };
 
-  const columns = useMemo(() => [
-    {
-      key: 'select',
-      label: '',
-      render: (row) => (
-        <CFormCheck
-          checked={!!selected[`${row.draftId}-${row.projectId || 'draft'}`]}
-          onChange={(event) => toggleSelected(row, event.target.checked)}
-        />
-      ),
-    },
-    { key: 'projectCode', label: 'Project Code' },
-    { key: 'projectName', label: 'Project Name' },
-    { key: 'clientName', label: 'Client', render: (row) => valueOrDash(row.clientName) },
-    {
-      key: 'status',
-      label: 'Status',
-      render: (row) => <CBadge color={statusColor[String(row.status || '').toUpperCase()] || 'secondary'}>{row.status}</CBadge>,
-    },
-    {
-      key: 'isRegressionData',
-      label: 'Data Type',
-      render: (row) => row.isRegressionData ? <CBadge color="warning">Regression</CBadge> : <CBadge color="secondary">Standard</CBadge>,
-    },
-    { key: 'createdBy', label: 'Created By', render: (row) => valueOrDash(row.createdBy) },
-    { key: 'createdDate', label: 'Created Date', render: (row) => formatDisplayDateTime(row.createdDate) },
-    {
-      key: 'actions',
-      label: 'Actions',
-      render: (row) => (
-        <div className="d-flex gap-2">
-          <CButton
-            color="primary"
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(row.projectId ? `/projects/view/${row.projectId}` : `/projects/edit/${row.draftId}`)}
-          >
-            View
-          </CButton>
-          <CButton color="danger" variant="outline" size="sm" onClick={() => openSingleDelete(row)}>
-            Delete
-          </CButton>
-        </div>
-      ),
-    },
-  ], [navigate, selected]);
+  const columns = useMemo(() => {
+    const isAllSelected = items.length > 0 && items.every((row) => selected[`${row.draftId}-${row.projectId || 'draft'}`]);
+
+    const toggleAll = (checked) => {
+      const nextSelected = { ...selected };
+      items.forEach((row) => {
+        const key = `${row.draftId}-${row.projectId || 'draft'}`;
+        if (checked) nextSelected[key] = true;
+        else delete nextSelected[key];
+      });
+      setSelected(nextSelected);
+    };
+
+    return [
+      {
+        key: 'select',
+        label: (
+          <CFormCheck
+            checked={isAllSelected}
+            onChange={(event) => toggleAll(event.target.checked)}
+          />
+        ),
+        render: (row) => (
+          <CFormCheck
+            checked={!!selected[`${row.draftId}-${row.projectId || 'draft'}`]}
+            onChange={(event) => toggleSelected(row, event.target.checked)}
+          />
+        ),
+      },
+      { key: 'projectCode', label: 'Project Code' },
+      { key: 'projectName', label: 'Project Name' },
+      { key: 'clientName', label: 'Client', render: (row) => valueOrDash(row.clientName) },
+      {
+        key: 'status',
+        label: 'Status',
+        render: (row) => <CBadge color={statusColor[String(row.status || '').toUpperCase()] || 'secondary'}>{row.status}</CBadge>,
+      },
+      {
+        key: 'isRegressionData',
+        label: 'Data Type',
+        render: (row) => row.isRegressionData ? <CBadge color="warning">Regression</CBadge> : <CBadge color="secondary">Standard</CBadge>,
+      },
+      { key: 'createdBy', label: 'Created By', render: (row) => valueOrDash(row.createdBy) },
+      { key: 'createdDate', label: 'Created Date', render: (row) => formatDisplayDateTime(row.createdDate) },
+      {
+        key: 'actions',
+        label: 'Actions',
+        render: (row) => (
+          <div className="d-flex gap-2">
+            <CButton
+              color="primary"
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(row.projectId ? `/projects/view/${row.projectId}` : `/projects/edit/${row.draftId}`)}
+            >
+              View
+            </CButton>
+            <CButton color="danger" variant="outline" size="sm" onClick={() => openSingleDelete(row)}>
+              Delete
+            </CButton>
+          </div>
+        ),
+      },
+    ];
+  }, [items, navigate, selected]);
 
   if (!isAdmin) {
     return <CAlert color="danger">Administration access requires ADMIN role.</CAlert>;

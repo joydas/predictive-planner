@@ -141,6 +141,24 @@ async function getRegressionRun(req, res) {
   }
 }
 
+async function mlRetrainCallback(req, res) {
+  try {
+    const { status, userId, organizationId, error } = req.body;
+    const notificationService = require('../services/notification.service');
+    
+    if (status === 'SUCCESS') {
+      await notificationService.notifyModelEvent(organizationId, userId, 'RETRAIN_COMPLETED', 'ML Retraining Completed', 'The ML model retraining job has finished successfully.');
+    } else if (status === 'FAILED') {
+      await notificationService.notifyModelEvent(organizationId, userId, 'RETRAIN_FAILED', 'ML Retraining Failed', `The ML model retraining job failed: ${error || 'Unknown error'}`);
+    }
+    
+    res.json({ message: 'Notification processed' });
+  } catch (err) {
+    console.error('Failed to process ML retraining callback:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
 module.exports = {
   bulkDeleteProjects,
   createUser,
@@ -152,6 +170,7 @@ module.exports = {
   listDataManagementProjects,
   listRegressionRuns,
   listUsers,
+  mlRetrainCallback,
   retrainMlModels,
   startRegressionSuite,
   updateUser,

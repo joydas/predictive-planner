@@ -149,8 +149,8 @@ def ml_admin_status():
 
 
 @app.post("/admin/ml/retrain")
-def ml_admin_retrain():
-    return start_retraining()
+def ml_admin_retrain(data: dict = None):
+    return start_retraining(user_context=data)
 
 
 @app.get("/admin/ml/jobs/{job_id}")

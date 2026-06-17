@@ -34,6 +34,8 @@ async function login(email, password) {
   const token = jwt.sign(
     {
       userId: user.userId,
+      organizationId: user.organizationId,
+      organizationName: user.organizationName,
       email: user.email,
       role: user.role,
     },
@@ -48,6 +50,8 @@ async function login(email, password) {
     user: {
       userId: user.userId,
       id: user.userId,
+      organizationId: user.organizationId,
+      organizationName: user.organizationName,
       userName: user.userName,
       name: user.userName,
       email: user.email,

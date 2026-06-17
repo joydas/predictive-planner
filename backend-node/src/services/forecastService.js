@@ -1,5 +1,6 @@
 const axios = require('axios');
 const { pool } = require('../config/db.config');
+const TenantContext = require('../utils/tenantContext');
 
 const DEFAULT_ML_API_URL = 'http://127.0.0.1:8000';
 const normalizeUrl = (url) => String(url || DEFAULT_ML_API_URL).replace(/\/+$/, '');
@@ -20,25 +21,27 @@ function normalizeRole(user) {
 
 function visibilityWhere(user, projectAlias = 'p', draftAlias = 'pd') {
   const role = normalizeRole(user);
-  if (role === 'ADMIN') return { sql: '1 = 1', params: [] };
+  const organizationId = TenantContext.getOrganizationId();
+  if (role === 'ADMIN') return { sql: `${projectAlias}.organization_id = ?`, params: [organizationId] };
   if (role === 'PM') {
     return {
-      sql: `(${projectAlias}.owner_id = ? OR ${draftAlias}.submitted_by_user_id = ?)`,
-      params: [user.userId, user.userId],
+      sql: `${projectAlias}.organization_id = ? AND (${projectAlias}.owner_id = ? OR COALESCE(${projectAlias}.submitted_by_user_id, ${draftAlias}.submitted_by_user_id) = ?)`,
+      params: [organizationId, user.userId, user.userId],
     };
   }
   if (role === 'ACCOUNT_MANAGER') {
     return {
-      sql: `(
+      sql: `${projectAlias}.organization_id = ? AND (
         ${projectAlias}.approved_by_user_id = ?
         OR EXISTS (
           SELECT 1
           FROM app_user assigned_pm
-          WHERE assigned_pm.user_id = COALESCE(${draftAlias}.submitted_by_user_id, ${projectAlias}.owner_id)
+          WHERE assigned_pm.user_id = COALESCE(${projectAlias}.submitted_by_user_id, ${draftAlias}.submitted_by_user_id, ${projectAlias}.owner_id)
             AND assigned_pm.manager_id = ?
+            AND assigned_pm.organization_id = ${projectAlias}.organization_id
         )
       )`,
-      params: [user.userId, user.userId],
+      params: [organizationId, user.userId, user.userId],
     };
   }
   return { sql: '1 = 0', params: [] };
@@ -49,6 +52,7 @@ async function ensureSnapshotTable() {
   await pool.promise().query(`
     CREATE TABLE IF NOT EXISTS project_forecast_snapshot (
       snapshot_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      organization_id BIGINT UNSIGNED NOT NULL,
       project_id BIGINT UNSIGNED NOT NULL,
       snapshot_date DATE NOT NULL,
       forecast_completion_date DATE NULL,
@@ -59,9 +63,10 @@ async function ensureSnapshotTable() {
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       PRIMARY KEY (snapshot_id),
-      UNIQUE KEY uq_project_forecast_snapshot_date (project_id, snapshot_date),
+      UNIQUE KEY uq_project_forecast_snapshot_date (project_id, snapshot_date, organization_id),
       INDEX idx_project_forecast_snapshot_project (project_id),
-      INDEX idx_project_forecast_snapshot_date (snapshot_date)
+      INDEX idx_project_forecast_snapshot_date (snapshot_date),
+      INDEX idx_project_forecast_snapshot_org (organization_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
   snapshotTableReady = true;
@@ -69,16 +74,18 @@ async function ensureSnapshotTable() {
 
 async function canAccessProject(user, projectId) {
   const visibility = visibilityWhere(user);
+  const organizationId = TenantContext.getOrganizationId();
   const [rows] = await pool.promise().query(
     `
       SELECT p.project_id AS projectId
       FROM project p
-      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
+      LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id AND pd.organization_id = p.organization_id
       WHERE p.project_id = ?
+        AND p.organization_id = ?
         AND ${visibility.sql}
       LIMIT 1
     `,
-    [projectId, ...visibility.params],
+    [projectId, organizationId, ...visibility.params],
   );
   return rows.length > 0;
 }
@@ -172,10 +179,12 @@ async function upsertForecastSnapshot(projectId, forecast, snapshotDate = null, 
     || snapshot.forecastConfidence !== null;
   if (!hasAnyForecast && !options.persistAttempt) return null;
 
+  const organizationId = TenantContext.getOrganizationId();
   await ensureSnapshotTable();
   await pool.promise().query(
     `
       INSERT INTO project_forecast_snapshot (
+        organization_id,
         project_id,
         snapshot_date,
         forecast_completion_date,
@@ -184,7 +193,7 @@ async function upsertForecastSnapshot(projectId, forecast, snapshotDate = null, 
         forecast_final_budget,
         forecast_confidence
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         forecast_completion_date = VALUES(forecast_completion_date),
         forecast_delay_days = VALUES(forecast_delay_days),
@@ -194,6 +203,7 @@ async function upsertForecastSnapshot(projectId, forecast, snapshotDate = null, 
         updated_at = CURRENT_TIMESTAMP
     `,
     [
+      organizationId,
       snapshot.projectId,
       snapshot.snapshotDate,
       snapshot.forecastCompletionDate,
@@ -207,6 +217,7 @@ async function upsertForecastSnapshot(projectId, forecast, snapshotDate = null, 
 }
 
 async function readForecastHistory(projectId) {
+  const organizationId = TenantContext.getOrganizationId();
   await ensureSnapshotTable();
   const [rows] = await pool.promise().query(
     `
@@ -222,12 +233,12 @@ async function readForecastHistory(projectId) {
         s.created_at AS createdAt,
         s.updated_at AS updatedAt
       FROM project_forecast_snapshot s
-      INNER JOIN project p ON p.project_id = s.project_id
-      WHERE s.project_id = ?
+      INNER JOIN project p ON p.project_id = s.project_id AND p.organization_id = s.organization_id
+      WHERE s.project_id = ? AND s.organization_id = ?
       ORDER BY s.snapshot_date DESC, s.snapshot_id DESC
       LIMIT 30
     `,
-    [projectId],
+    [projectId, organizationId],
   );
   return rows.map((row) => ({
     ...row,

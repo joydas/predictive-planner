@@ -18,6 +18,7 @@ import PMDashboard from './pages/analytics/PMDashboard';
 import AMDashboard from './pages/analytics/AMDashboard';
 import ProjectProgress from './pages/ProjectProgress';
 import ChangeRequest from './pages/ChangeRequest';
+import NotificationCenter from './pages/NotificationCenter';
 import TeamRecommendation from './pages/TeamRecommendation';
 import ResourceListPage from './pages/resource/ResourceListPage';
 import ResourceAllocationPage from './pages/resource/ResourceAllocationPage';
@@ -73,6 +74,7 @@ function App() {
           <Route path="resources/utilization" element={<ResourceUtilizationPage />} />
           <Route path="create-project" element={<CreateProjectPage />} />
           <Route path="progress/:projectId" element={<ProjectProgress />} />
+          <Route path="notifications" element={<NotificationCenter />} />
           <Route path="change-request/:projectId" element={<ChangeRequest />} />
           <Route path="team-recommendation/:projectId" element={<TeamRecommendation />} />
         </Route>

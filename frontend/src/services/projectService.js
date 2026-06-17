@@ -130,6 +130,14 @@ export async function saveProjectProgress(projectId, payload) {
   return handleResponse(response);
 }
 
+export async function getTeamRecommendation(projectId) {
+  const response = await fetch(`${NODE_API_URL}/recommend-team/${projectId}`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+  return handleResponse(response);
+}
+
 export async function listProjects(params = {}) {
   const searchParams = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {

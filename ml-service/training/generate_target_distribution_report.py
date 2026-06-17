@@ -4,10 +4,10 @@ from feature_engineering.build_team_features import build_team_features
 from utils.paths import REPORTS_DIR, ensure_runtime_dirs
 
 
-def generate_target_distribution_report(engine=None, output_path=None) -> pd.DataFrame:
-    ensure_runtime_dirs()
-    output_path = output_path or REPORTS_DIR / "target_distribution_report.csv"
-    team_features = build_team_features(engine)
+def generate_target_distribution_report(engine=None, output_path=None, organization_id: int | None = None) -> pd.DataFrame:
+    ensure_runtime_dirs(organization_id=organization_id)
+    output_path = output_path or (REPORTS_DIR / str(organization_id) / "target_distribution_report.csv" if organization_id else REPORTS_DIR / "target_distribution_report.csv")
+    team_features = build_team_features(engine, organization_id=organization_id)
     target_columns = [column for column in team_features.columns if column.startswith("target_staff_")]
 
     rows = []

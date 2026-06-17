@@ -39,18 +39,18 @@ def _workflow_features(df: pd.DataFrame, id_column: str, prefix: str = "") -> pd
     return grouped.fillna(0)
 
 
-def build_project_workflow_features(engine=None) -> pd.DataFrame:
+def build_project_workflow_features(engine=None, organization_id: int | None = None) -> pd.DataFrame:
     engine = engine or get_engine()
-    history = read_table(engine, "project_workflow_history")
+    history = read_table(engine, "project_workflow_history", organization_id=organization_id)
     return _workflow_features(history, "project_id")
 
 
-def build_cr_workflow_features(engine=None) -> pd.DataFrame:
+def build_cr_workflow_features(engine=None, organization_id: int | None = None) -> pd.DataFrame:
     engine = engine or get_engine()
-    history = read_table(engine, "cr_workflow_history")
+    history = read_table(engine, "cr_workflow_history", organization_id=organization_id)
     if history.empty:
         return pd.DataFrame(columns=["project_id"])
-    cr = read_table(engine, "change_request")
+    cr = read_table(engine, "change_request", organization_id=organization_id)
     if cr.empty:
         return pd.DataFrame(columns=["project_id"])
     history = history.merge(cr[["cr_id", "project_id"]], on="cr_id", how="left")

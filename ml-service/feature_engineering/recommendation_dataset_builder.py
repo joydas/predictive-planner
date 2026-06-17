@@ -15,9 +15,9 @@ from utils.paths import DATASETS_DIR, ensure_runtime_dirs
 TEST_DATA_TYPE = "TEST DATA"
 
 
-def load_recommendation_projects(engine=None) -> pd.DataFrame:
+def load_recommendation_projects(engine=None, organization_id: int | None = None) -> pd.DataFrame:
     engine = engine or get_engine()
-    projects = read_table(engine, "project")
+    projects = read_table(engine, "project", organization_id=organization_id)
     if projects.empty:
         return projects
 
@@ -70,19 +70,19 @@ def _merge_left(base: pd.DataFrame, next_df: pd.DataFrame) -> pd.DataFrame:
     return base.merge(next_df, on="project_id", how="left")
 
 
-def build_recommendation_training_dataset(engine=None, output_path=None) -> pd.DataFrame:
-    ensure_runtime_dirs()
+def build_recommendation_training_dataset(engine=None, output_path=None, organization_id: int | None = None) -> pd.DataFrame:
+    ensure_runtime_dirs(organization_id=organization_id)
     engine = engine or get_engine()
     output_path = output_path or DATASETS_DIR / "project_training_dataset.csv"
 
-    raw_projects = read_table(engine, "project")
+    raw_projects = read_table(engine, "project", organization_id=organization_id)
     excluded_test_data = 0
     if not raw_projects.empty:
         raw_projects = raw_projects.copy()
         raw_projects["_project_type_for_filter"] = _project_type_for_filter(raw_projects, engine)
         excluded_test_data = int((raw_projects["_project_type_for_filter"] == TEST_DATA_TYPE).sum())
 
-    projects = load_recommendation_projects(engine)
+    projects = load_recommendation_projects(engine, organization_id=organization_id)
     population = summarize_recommendation_population(projects, excluded_test_data=excluded_test_data)
     dataset = build_project_features_from_projects(projects)
     if dataset.empty:
@@ -91,10 +91,10 @@ def build_recommendation_training_dataset(engine=None, output_path=None) -> pd.D
         return dataset
 
     for frame in [
-        build_team_features(engine),
-        build_cr_features(engine),
-        build_project_workflow_features(engine),
-        build_cr_workflow_features(engine),
+        build_team_features(engine, organization_id=organization_id),
+        build_cr_features(engine, organization_id=organization_id),
+        build_project_workflow_features(engine, organization_id=organization_id),
+        build_cr_workflow_features(engine, organization_id=organization_id),
     ]:
         dataset = _merge_left(dataset, frame)
 

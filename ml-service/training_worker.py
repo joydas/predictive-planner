@@ -1,9 +1,29 @@
 import sys
+import os
 import traceback
+import requests
 
 from model_admin import STATUS_FAILED, STATUS_SUCCESS, append_history, read_state, update_state, utc_now
 from run_training_pipeline import run_training_pipeline
 
+NODE_API_URL = os.environ.get("NODE_API_URL", "http://localhost:3001")
+
+def notify_node(state: dict):
+    user_context = state.get("userContext")
+    if not user_context:
+        return
+    
+    try:
+        url = f"{NODE_API_URL}/api/admin/ml/callback"
+        payload = {
+            "status": state.get("status"),
+            "userId": user_context.get("userId"),
+            "organizationId": user_context.get("organizationId"),
+            "error": state.get("error")
+        }
+        requests.post(url, json=payload, timeout=5)
+    except Exception as e:
+        print(f"Failed to notify Node backend: {e}")
 
 def log(message: str) -> None:
     print(message, flush=True)
@@ -26,6 +46,7 @@ def main(job_id: str) -> int:
         }
         append_history(entry)
         update_state({**entry, "error": None, "pid": None})
+        notify_node({**state, **entry})
         return 0
     except Exception as exc:
         traceback.print_exc()
@@ -42,6 +63,7 @@ def main(job_id: str) -> int:
         }
         append_history(entry)
         update_state({**entry, "pid": None})
+        notify_node({**state, **entry})
         return 1
 
 

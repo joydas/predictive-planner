@@ -8,15 +8,18 @@ async function findByEmail(email) {
   await ensureUserAdministrationSchema();
   const query = `
     SELECT
-      user_id AS userId,
-      user_name AS userName,
-      email,
-      password_hash AS passwordHash,
-      role_name AS role,
-      manager_id AS managerId,
-      active_flag AS activeFlag
-    FROM app_user
-    WHERE LOWER(email) = ?
+      u.user_id AS userId,
+      u.organization_id AS organizationId,
+      o.organization_name AS organizationName,
+      u.user_name AS userName,
+      u.email,
+      u.password_hash AS passwordHash,
+      u.role_name AS role,
+      u.manager_id AS managerId,
+      u.active_flag AS activeFlag
+    FROM app_user u
+    JOIN organization o ON o.organization_id = u.organization_id
+    WHERE LOWER(u.email) = ?
     LIMIT 1
   `;
 
@@ -31,16 +34,15 @@ async function ensureUserAdministrationSchema() {
       FROM INFORMATION_SCHEMA.COLUMNS
       WHERE TABLE_SCHEMA = DATABASE()
         AND TABLE_NAME = 'app_user'
-        AND COLUMN_NAME = 'manager_id'
+        AND COLUMN_NAME = 'organization_id'
       LIMIT 1
     `,
   );
   if (!columns.length) {
-    await pool.promise().query(`
-      ALTER TABLE app_user
-      ADD COLUMN manager_id BIGINT UNSIGNED NULL AFTER role_name,
-      ADD INDEX idx_app_user_manager (manager_id)
-    `);
+    // This is a safety check, but the migration script should have handled this.
+    // If organization_id is missing, we don't attempt to add it here dynamically 
+    // to avoid partial migration state.
+    console.warn('organization_id column missing in app_user table. Please run migrations.');
   }
 }
 
@@ -48,6 +50,7 @@ function mapUser(row) {
   return {
     userId: row.userId,
     id: row.userId,
+    organizationId: row.organizationId,
     userName: row.userName,
     name: row.userName,
     email: row.email,
@@ -60,11 +63,12 @@ function mapUser(row) {
   };
 }
 
-async function listUsers() {
+async function listUsers(organizationId) {
   await ensureUserAdministrationSchema();
   const [rows] = await pool.promise().query(
     `
       SELECT u.user_id AS userId,
+             u.organization_id AS organizationId,
              u.user_name AS userName,
              u.email,
              u.role_name AS role,
@@ -74,35 +78,41 @@ async function listUsers() {
              u.created_at AS createdAt,
              u.updated_at AS updatedAt
       FROM app_user u
-      LEFT JOIN app_user m ON m.user_id = u.manager_id
+      LEFT JOIN app_user m ON m.user_id = u.manager_id AND m.organization_id = u.organization_id
+      WHERE u.organization_id = ?
       ORDER BY u.updated_at DESC, u.user_id DESC
     `,
+    [organizationId]
   );
   return rows.map(mapUser);
 }
 
-async function listActiveAccountManagers() {
+async function listActiveAccountManagers(organizationId) {
   await ensureUserAdministrationSchema();
   const [rows] = await pool.promise().query(
     `
       SELECT user_id AS userId,
+             organization_id AS organizationId,
              user_name AS userName,
              email,
              role_name AS role
       FROM app_user
       WHERE active_flag = 1
         AND role_name IN ('AM', 'ACCOUNT_MANAGER')
+        AND organization_id = ?
       ORDER BY user_name ASC
     `,
+    [organizationId]
   );
   return rows.map(mapUser);
 }
 
-async function findById(userId) {
+async function findById(userId, organizationId) {
   await ensureUserAdministrationSchema();
   const [rows] = await pool.promise().query(
     `
       SELECT u.user_id AS userId,
+             u.organization_id AS organizationId,
              u.user_name AS userName,
              u.email,
              u.role_name AS role,
@@ -112,11 +122,11 @@ async function findById(userId) {
              u.created_at AS createdAt,
              u.updated_at AS updatedAt
       FROM app_user u
-      LEFT JOIN app_user m ON m.user_id = u.manager_id
-      WHERE u.user_id = ?
+      LEFT JOIN app_user m ON m.user_id = u.manager_id AND m.organization_id = u.organization_id
+      WHERE u.user_id = ? AND u.organization_id = ?
       LIMIT 1
     `,
-    [userId],
+    [userId, organizationId],
   );
   return rows[0] ? mapUser(rows[0]) : null;
 }
@@ -125,15 +135,15 @@ async function createUser(user) {
   await ensureUserAdministrationSchema();
   const [result] = await pool.promise().query(
     `
-      INSERT INTO app_user (user_name, email, password_hash, role_name, manager_id, active_flag)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO app_user (organization_id, user_name, email, password_hash, role_name, manager_id, active_flag)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `,
-    [user.userName, user.email, user.passwordHash, user.role, user.managerId || null, user.activeFlag ? 1 : 0],
+    [user.organizationId, user.userName, user.email, user.passwordHash, user.role, user.managerId || null, user.activeFlag ? 1 : 0],
   );
-  return findById(result.insertId);
+  return findById(result.insertId, user.organizationId);
 }
 
-async function updateUser(userId, user) {
+async function updateUser(userId, organizationId, user) {
   await ensureUserAdministrationSchema();
   const values = [
     user.userName,
@@ -148,6 +158,7 @@ async function updateUser(userId, user) {
     values.push(user.passwordHash);
   }
   values.push(userId);
+  values.push(organizationId);
 
   const [result] = await pool.promise().query(
     `
@@ -158,11 +169,11 @@ async function updateUser(userId, user) {
           manager_id = ?,
           active_flag = ?${passwordSql},
           updated_at = NOW()
-      WHERE user_id = ?
+      WHERE user_id = ? AND organization_id = ?
     `,
     values,
   );
-  return result.affectedRows > 0 ? findById(userId) : null;
+  return result.affectedRows > 0 ? findById(userId, organizationId) : null;
 }
 
 module.exports = {

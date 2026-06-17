@@ -22,3 +22,6 @@ Thumbs.db
 .env.*
 !.env.example
 *.zip
+gemini.md
+ml-service/reports/*
+ml-service/training/*

@@ -92,7 +92,7 @@ def current_info() -> dict:
     }
 
 
-def start_retraining() -> dict:
+def start_retraining(user_context: dict = None) -> dict:
     ensure_runtime_dirs()
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     state = read_state()
@@ -111,6 +111,7 @@ def start_retraining() -> dict:
             "modelVersion": None,
             "error": None,
             "logPath": str(log_path),
+            "userContext": user_context,
         }
     )
 

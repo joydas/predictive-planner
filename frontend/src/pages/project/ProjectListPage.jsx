@@ -11,7 +11,7 @@ import { formatDisplayDate } from '../../utils/dateUtils';
 import { listIndustries } from '../../services/masterDataService';
 
 
-const allStatusOptions = ['DRAFT', 'SUBMITTED', 'RETURNED', 'APPROVED', 'COMPLETE', 'REJECTED'].map((value) => ({ value, label: value }));
+const allStatusOptions = ['DRAFT', 'SUBMITTED', 'RETURNED', 'APPROVED', 'ACTIVE', 'COMPLETED', 'REJECTED'].map((value) => ({ value, label: value }));
 const reviewerStatusOptions = allStatusOptions.filter((option) => option.value !== 'DRAFT');
 const deliveryModelOptions = ['Agile', 'Waterfall', 'Hybrid', 'Scrum', 'Kanban'].map((value) => ({ value, label: value }));
 
@@ -20,7 +20,9 @@ const statusColors = {
   SUBMITTED: 'info',
   RETURNED: 'warning',
   APPROVED: 'success',
+  ACTIVE: 'primary',
   COMPLETE: 'dark',
+  COMPLETED: 'dark',
   REJECTED: 'danger',
 };
 
@@ -138,7 +140,7 @@ const ProjectListPage = () => {
       label: 'Actions',
       render: (row) => (
         <div className="d-flex gap-2">
-          {['APPROVED', 'COMPLETE'].includes(row.currentStatus) ? (
+          {['APPROVED', 'ACTIVE', 'COMPLETE', 'COMPLETED'].includes(row.currentStatus) ? (
             <>
               <CButton color="primary" variant="outline" size="sm" onClick={() => navigate(`/projects/view/${row.publishedProjectId || row.projectId}`)}>
                 View

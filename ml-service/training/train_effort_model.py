@@ -7,11 +7,13 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
 from training.common import build_preprocessor, feature_columns_for_dataset, save_artifact
-from utils.paths import DATASETS_DIR, MODELS_DIR
+from utils.paths import DATASETS_DIR, MODELS_DIR, get_tenant_datasets_dir, get_tenant_models_dir
 
 
-def train_effort_model(dataset_path=None) -> dict:
-    dataset_path = dataset_path or DATASETS_DIR / "project_training_dataset.csv"
+def train_effort_model(dataset_path=None, organization_id: int | None = None) -> dict:
+    if dataset_path is None:
+        dataset_path = get_tenant_datasets_dir(organization_id) / "project_training_dataset.csv" if organization_id else DATASETS_DIR / "project_training_dataset.csv"
+    
     df = pd.read_csv(dataset_path)
     if df.empty or "actual_effort_hours" not in df.columns:
         raise ValueError("Training dataset is empty or missing actual_effort_hours")
@@ -40,7 +42,7 @@ def train_effort_model(dataset_path=None) -> dict:
         "r2": float(r2_score(y_test, predictions)) if len(y_test) > 1 else 0.0,
     }
     save_artifact(
-        MODELS_DIR / "effort_model.joblib",
+        (get_tenant_models_dir(organization_id) / "effort_model.joblib" if organization_id else MODELS_DIR / "effort_model.joblib"),
         {"pipeline": pipeline, "feature_columns": features, "target": "actual_effort_hours", "metrics": metrics},
     )
     return metrics

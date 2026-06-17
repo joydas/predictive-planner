@@ -13,11 +13,11 @@ def _has_role(row: pd.Series, role_fragment: str) -> bool:
     return False
 
 
-def validate_staffing_diversity(engine=None, output_path=None) -> pd.DataFrame:
-    ensure_runtime_dirs()
-    output_path = output_path or REPORTS_DIR / "staffing_diversity_validation_report.csv"
-    projects = build_project_features(engine)
-    teams = build_team_features(engine)
+def validate_staffing_diversity(engine=None, output_path=None, organization_id: int | None = None) -> pd.DataFrame:
+    ensure_runtime_dirs(organization_id=organization_id)
+    output_path = output_path or (REPORTS_DIR / str(organization_id) / "staffing_diversity_validation_report.csv" if organization_id else REPORTS_DIR / "staffing_diversity_validation_report.csv")
+    projects = build_project_features(engine, organization_id=organization_id)
+    teams = build_team_features(engine, organization_id=organization_id)
     if projects.empty or teams.empty:
         report = pd.DataFrame(columns=["project_id", "issue"])
         report.to_csv(output_path, index=False)

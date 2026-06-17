@@ -9,6 +9,7 @@ const projectRoutes = require("./src/routes/project.routes");
 const projectController = require("./src/controllers/project.controller");
 const crRoutes = require("./src/routes/cr.routes");
 const crController = require("./src/controllers/cr.controller");
+const notificationRoutes = require("./src/routes/notification.routes");
 const masterDataRoutes = require("./src/routes/masterData.routes");
 const analyticsRoutes = require("./src/routes/analytics.routes");
 const analyticsController = require("./src/controllers/analytics.controller");
@@ -116,6 +117,7 @@ app.use('/api/cr', crRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/crs', crRoutes);
 app.use('/api/master-data', masterDataRoutes);
+app.use('/api/notification', notificationRoutes);
 
 app.use('/api/operational-dashboard', operationalDashboardRoutes);
 app.get('/api/analytics/variance-dashboard', authenticateToken, analyticsController.varianceDashboard);

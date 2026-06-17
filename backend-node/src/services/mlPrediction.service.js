@@ -1,18 +1,21 @@
 const axios = require('axios');
 const { pool } = require('../config/db.config');
+const TenantContext = require('../utils/tenantContext');
 
 const DEFAULT_ML_API_URL = 'http://127.0.0.1:8000';
 const normalizeUrl = (url) => String(url || DEFAULT_ML_API_URL).replace(/\/+$/, '');
 const ML_API_URL = normalizeUrl(process.env.ML_API_URL || DEFAULT_ML_API_URL);
 
 async function logPrediction({ userId, projectDraftId, predictionType, requestPayload, predictionResponse }) {
+  const organizationId = TenantContext.getOrganizationId();
   const [result] = await pool.promise().query(
     `
       INSERT INTO ml_prediction_log
-        (project_draft_id, generated_by_user_id, prediction_type, request_payload, prediction_response)
-      VALUES (?, ?, ?, ?, ?)
+        (organization_id, project_draft_id, generated_by_user_id, prediction_type, request_payload, prediction_response)
+      VALUES (?, ?, ?, ?, ?, ?)
     `,
     [
+      organizationId,
       projectDraftId || null,
       userId || null,
       predictionType,
@@ -24,7 +27,8 @@ async function logPrediction({ userId, projectDraftId, predictionType, requestPa
 }
 
 async function callMl(endpoint, payload) {
-  const response = await axios.post(`${ML_API_URL}${endpoint}`, payload, { timeout: 15000 });
+  const organizationId = TenantContext.getOrganizationId();
+  const response = await axios.post(`${ML_API_URL}${endpoint}`, { ...payload, organizationId }, { timeout: 15000 });
   return response.data;
 }
 
@@ -104,6 +108,7 @@ async function recordPredictionFeedback({ projectDraftId, projectData, actualOut
   const predictionId = recommendation.predictionId || projectData?.predictionId || null;
   if (!predictionId && !projectDraftId) return null;
 
+  const organizationId = TenantContext.getOrganizationId();
   const finalStaffing = aggregateFinalStaffing(projectData?.teamComposition?.rows || []);
   const recommendedStaffing = recommendation.staffing?.recommendedTeam || {};
   const overrideDiff = diffStaffing(recommendedStaffing, finalStaffing);
@@ -113,13 +118,14 @@ async function recordPredictionFeedback({ projectDraftId, projectData, actualOut
     `
       SELECT feedback_id AS feedbackId
       FROM ml_prediction_feedback
-      WHERE (prediction_id <=> ?) AND (project_draft_id <=> ?)
+      WHERE (prediction_id <=> ?) AND (project_draft_id <=> ?) AND organization_id = ?
       LIMIT 1
     `,
-    [predictionId, projectDraftId || null],
+    [predictionId, projectDraftId || null, organizationId],
   );
 
   const values = [
+    organizationId,
     predictionId,
     projectDraftId || null,
     JSON.stringify(finalStaffing),
@@ -144,9 +150,9 @@ async function recordPredictionFeedback({ projectDraftId, projectData, actualOut
             actual_staffing = COALESCE(?, actual_staffing),
             actual_cr_count = COALESCE(?, actual_cr_count),
             pm_override_reason = ?
-        WHERE feedback_id = ?
+        WHERE feedback_id = ? AND organization_id = ?
       `,
-      [values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], existing[0].feedbackId],
+      [values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10], existing[0].feedbackId, organizationId],
     );
     return existing[0].feedbackId;
   }
@@ -154,9 +160,9 @@ async function recordPredictionFeedback({ projectDraftId, projectData, actualOut
   const [result] = await pool.promise().query(
     `
       INSERT INTO ml_prediction_feedback
-        (prediction_id, project_draft_id, final_staffing, staffing_override_diff, final_effort,
+        (organization_id, prediction_id, project_draft_id, final_staffing, staffing_override_diff, final_effort,
          actual_effort, actual_schedule_variance, actual_staffing, actual_cr_count, pm_override_reason)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     values,
   );
@@ -169,6 +175,7 @@ async function recordActualOutcome({ predictionId, projectDraftId, actualEffort,
     error.status = 400;
     throw error;
   }
+  const organizationId = TenantContext.getOrganizationId();
   const [result] = await pool.promise().query(
     `
       UPDATE ml_prediction_feedback
@@ -176,7 +183,7 @@ async function recordActualOutcome({ predictionId, projectDraftId, actualEffort,
           actual_schedule_variance = ?,
           actual_staffing = ?,
           actual_cr_count = ?
-      WHERE (prediction_id <=> ?) OR (project_draft_id <=> ?)
+      WHERE ((prediction_id <=> ?) OR (project_draft_id <=> ?)) AND organization_id = ?
     `,
     [
       actualEffort ?? null,
@@ -185,6 +192,7 @@ async function recordActualOutcome({ predictionId, projectDraftId, actualEffort,
       actualCrCount ?? null,
       predictionId || null,
       projectDraftId || null,
+      organizationId,
     ],
   );
   return result.affectedRows;

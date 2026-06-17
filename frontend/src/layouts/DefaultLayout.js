@@ -29,6 +29,7 @@ import {
 } from '@coreui/icons';
 import CIcon from '@coreui/icons-react';
 import authService from '../services/authService';
+import NotificationBell from '../components/NotificationBell';
 
 const SIDEBAR_EXPANDED_WIDTH = 220;
 const SIDEBAR_COLLAPSED_WIDTH = 70;
@@ -288,6 +289,7 @@ const DefaultLayout = () => {
             </CHeaderNav>
 
             <CHeaderNav className="ms-auto">
+              <NotificationBell />
               <CNavItem>
                 <CTooltip content="Logout">
                   <CButton

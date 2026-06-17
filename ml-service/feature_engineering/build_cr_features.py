@@ -4,9 +4,9 @@ from config.db import get_engine
 from utils.feature_utils import numeric, read_table, severity_score
 
 
-def build_cr_features(engine=None) -> pd.DataFrame:
+def build_cr_features(engine=None, organization_id: int | None = None) -> pd.DataFrame:
     engine = engine or get_engine()
-    cr = read_table(engine, "change_request")
+    cr = read_table(engine, "change_request", organization_id=organization_id)
     if cr.empty:
         return pd.DataFrame(columns=["project_id"])
 

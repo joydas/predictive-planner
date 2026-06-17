@@ -1,3 +1,7 @@
+/**
+ * @deprecated This service is no longer needed in the unified lifecycle architecture.
+ * Project transitions (including "Approval") now happen via status updates in the main 'project' table.
+ */
 const projectRepository = require('../repositories/project.repository');
 
 async function publishApprovedDraft(connection, draftId, approvedByUserId) {

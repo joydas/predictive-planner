@@ -5,19 +5,36 @@ from utils.feature_utils import canonical_role_name, normalize_role, numeric, re
 from utils.paths import REPORTS_DIR, ensure_runtime_dirs
 
 
-def load_staffing_rows(engine=None) -> pd.DataFrame:
+from sqlalchemy import text
+
+
+def load_staffing_rows(engine=None, organization_id: int | None = None) -> pd.DataFrame:
     engine = engine or get_engine()
-    rows = read_sql_or_empty(
-        engine,
-        """
-        SELECT
-          pts.project_id,
-          COALESCE(mr.role_name, pts.role) AS source_role,
-          pts.resource_count
-        FROM project_team_snapshot pts
-        LEFT JOIN md_role mr ON mr.role_id = pts.role_id
-        """,
-    )
+    if organization_id is not None:
+        rows = read_sql_or_empty(
+            engine,
+            text("""
+            SELECT
+              pts.project_id,
+              COALESCE(mr.role_name, pts.role) AS source_role,
+              pts.resource_count
+            FROM project_team_snapshot pts
+            LEFT JOIN md_role mr ON mr.role_id = pts.role_id
+            WHERE pts.organization_id = :org_id
+            """).bindparams(org_id=organization_id)
+        )
+    else:
+        rows = read_sql_or_empty(
+            engine,
+            """
+            SELECT
+              pts.project_id,
+              COALESCE(mr.role_name, pts.role) AS source_role,
+              pts.resource_count
+            FROM project_team_snapshot pts
+            LEFT JOIN md_role mr ON mr.role_id = pts.role_id
+            """,
+        )
     if rows.empty:
         return pd.DataFrame(columns=["project_id", "role", "resource_count"])
     rows["resource_count"] = numeric(rows["resource_count"])
@@ -26,10 +43,10 @@ def load_staffing_rows(engine=None) -> pd.DataFrame:
     return rows
 
 
-def analyze_staffing_distribution(engine=None, output_path=None) -> pd.DataFrame:
-    ensure_runtime_dirs()
-    output_path = output_path or REPORTS_DIR / "staffing_distribution_report.csv"
-    rows = load_staffing_rows(engine)
+def analyze_staffing_distribution(engine=None, output_path=None, organization_id: int | None = None) -> pd.DataFrame:
+    ensure_runtime_dirs(organization_id=organization_id)
+    output_path = output_path or (REPORTS_DIR / str(organization_id) / "staffing_distribution_report.csv" if organization_id else REPORTS_DIR / "staffing_distribution_report.csv")
+    rows = load_staffing_rows(engine, organization_id=organization_id)
     if rows.empty:
         report = pd.DataFrame(columns=["Role", "Project Count", "Avg Count", "Non-Zero Frequency", "Dominance Flag"])
         report.to_csv(output_path, index=False)

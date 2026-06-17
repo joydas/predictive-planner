@@ -17,6 +17,9 @@ const statusColors = {
   SUBMITTED: 'info',
   RETURNED: 'warning',
   APPROVED: 'success',
+  ACTIVE: 'primary',
+  COMPLETE: 'dark',
+  COMPLETED: 'dark',
   REJECTED: 'danger',
 };
 
