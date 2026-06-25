@@ -5,11 +5,13 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
 from training.common import build_preprocessor, feature_columns_for_dataset, save_artifact
-from utils.paths import DATASETS_DIR, MODELS_DIR
+from utils.paths import DATASETS_DIR, MODELS_DIR, get_tenant_datasets_dir, get_tenant_models_dir
 
 
-def train_schedule_risk_model(dataset_path=None) -> dict:
-    dataset_path = dataset_path or DATASETS_DIR / "project_training_dataset.csv"
+def train_schedule_risk_model(dataset_path=None, organization_id: int | None = None) -> dict:
+    if dataset_path is None:
+        dataset_path = get_tenant_datasets_dir(organization_id) / "project_training_dataset.csv" if organization_id else DATASETS_DIR / "project_training_dataset.csv"
+
     df = pd.read_csv(dataset_path)
     if df.empty or "delayed_flag" not in df.columns:
         raise ValueError("Training dataset is empty or missing delayed_flag")
@@ -42,7 +44,7 @@ def train_schedule_risk_model(dataset_path=None) -> dict:
         "recall": float(recall_score(y_test, predictions, zero_division=0)),
     }
     save_artifact(
-        MODELS_DIR / "schedule_risk_model.joblib",
+        (get_tenant_models_dir(organization_id) / "schedule_risk_model.joblib" if organization_id else MODELS_DIR / "schedule_risk_model.joblib"),
         {"pipeline": pipeline, "feature_columns": features, "target": "delayed_flag", "metrics": metrics},
     )
     return metrics

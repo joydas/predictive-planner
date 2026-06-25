@@ -21,7 +21,6 @@ project_id,issue
 66,Project missing QA/testing staffing
 88,Project missing QA/testing staffing
 97,PM-only or single-role staffing
-101,Project missing QA/testing staffing
 102,Project missing QA/testing staffing
 109,Project missing QA/testing staffing
 114,Project missing QA/testing staffing
@@ -31,10 +30,6 @@ project_id,issue
 143,Project missing QA/testing staffing
 144,Project missing QA/testing staffing
 145,Project missing QA/testing staffing
-148,Project missing QA/testing staffing
-149,Project missing QA/testing staffing
-150,Project missing QA/testing staffing
-151,Project missing QA/testing staffing
 153,Project missing QA/testing staffing
 154,Project missing QA/testing staffing
 155,Project missing QA/testing staffing
@@ -43,3 +38,497 @@ project_id,issue
 158,Project missing QA/testing staffing
 159,Project missing QA/testing staffing
 160,Project missing QA/testing staffing
+169,PM-only or single-role staffing
+169,Project missing QA/testing staffing
+170,PM-only or single-role staffing
+170,Project missing QA/testing staffing
+171,PM-only or single-role staffing
+171,Project missing QA/testing staffing
+172,PM-only or single-role staffing
+172,Project missing QA/testing staffing
+395,PM-only or single-role staffing
+395,Project missing QA/testing staffing
+396,PM-only or single-role staffing
+396,React project missing React staffing
+396,Project missing QA/testing staffing
+397,PM-only or single-role staffing
+397,Project missing QA/testing staffing
+398,PM-only or single-role staffing
+398,Python project missing Python staffing
+398,Project missing QA/testing staffing
+399,PM-only or single-role staffing
+399,Project missing QA/testing staffing
+400,PM-only or single-role staffing
+400,Project missing QA/testing staffing
+401,PM-only or single-role staffing
+401,Project missing QA/testing staffing
+402,PM-only or single-role staffing
+402,Project missing QA/testing staffing
+403,PM-only or single-role staffing
+403,Project missing QA/testing staffing
+404,PM-only or single-role staffing
+404,Project missing QA/testing staffing
+405,PM-only or single-role staffing
+405,Project missing QA/testing staffing
+406,PM-only or single-role staffing
+406,Project missing QA/testing staffing
+407,PM-only or single-role staffing
+407,Project missing QA/testing staffing
+408,PM-only or single-role staffing
+408,Project missing QA/testing staffing
+409,PM-only or single-role staffing
+409,Project missing QA/testing staffing
+410,PM-only or single-role staffing
+410,Project missing QA/testing staffing
+411,PM-only or single-role staffing
+411,Project missing QA/testing staffing
+412,PM-only or single-role staffing
+412,Project missing QA/testing staffing
+413,PM-only or single-role staffing
+413,Project missing QA/testing staffing
+414,PM-only or single-role staffing
+414,Project missing QA/testing staffing
+415,PM-only or single-role staffing
+415,Project missing QA/testing staffing
+416,PM-only or single-role staffing
+416,Project missing QA/testing staffing
+417,PM-only or single-role staffing
+417,Project missing QA/testing staffing
+418,PM-only or single-role staffing
+418,Project missing QA/testing staffing
+419,PM-only or single-role staffing
+419,Project missing QA/testing staffing
+420,PM-only or single-role staffing
+420,Project missing QA/testing staffing
+421,PM-only or single-role staffing
+421,Project missing QA/testing staffing
+422,PM-only or single-role staffing
+422,Project missing QA/testing staffing
+423,PM-only or single-role staffing
+423,Project missing QA/testing staffing
+424,PM-only or single-role staffing
+424,Project missing QA/testing staffing
+425,PM-only or single-role staffing
+425,Project missing QA/testing staffing
+426,PM-only or single-role staffing
+426,Project missing QA/testing staffing
+427,PM-only or single-role staffing
+427,Project missing QA/testing staffing
+428,PM-only or single-role staffing
+428,Project missing QA/testing staffing
+429,PM-only or single-role staffing
+429,Project missing QA/testing staffing
+430,PM-only or single-role staffing
+430,Project missing QA/testing staffing
+431,PM-only or single-role staffing
+431,Project missing QA/testing staffing
+432,PM-only or single-role staffing
+432,Project missing QA/testing staffing
+433,PM-only or single-role staffing
+433,Project missing QA/testing staffing
+434,PM-only or single-role staffing
+434,Project missing QA/testing staffing
+435,PM-only or single-role staffing
+435,Project missing QA/testing staffing
+436,PM-only or single-role staffing
+436,Project missing QA/testing staffing
+437,PM-only or single-role staffing
+437,Project missing QA/testing staffing
+438,PM-only or single-role staffing
+438,Project missing QA/testing staffing
+439,PM-only or single-role staffing
+439,Project missing QA/testing staffing
+440,PM-only or single-role staffing
+440,Project missing QA/testing staffing
+441,PM-only or single-role staffing
+441,Project missing QA/testing staffing
+442,PM-only or single-role staffing
+442,Project missing QA/testing staffing
+443,PM-only or single-role staffing
+443,Project missing QA/testing staffing
+444,PM-only or single-role staffing
+444,Project missing QA/testing staffing
+445,PM-only or single-role staffing
+445,Project missing QA/testing staffing
+446,PM-only or single-role staffing
+446,Project missing QA/testing staffing
+447,PM-only or single-role staffing
+447,Project missing QA/testing staffing
+448,PM-only or single-role staffing
+448,Project missing QA/testing staffing
+449,PM-only or single-role staffing
+449,Project missing QA/testing staffing
+450,PM-only or single-role staffing
+450,Project missing QA/testing staffing
+451,PM-only or single-role staffing
+451,React project missing React staffing
+451,Project missing QA/testing staffing
+452,PM-only or single-role staffing
+452,React project missing React staffing
+452,Project missing QA/testing staffing
+453,PM-only or single-role staffing
+453,React project missing React staffing
+453,Project missing QA/testing staffing
+454,PM-only or single-role staffing
+454,React project missing React staffing
+454,Project missing QA/testing staffing
+455,PM-only or single-role staffing
+455,React project missing React staffing
+455,Project missing QA/testing staffing
+456,PM-only or single-role staffing
+456,React project missing React staffing
+456,Project missing QA/testing staffing
+457,PM-only or single-role staffing
+457,React project missing React staffing
+457,Project missing QA/testing staffing
+458,PM-only or single-role staffing
+458,React project missing React staffing
+458,Project missing QA/testing staffing
+459,PM-only or single-role staffing
+459,React project missing React staffing
+459,Project missing QA/testing staffing
+460,PM-only or single-role staffing
+460,React project missing React staffing
+460,Project missing QA/testing staffing
+461,PM-only or single-role staffing
+461,React project missing React staffing
+461,Project missing QA/testing staffing
+462,PM-only or single-role staffing
+462,React project missing React staffing
+462,Project missing QA/testing staffing
+463,PM-only or single-role staffing
+463,React project missing React staffing
+463,Project missing QA/testing staffing
+464,PM-only or single-role staffing
+464,React project missing React staffing
+464,Project missing QA/testing staffing
+465,PM-only or single-role staffing
+465,React project missing React staffing
+465,Project missing QA/testing staffing
+466,PM-only or single-role staffing
+466,React project missing React staffing
+466,Project missing QA/testing staffing
+467,PM-only or single-role staffing
+467,React project missing React staffing
+467,Project missing QA/testing staffing
+468,PM-only or single-role staffing
+468,React project missing React staffing
+468,Project missing QA/testing staffing
+469,PM-only or single-role staffing
+469,React project missing React staffing
+469,Project missing QA/testing staffing
+470,PM-only or single-role staffing
+470,React project missing React staffing
+470,Project missing QA/testing staffing
+471,PM-only or single-role staffing
+471,React project missing React staffing
+471,Project missing QA/testing staffing
+472,PM-only or single-role staffing
+472,React project missing React staffing
+472,Project missing QA/testing staffing
+473,PM-only or single-role staffing
+473,React project missing React staffing
+473,Project missing QA/testing staffing
+474,PM-only or single-role staffing
+474,React project missing React staffing
+474,Project missing QA/testing staffing
+475,PM-only or single-role staffing
+475,React project missing React staffing
+475,Project missing QA/testing staffing
+476,PM-only or single-role staffing
+476,React project missing React staffing
+476,Project missing QA/testing staffing
+477,PM-only or single-role staffing
+477,React project missing React staffing
+477,Project missing QA/testing staffing
+478,PM-only or single-role staffing
+478,React project missing React staffing
+478,Project missing QA/testing staffing
+479,PM-only or single-role staffing
+479,React project missing React staffing
+479,Project missing QA/testing staffing
+480,PM-only or single-role staffing
+480,React project missing React staffing
+480,Project missing QA/testing staffing
+481,PM-only or single-role staffing
+481,Project missing QA/testing staffing
+482,PM-only or single-role staffing
+482,Project missing QA/testing staffing
+483,PM-only or single-role staffing
+483,Project missing QA/testing staffing
+484,PM-only or single-role staffing
+484,Project missing QA/testing staffing
+485,PM-only or single-role staffing
+485,Project missing QA/testing staffing
+486,PM-only or single-role staffing
+486,Project missing QA/testing staffing
+487,PM-only or single-role staffing
+487,Project missing QA/testing staffing
+488,PM-only or single-role staffing
+488,Project missing QA/testing staffing
+489,PM-only or single-role staffing
+489,Project missing QA/testing staffing
+490,PM-only or single-role staffing
+490,Project missing QA/testing staffing
+491,PM-only or single-role staffing
+491,Project missing QA/testing staffing
+492,PM-only or single-role staffing
+492,Project missing QA/testing staffing
+493,PM-only or single-role staffing
+493,Project missing QA/testing staffing
+494,PM-only or single-role staffing
+494,Project missing QA/testing staffing
+495,PM-only or single-role staffing
+495,Project missing QA/testing staffing
+496,PM-only or single-role staffing
+496,Project missing QA/testing staffing
+497,PM-only or single-role staffing
+497,Project missing QA/testing staffing
+498,PM-only or single-role staffing
+498,Project missing QA/testing staffing
+499,PM-only or single-role staffing
+499,Project missing QA/testing staffing
+500,PM-only or single-role staffing
+500,Project missing QA/testing staffing
+501,PM-only or single-role staffing
+501,Project missing QA/testing staffing
+502,PM-only or single-role staffing
+502,Project missing QA/testing staffing
+503,PM-only or single-role staffing
+503,Project missing QA/testing staffing
+504,PM-only or single-role staffing
+504,Project missing QA/testing staffing
+505,PM-only or single-role staffing
+505,Project missing QA/testing staffing
+506,PM-only or single-role staffing
+506,Project missing QA/testing staffing
+507,PM-only or single-role staffing
+507,Project missing QA/testing staffing
+508,PM-only or single-role staffing
+508,Project missing QA/testing staffing
+509,PM-only or single-role staffing
+509,Project missing QA/testing staffing
+510,PM-only or single-role staffing
+510,Project missing QA/testing staffing
+511,PM-only or single-role staffing
+511,Project missing QA/testing staffing
+512,PM-only or single-role staffing
+512,Project missing QA/testing staffing
+513,PM-only or single-role staffing
+513,Project missing QA/testing staffing
+514,PM-only or single-role staffing
+514,Project missing QA/testing staffing
+515,PM-only or single-role staffing
+515,Project missing QA/testing staffing
+516,PM-only or single-role staffing
+516,Project missing QA/testing staffing
+517,PM-only or single-role staffing
+517,Project missing QA/testing staffing
+518,PM-only or single-role staffing
+518,Project missing QA/testing staffing
+519,PM-only or single-role staffing
+519,Project missing QA/testing staffing
+520,PM-only or single-role staffing
+520,Project missing QA/testing staffing
+521,PM-only or single-role staffing
+521,Python project missing Python staffing
+521,Project missing QA/testing staffing
+522,PM-only or single-role staffing
+522,Python project missing Python staffing
+522,Project missing QA/testing staffing
+523,PM-only or single-role staffing
+523,Python project missing Python staffing
+523,Project missing QA/testing staffing
+524,PM-only or single-role staffing
+524,Python project missing Python staffing
+524,Project missing QA/testing staffing
+525,PM-only or single-role staffing
+525,Python project missing Python staffing
+525,Project missing QA/testing staffing
+526,PM-only or single-role staffing
+526,Python project missing Python staffing
+526,Project missing QA/testing staffing
+527,PM-only or single-role staffing
+527,Python project missing Python staffing
+527,Project missing QA/testing staffing
+528,PM-only or single-role staffing
+528,Python project missing Python staffing
+528,Project missing QA/testing staffing
+529,PM-only or single-role staffing
+529,Python project missing Python staffing
+529,Project missing QA/testing staffing
+530,PM-only or single-role staffing
+530,Python project missing Python staffing
+530,Project missing QA/testing staffing
+531,PM-only or single-role staffing
+531,Python project missing Python staffing
+531,Project missing QA/testing staffing
+532,PM-only or single-role staffing
+532,Python project missing Python staffing
+532,Project missing QA/testing staffing
+533,PM-only or single-role staffing
+533,Python project missing Python staffing
+533,Project missing QA/testing staffing
+534,PM-only or single-role staffing
+534,Python project missing Python staffing
+534,Project missing QA/testing staffing
+535,PM-only or single-role staffing
+535,Python project missing Python staffing
+535,Project missing QA/testing staffing
+536,PM-only or single-role staffing
+536,Python project missing Python staffing
+536,Project missing QA/testing staffing
+537,PM-only or single-role staffing
+537,Python project missing Python staffing
+537,Project missing QA/testing staffing
+538,PM-only or single-role staffing
+538,Python project missing Python staffing
+538,Project missing QA/testing staffing
+539,PM-only or single-role staffing
+539,Python project missing Python staffing
+539,Project missing QA/testing staffing
+540,PM-only or single-role staffing
+540,Python project missing Python staffing
+540,Project missing QA/testing staffing
+541,PM-only or single-role staffing
+541,Python project missing Python staffing
+541,Project missing QA/testing staffing
+542,PM-only or single-role staffing
+542,Python project missing Python staffing
+542,Project missing QA/testing staffing
+543,PM-only or single-role staffing
+543,Python project missing Python staffing
+543,Project missing QA/testing staffing
+544,PM-only or single-role staffing
+544,Python project missing Python staffing
+544,Project missing QA/testing staffing
+545,PM-only or single-role staffing
+545,Python project missing Python staffing
+545,Project missing QA/testing staffing
+546,PM-only or single-role staffing
+546,Python project missing Python staffing
+546,Project missing QA/testing staffing
+547,PM-only or single-role staffing
+547,Python project missing Python staffing
+547,Project missing QA/testing staffing
+548,PM-only or single-role staffing
+548,Python project missing Python staffing
+548,Project missing QA/testing staffing
+549,PM-only or single-role staffing
+549,Python project missing Python staffing
+549,Project missing QA/testing staffing
+550,PM-only or single-role staffing
+550,Python project missing Python staffing
+550,Project missing QA/testing staffing
+551,PM-only or single-role staffing
+551,Python project missing Python staffing
+551,Project missing QA/testing staffing
+552,PM-only or single-role staffing
+552,Python project missing Python staffing
+552,Project missing QA/testing staffing
+553,PM-only or single-role staffing
+553,Python project missing Python staffing
+553,Project missing QA/testing staffing
+554,PM-only or single-role staffing
+554,Python project missing Python staffing
+554,Project missing QA/testing staffing
+555,PM-only or single-role staffing
+555,Python project missing Python staffing
+555,Project missing QA/testing staffing
+556,PM-only or single-role staffing
+556,Python project missing Python staffing
+556,Project missing QA/testing staffing
+557,PM-only or single-role staffing
+557,Python project missing Python staffing
+557,Project missing QA/testing staffing
+558,PM-only or single-role staffing
+558,Python project missing Python staffing
+558,Project missing QA/testing staffing
+559,PM-only or single-role staffing
+559,Python project missing Python staffing
+559,Project missing QA/testing staffing
+560,PM-only or single-role staffing
+560,Python project missing Python staffing
+560,Project missing QA/testing staffing
+561,PM-only or single-role staffing
+561,Project missing QA/testing staffing
+562,PM-only or single-role staffing
+562,Project missing QA/testing staffing
+563,PM-only or single-role staffing
+563,Project missing QA/testing staffing
+564,PM-only or single-role staffing
+564,Project missing QA/testing staffing
+565,PM-only or single-role staffing
+565,Project missing QA/testing staffing
+566,PM-only or single-role staffing
+566,Project missing QA/testing staffing
+567,PM-only or single-role staffing
+567,Project missing QA/testing staffing
+568,PM-only or single-role staffing
+568,Project missing QA/testing staffing
+569,PM-only or single-role staffing
+569,Project missing QA/testing staffing
+570,PM-only or single-role staffing
+570,Project missing QA/testing staffing
+571,PM-only or single-role staffing
+571,Project missing QA/testing staffing
+572,PM-only or single-role staffing
+572,Project missing QA/testing staffing
+573,PM-only or single-role staffing
+573,Project missing QA/testing staffing
+574,PM-only or single-role staffing
+574,Project missing QA/testing staffing
+575,PM-only or single-role staffing
+575,Project missing QA/testing staffing
+576,PM-only or single-role staffing
+576,Project missing QA/testing staffing
+577,PM-only or single-role staffing
+577,Project missing QA/testing staffing
+578,PM-only or single-role staffing
+578,Project missing QA/testing staffing
+579,PM-only or single-role staffing
+579,Project missing QA/testing staffing
+580,PM-only or single-role staffing
+580,Project missing QA/testing staffing
+581,PM-only or single-role staffing
+581,Project missing QA/testing staffing
+582,PM-only or single-role staffing
+582,Project missing QA/testing staffing
+583,PM-only or single-role staffing
+583,Project missing QA/testing staffing
+584,PM-only or single-role staffing
+584,Project missing QA/testing staffing
+585,PM-only or single-role staffing
+585,Project missing QA/testing staffing
+586,PM-only or single-role staffing
+586,Project missing QA/testing staffing
+587,PM-only or single-role staffing
+587,Project missing QA/testing staffing
+588,PM-only or single-role staffing
+588,Project missing QA/testing staffing
+589,PM-only or single-role staffing
+589,Project missing QA/testing staffing
+590,PM-only or single-role staffing
+590,Project missing QA/testing staffing
+591,PM-only or single-role staffing
+591,Project missing QA/testing staffing
+592,PM-only or single-role staffing
+592,Project missing QA/testing staffing
+593,PM-only or single-role staffing
+593,Project missing QA/testing staffing
+594,PM-only or single-role staffing
+594,Project missing QA/testing staffing
+595,PM-only or single-role staffing
+595,Project missing QA/testing staffing
+596,PM-only or single-role staffing
+596,Project missing QA/testing staffing
+597,PM-only or single-role staffing
+597,Project missing QA/testing staffing
+598,PM-only or single-role staffing
+598,Project missing QA/testing staffing
+599,PM-only or single-role staffing
+599,Project missing QA/testing staffing
+600,PM-only or single-role staffing
+600,Project missing QA/testing staffing
+601,PM-only or single-role staffing
+601,Project missing QA/testing staffing

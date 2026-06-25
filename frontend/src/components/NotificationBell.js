@@ -73,8 +73,8 @@ const NotificationBell = () => {
   };
 
   return (
-    <CDropdown variant="nav-item" alignment="end">
-      <CDropdownToggle caret={false} className="py-0 px-2" onClick={fetchLatestNotifications}>
+    <CDropdown variant="nav-item" alignment="end" onShow={fetchLatestNotifications}>
+      <CDropdownToggle caret={false} className="py-0 px-2">
         <CIcon icon={cilBell} size="lg" />
         {unreadCount > 0 && (
           <CBadge color="danger" position="top-end" shape="rounded-pill">

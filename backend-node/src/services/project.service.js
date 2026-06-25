@@ -533,6 +533,7 @@ async function transitionLifecycleProject(project, user, actionType, comment) {
         connection,
         project.projectId,
         project.draftData?.teamComposition?.rows || [],
+        project.organizationId,
       );
     }
     await connection.commit();

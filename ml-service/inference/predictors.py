@@ -340,11 +340,20 @@ def feature_diagnostics(payload: dict, feature_columns: list[str], frame: pd.Dat
     }
 
 
-@lru_cache(maxsize=6)
-def load_artifact(name: str) -> dict:
-    path = MODELS_DIR / name
-    if not path.exists():
-        raise FileNotFoundError(f"Model artifact not found: {path}")
+@lru_cache(maxsize=32)
+def load_artifact(name: str, organization_id: int | None = None) -> dict:
+    if organization_id:
+        path = MODELS_DIR / str(organization_id) / name
+        if not path.exists():
+            global_path = MODELS_DIR / name
+            if global_path.exists():
+                return joblib.load(global_path)
+            raise FileNotFoundError(f"Model artifact not found: {path}")
+    else:
+        path = MODELS_DIR / name
+        if not path.exists():
+            raise FileNotFoundError(f"Model artifact not found: {path}")
+            
     return joblib.load(path)
 
 
@@ -501,7 +510,8 @@ def debug_model_prediction(model_name: str, payload: dict) -> dict:
     if model_name not in artifact_names:
         raise ValueError(f"Unsupported model debug target: {model_name}")
 
-    artifact = load_artifact(artifact_names[model_name])
+    organization_id = int(_number(payload.get("organizationId"), 0)) or None
+    artifact = load_artifact(artifact_names[model_name], organization_id)
     feature_columns = artifact["feature_columns"]
     computed_row = _build_prediction_row(payload)
     frame = build_prediction_frame(payload, feature_columns)
@@ -548,7 +558,8 @@ def debug_model_prediction(model_name: str, payload: dict) -> dict:
 
 
 def predict_effort(payload: dict) -> dict:
-    artifact = load_artifact("effort_model.joblib")
+    organization_id = int(_number(payload.get("organizationId"), 0)) or None
+    artifact = load_artifact("effort_model.joblib", organization_id)
     frame = build_prediction_frame(payload, artifact["feature_columns"])
     prediction = artifact["pipeline"].predict(frame)[0]
     raw_prediction = float(max(prediction, 0))
@@ -568,7 +579,8 @@ def predict_staffing(payload: dict) -> dict:
 
 
 def predict_risk(payload: dict) -> dict:
-    artifact = load_artifact("schedule_risk_model.joblib")
+    organization_id = int(_number(payload.get("organizationId"), 0)) or None
+    artifact = load_artifact("schedule_risk_model.joblib", organization_id)
     frame = build_prediction_frame(payload, artifact["feature_columns"])
     pipeline = artifact["pipeline"]
     delayed = int(pipeline.predict(frame)[0])
@@ -601,7 +613,17 @@ def _delivery_risk_level(probability: int) -> str:
 
 
 def predict_on_time_delivery_probability(payload: dict) -> dict:
-    artifact = load_artifact("on_time_delivery_probability_model.pkl")
+    project_id = int(_number(payload.get("projectId"), 0))
+    if not project_id:
+        return {"probabilityAvailable": False, "message": "Project id is required for probability calculation."}
+
+    probability_input = build_on_time_probability_input(project_id)
+    organization_id = probability_input.get("organizationId")
+    try:
+        artifact = load_artifact("on_time_delivery_probability_model.pkl", organization_id)
+    except FileNotFoundError:
+        artifact = {}
+
     if not artifact.get("pipeline"):
         return {
             "available": False,
@@ -717,18 +739,23 @@ def _value_forecast_confidence(pipeline, frame: pd.DataFrame, artifact: dict, pr
 
 
 def predict_completion_date(payload: dict) -> dict:
-    artifact = load_artifact("completion_forecast_model.pkl")
-    if not artifact.get("pipeline"):
-        return {
-            "forecastAvailable": False,
-            "message": "Insufficient historical project data available for forecasting.",
-        }
-
     project_id = int(_number(payload.get("projectId"), 0))
     if not project_id:
         return {"forecastAvailable": False, "message": "Project id is required for forecasting."}
 
     forecast_input = build_completion_forecast_input(project_id)
+    organization_id = forecast_input.get("organizationId")
+    try:
+        artifact = load_artifact("completion_forecast_model.pkl", organization_id)
+    except FileNotFoundError:
+        artifact = {}
+
+    if not artifact.get("pipeline"):
+        return {
+            "forecastAvailable": False,
+            "message": "Insufficient historical project data available for forecasting completion.",
+        }
+
     planned_completion = pd.to_datetime(forecast_input.get("plannedCompletionDate"), errors="coerce")
     if pd.isna(planned_completion):
         return {"forecastAvailable": False, "message": "Planned completion date is required for forecasting."}
@@ -755,18 +782,23 @@ def predict_completion_date(payload: dict) -> dict:
 
 
 def predict_final_effort_forecast(payload: dict) -> dict:
-    artifact = load_artifact("final_effort_forecast_model.pkl")
-    if not artifact.get("pipeline"):
-        return {
-            "forecastAvailable": False,
-            "message": "Insufficient historical project data available for forecasting.",
-        }
-
     project_id = int(_number(payload.get("projectId"), 0))
     if not project_id:
         return {"forecastAvailable": False, "message": "Project id is required for forecasting."}
 
     forecast_input = build_final_effort_forecast_input(project_id)
+    organization_id = forecast_input.get("organizationId")
+    try:
+        artifact = load_artifact("final_effort_forecast_model.pkl", organization_id)
+    except FileNotFoundError:
+        artifact = {}
+
+    if not artifact.get("pipeline"):
+        return {
+            "forecastAvailable": False,
+            "message": "Insufficient historical project data available for forecasting final effort.",
+        }
+
     feature_columns = artifact["feature_columns"]
     features = forecast_input["features"]
     frame = pd.DataFrame([{column: features.get(column, 0) for column in feature_columns}])
@@ -790,18 +822,23 @@ def predict_final_effort_forecast(payload: dict) -> dict:
 
 
 def predict_final_budget_forecast(payload: dict) -> dict:
-    artifact = load_artifact("final_budget_forecast_model.pkl")
-    if not artifact.get("pipeline"):
-        return {
-            "forecastAvailable": False,
-            "message": "Insufficient historical project data available for forecasting.",
-        }
-
     project_id = int(_number(payload.get("projectId"), 0))
     if not project_id:
         return {"forecastAvailable": False, "message": "Project id is required for forecasting."}
 
     forecast_input = build_final_budget_forecast_input(project_id)
+    organization_id = forecast_input.get("organizationId")
+    try:
+        artifact = load_artifact("final_budget_forecast_model.pkl", organization_id)
+    except FileNotFoundError:
+        artifact = {}
+
+    if not artifact.get("pipeline"):
+        return {
+            "forecastAvailable": False,
+            "message": "Insufficient historical project data available for forecasting final budget.",
+        }
+
     feature_columns = artifact["feature_columns"]
     features = forecast_input["features"]
     frame = pd.DataFrame([{column: features.get(column, 0) for column in feature_columns}])

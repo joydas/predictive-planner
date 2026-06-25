@@ -17,7 +17,7 @@ async function login(email, password) {
   const normalizedEmail = email.trim().toLowerCase();
   const user = await userRepository.findByEmail(normalizedEmail);
 
-  if (!user || !user.activeFlag) {
+  if (!user || !user.activeFlag || String(user.organizationStatus || 'ACTIVE').toUpperCase() !== 'ACTIVE') {
     const error = new Error('Invalid credentials');
     error.status = 401;
     throw error;
@@ -30,6 +30,8 @@ async function login(email, password) {
     error.status = 401;
     throw error;
   }
+
+  await userRepository.recordLastLogin(user.userId);
 
   const token = jwt.sign(
     {

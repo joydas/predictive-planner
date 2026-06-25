@@ -152,3 +152,11 @@ export async function listProjects(params = {}) {
   });
   return handleResponse(response);
 }
+
+export async function getProjectInsights(projectId) {
+  const response = await fetch(`${NODE_API_URL}/api/insights/${projectId}`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+  return handleResponse(response);
+}

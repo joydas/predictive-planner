@@ -1138,9 +1138,9 @@ async function findProjectsForPm(filters) {
                WHEN latest_progress.snapshot_id IS NULL THEN 'Not Measured'
                WHEN ABS(
                  LEAST(100, GREATEST(0, (
-                   (DATEDIFF(latest_progress.snapshot_date, JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.start_date'))) + 1)
+                   (DATEDIFF(latest_progress.snapshot_date, ap.start_date) + 1)
                    / NULLIF(
-                     (DATEDIFF(JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.planned_end_date')), JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.start_date'))) + 1)
+                     (DATEDIFF(ap.planned_end_date, ap.start_date) + 1)
                      + COALESCE(cr_schedule.totalScheduleImpactDays, 0),
                      0
                    )
@@ -1148,9 +1148,9 @@ async function findProjectsForPm(filters) {
                ) <= 10 THEN 'Normal'
                WHEN ABS(
                  LEAST(100, GREATEST(0, (
-                   (DATEDIFF(latest_progress.snapshot_date, JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.start_date'))) + 1)
+                   (DATEDIFF(latest_progress.snapshot_date, ap.start_date) + 1)
                    / NULLIF(
-                     (DATEDIFF(JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.planned_end_date')), JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.start_date'))) + 1)
+                     (DATEDIFF(ap.planned_end_date, ap.start_date) + 1)
                      + COALESCE(cr_schedule.totalScheduleImpactDays, 0),
                      0
                    )
@@ -1158,9 +1158,9 @@ async function findProjectsForPm(filters) {
                ) <= 20 THEN 'Medium'
                WHEN ABS(
                  LEAST(100, GREATEST(0, (
-                   (DATEDIFF(latest_progress.snapshot_date, JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.start_date'))) + 1)
+                   (DATEDIFF(latest_progress.snapshot_date, ap.start_date) + 1)
                    / NULLIF(
-                     (DATEDIFF(JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.planned_end_date')), JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.start_date'))) + 1)
+                     (DATEDIFF(ap.planned_end_date, ap.start_date) + 1)
                      + COALESCE(cr_schedule.totalScheduleImpactDays, 0),
                      0
                    )
@@ -1168,10 +1168,10 @@ async function findProjectsForPm(filters) {
                ) <= 40 THEN 'High'
                ELSE 'Urgent'
              END AS severity,
-             JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.start_date')) AS startDate,
-             JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.planned_end_date')) AS plannedEndDate,
+             ap.start_date AS startDate,
+             ap.planned_end_date AS plannedEndDate,
              DATE_ADD(
-               JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.planned_end_date')),
+               ap.planned_end_date,
                INTERVAL COALESCE(cr_schedule.totalScheduleImpactDays, 0) DAY
              ) AS effectiveEndDate,
              COALESCE(cr_schedule.totalScheduleImpactDays, 0) AS approvedScheduleImpactDays,
@@ -1861,6 +1861,7 @@ async function getProjectForCompletion(connection, projectId) {
   const [rows] = await connection.query(
     `
       SELECT ap.project_id AS projectId,
+             ap.organization_id AS organizationId,
              ap.source_draft_id AS sourceDraftId,
              ap.owner_id AS ownerId,
              ap.project_name AS projectName,
@@ -1983,10 +1984,10 @@ async function markProjectComplete(connection, draftId, projectId, user, comment
     await connection.query(
       `
         INSERT INTO project_workflow_history
-          (project_id, from_status, to_status, action_by_user_id, action_by_role, action_comment, action_type)
-        VALUES (?, 'APPROVED', 'COMPLETED', ?, ?, ?, 'COMPLETE')
+          (project_id, organization_id, from_status, to_status, action_by_user_id, action_by_role, action_comment, action_type)
+        VALUES (?, ?, 'APPROVED', 'COMPLETED', ?, ?, ?, 'COMPLETE')
       `,
-      [projectId, user.userId, String(user.role || '').toUpperCase(), comment],
+      [projectId, user.organizationId, user.userId, String(user.role || '').toUpperCase(), comment],
     );
 
     return true;
@@ -2011,10 +2012,10 @@ async function markProjectComplete(connection, draftId, projectId, user, comment
   await connection.query(
     `
       INSERT INTO project_workflow_history
-        (project_id, from_status, to_status, action_by_user_id, action_by_role, action_comment, action_type)
-      VALUES (?, 'APPROVED', 'COMPLETE', ?, ?, ?, 'COMPLETE')
+        (project_id, organization_id, from_status, to_status, action_by_user_id, action_by_role, action_comment, action_type)
+      VALUES (?, ?, 'APPROVED', 'COMPLETE', ?, ?, ?, 'COMPLETE')
     `,
-    [draftId, user.userId, String(user.role || '').toUpperCase(), comment],
+    [draftId, user.organizationId, user.userId, String(user.role || '').toUpperCase(), comment],
   );
 
   return true;
@@ -2055,6 +2056,7 @@ async function getDraftForPublishing(connection, draftId) {
   const [rows] = await connection.query(
     `
       SELECT draft_id AS draftId,
+             organization_id AS organizationId,
              owner_id AS ownerId,
              draft_data AS draftData,
              workflow_status AS workflowStatus,
@@ -2077,6 +2079,12 @@ async function getDraftForPublishing(connection, draftId) {
 }
 
 async function insertApprovedProject(connection, draft, approvedByUserId) {
+  const organizationId = draft.organizationId || TenantContext.getOrganizationId();
+  if (!organizationId) {
+    const error = new Error('Organization context is required to publish approved project');
+    error.status = 400;
+    throw error;
+  }
   const data = draft.draftData || {};
   const basic = data.basicInfo || {};
   const technology = data.technology || {};
@@ -2108,7 +2116,7 @@ async function insertApprovedProject(connection, draft, approvedByUserId) {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     `,
     [
-      draft.organizationId || TenantContext.getOrganizationId(),
+      organizationId,
       draft.draftId,
       draft.ownerId,
       basic.project_name || 'Untitled Project',
@@ -2153,9 +2161,16 @@ async function insertApprovedProject(connection, draft, approvedByUserId) {
   return result.insertId;
 }
 
-async function insertProjectTeamSnapshots(connection, projectId, teamRows = []) {
+async function insertProjectTeamSnapshots(connection, projectId, teamRows = [], organizationId = null) {
   if (!Array.isArray(teamRows) || teamRows.length === 0) return;
+  const orgId = organizationId || TenantContext.getOrganizationId();
+  if (!orgId) {
+    const error = new Error('Organization context is required to insert project team snapshots');
+    error.status = 400;
+    throw error;
+  }
   const values = teamRows.map((row) => [
+    orgId,
     projectId,
     Number(row.roleId) || null,
     row.role || '',
@@ -2173,7 +2188,7 @@ async function insertProjectTeamSnapshots(connection, projectId, teamRows = []) 
   await connection.query(
     `
       INSERT INTO project_team_snapshot
-        (project_id, role_id, role, location_type, resource_count, allocation_percent, allocation_start_date, allocation_end_date,
+        (organization_id, project_id, role_id, role, location_type, resource_count, allocation_percent, allocation_start_date, allocation_end_date,
          rate_per_day, planned_effort, planned_cost, avg_experience_years, location)
       VALUES ?
     `,
@@ -2181,13 +2196,19 @@ async function insertProjectTeamSnapshots(connection, projectId, teamRows = []) 
   );
 }
 
-async function insertProjectTeamSnapshotsIfMissing(connection, projectId, teamRows = []) {
+async function insertProjectTeamSnapshotsIfMissing(connection, projectId, teamRows = [], organizationId = null) {
+  const orgId = organizationId || TenantContext.getOrganizationId();
+  if (!orgId) {
+    const error = new Error('Organization context is required to insert project team snapshots');
+    error.status = 400;
+    throw error;
+  }
   const [rows] = await connection.query(
-    'SELECT COUNT(*) AS rowCount FROM project_team_snapshot WHERE project_id = ?',
-    [projectId],
+    'SELECT COUNT(*) AS rowCount FROM project_team_snapshot WHERE project_id = ? AND organization_id = ?',
+    [projectId, orgId],
   );
   if (Number(rows[0]?.rowCount || 0) > 0) return;
-  await insertProjectTeamSnapshots(connection, projectId, teamRows);
+  await insertProjectTeamSnapshots(connection, projectId, teamRows, orgId);
 }
 
 async function markDraftPublished(connection, draftId, projectId) {

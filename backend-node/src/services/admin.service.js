@@ -16,8 +16,9 @@ function normalizeRole(role) {
 }
 
 function assertAdmin(user) {
-  if (normalizeRole(user?.role) !== 'ADMIN') {
-    const error = new Error('Administration access requires ADMIN role');
+  const role = normalizeRole(user?.role);
+  if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
+    const error = new Error('Administration access requires ADMIN or SUPER_ADMIN role');
     error.status = 403;
     throw error;
   }
@@ -201,6 +202,9 @@ async function listDataManagementProjects(user, params = {}) {
   const search = String(params.search || '').trim();
   const status = String(params.status || '').trim().toUpperCase();
   const includeRegressionData = ['1', 'true', 'yes', 'on'].includes(String(params.includeRegressionData || '').toLowerCase());
+  const role = normalizeRole(user.role);
+  const orgFilter = role === 'ADMIN' ? 'd.organization_id = ?' : '1=1';
+  const orgFilterP = role === 'ADMIN' ? 'p.organization_id = ?' : '1=1';
   const managedProjectSql = `
     SELECT
       CONCAT('D', d.draft_id, '-', COALESCE(p.project_id, 'draft')) AS id,
@@ -216,6 +220,7 @@ async function listDataManagementProjects(user, params = {}) {
     FROM project_drafts d
     LEFT JOIN project p ON p.source_draft_id = d.draft_id
     LEFT JOIN app_user creator ON creator.user_id = d.owner_id
+    WHERE ${orgFilter}
     UNION ALL
     SELECT
       CONCAT('P', p.project_id) AS id,
@@ -231,10 +236,11 @@ async function listDataManagementProjects(user, params = {}) {
     FROM project p
     LEFT JOIN project_drafts d ON d.draft_id = p.source_draft_id
     LEFT JOIN app_user creator ON creator.user_id = p.owner_id
-    WHERE d.draft_id IS NULL
+    WHERE d.draft_id IS NULL AND ${orgFilterP}
   `;
   const where = includeRegressionData ? [] : ['isRegressionData = 0'];
-  const values = [];
+  const baseValues = role === 'ADMIN' ? [user.organizationId, user.organizationId] : [];
+  const values = [...baseValues];
 
   if (search) {
     where.push(`(
@@ -283,7 +289,11 @@ async function listDataManagementProjects(user, params = {}) {
   };
 }
 
-async function resolveProjectReference(reference) {
+async function resolveProjectReference(user, reference) {
+  const role = normalizeRole(user.role);
+  const organizationId = user.organizationId;
+  const orgFilter = role === 'ADMIN' ? ' AND d.organization_id = ?' : '';
+  const orgFilterP = role === 'ADMIN' ? ' AND p.organization_id = ?' : '';
   const draftId = Number(reference?.draftId || 0);
   const projectId = Number(reference?.projectId || 0);
   const filters = [];
@@ -313,10 +323,10 @@ async function resolveProjectReference(reference) {
         COALESCE(d.workflow_status, d.status, 'DRAFT') AS status
       FROM project_drafts d
       LEFT JOIN project p ON p.source_draft_id = d.draft_id
-      WHERE (${filters.join(' OR ')})
+      WHERE (${filters.join(' OR ')})${orgFilter}
       LIMIT 1
     `,
-    params,
+    role === 'ADMIN' ? [...params, organizationId] : params,
   );
   if (!rows.length) {
     if (projectId) {
@@ -331,10 +341,10 @@ async function resolveProjectReference(reference) {
             COALESCE(d.workflow_status, d.status, 'APPROVED') AS status
           FROM project p
           LEFT JOIN project_drafts d ON d.draft_id = p.source_draft_id
-          WHERE p.project_id = ?
+          WHERE p.project_id = ?${orgFilterP}
           LIMIT 1
         `,
-        [projectId],
+        role === 'ADMIN' ? [projectId, organizationId] : [projectId],
       );
       if (projectRows.length) return projectRows[0];
     }
@@ -387,7 +397,7 @@ async function countByProjectIds(tableName, projectIds, extraWhere = '') {
 
 async function getProjectDeleteSummary(user, reference) {
   assertAdmin(user);
-  const project = await resolveProjectReference(reference);
+  const project = await resolveProjectReference(user, reference);
   const projectId = Number(project.projectId || 0);
   const draftId = Number(project.draftId || 0);
   const projectIds = await resolveProjectIdsForDelete(project);
@@ -473,8 +483,8 @@ async function deleteByProjectIds(connection, tableName, projectIds) {
   return deleteFromIfExists(connection, tableName, `WHERE project_id IN (${inClause(projectIds)})`, projectIds);
 }
 
-async function deleteProjectTransactional(reference) {
-  const project = await resolveProjectReference(reference);
+async function deleteProjectTransactional(user, reference) {
+  const project = await resolveProjectReference(user, reference);
   const projectId = Number(project.projectId || 0);
   const draftId = Number(project.draftId || 0);
   const connection = await pool.promise().getConnection();
@@ -571,7 +581,7 @@ async function deleteProjectTransactional(reference) {
       deleted.resource_allocation = await deleteByProjectIds(connection, 'resource_allocation', projectIds);
       deleted.ml_target_variable = await deleteByProjectIds(connection, 'ml_target_variable', projectIds);
       deleted.approval_history_project = await deleteByProjectIds(connection, 'approval_history', projectIds);
-      deleted.workflow_history_project = await deleteByProjectIds(connection, 'workflow_history', projectIds);
+      deleted.workflow_history_project = await deleteByProjectIds(connection, 'project_workflow_history', projectIds);
       deleted.project = await deleteFromIfExists(connection, 'project', `WHERE project_id IN (${inClause(projectIds)})`, projectIds);
     }
     if (draftId) {
@@ -598,7 +608,7 @@ async function deleteProject(user, reference, confirmation) {
     error.status = 400;
     throw error;
   }
-  const result = await deleteProjectTransactional(reference);
+  const result = await deleteProjectTransactional(user, reference);
   return {
     message: 'Project deleted successfully. All related records were removed.',
     ...result,
@@ -620,7 +630,7 @@ async function bulkDeleteProjects(user, projects = [], confirmation) {
 
   const results = [];
   for (const reference of projects) {
-    results.push(await deleteProjectTransactional(reference));
+    results.push(await deleteProjectTransactional(user, reference));
   }
   return {
     message: 'Projects deleted successfully. All related records were removed.',

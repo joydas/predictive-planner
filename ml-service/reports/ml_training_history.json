@@ -1,5 +1,142 @@
 [
   {
+    "jobId": "bc36e67eceaf42cc9561d8bac56966bc",
+    "modelVersion": "ml-20260624T151613677926Z0000",
+    "startedAt": "2026-06-24T15:16:08.654604+00:00",
+    "endedAt": "2026-06-24T15:16:16.972737+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 31,
+    "projectsUsed": 31
+  },
+  {
+    "jobId": "8245edca155a4058a7105bd0b289f624",
+    "modelVersion": "ml-20260622T152939642970Z0000",
+    "startedAt": "2026-06-22T15:29:31.714825+00:00",
+    "endedAt": "2026-06-22T15:29:47.265693+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 31,
+    "projectsUsed": 31
+  },
+  {
+    "jobId": "02397bcd33ee4d82b44ddb84d6882df4",
+    "modelVersion": "ml-20260622T151458436658Z0000",
+    "startedAt": "2026-06-22T15:14:48.366571+00:00",
+    "endedAt": "2026-06-22T15:14:59.468202+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 0,
+    "projectsUsed": 0
+  },
+  {
+    "jobId": "3c5f1058968c414396f2d66b8170ff86",
+    "modelVersion": "ml-20260621T063622904025Z0000",
+    "startedAt": "2026-06-21T06:36:09.444789+00:00",
+    "endedAt": "2026-06-21T06:37:04.613640+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 332,
+    "projectsUsed": 332
+  },
+  {
+    "jobId": "5c2b0740470a411eb0fa60ef5fd12ccd",
+    "modelVersion": null,
+    "startedAt": "2026-06-19T16:19:40.881714+00:00",
+    "endedAt": "2026-06-19T16:20:38.816817+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": null,
+    "projectsUsed": null
+  },
+  {
+    "jobId": "42b4b9b2235a453799d989e7c3c4d80b",
+    "modelVersion": "ml-20260619T155830149936Z0000",
+    "startedAt": "2026-06-19T15:58:20.463176+00:00",
+    "endedAt": "2026-06-19T15:59:08.645664+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 331,
+    "projectsUsed": 331
+  },
+  {
+    "jobId": "80466183ee85490cbf6e1691d7732cd9",
+    "modelVersion": "ml-20260618T165557833087Z0000",
+    "startedAt": "2026-06-18T16:55:55.421929+00:00",
+    "endedAt": "2026-06-18T16:56:07.038194+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 331,
+    "projectsUsed": 331
+  },
+  {
+    "jobId": "d69e7ebdc9a84031a00ccb83fc8b5c94",
+    "modelVersion": "ml-20260618T164423719530Z0000",
+    "startedAt": "2026-06-18T16:44:20.906350+00:00",
+    "endedAt": "2026-06-18T16:44:33.143665+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 331,
+    "projectsUsed": 331
+  },
+  {
+    "jobId": "a708b7bd1ab742bab1bafbc222373718",
+    "modelVersion": "ml-20260618T164019103854Z0000",
+    "startedAt": "2026-06-18T16:40:14.959575+00:00",
+    "endedAt": "2026-06-18T16:40:26.725866+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 331,
+    "projectsUsed": 331
+  },
+  {
+    "jobId": "cf76a15ad9c24bdb8c4b27e58b5af427",
+    "modelVersion": "ml-20260618T163559498689Z0000",
+    "startedAt": "2026-06-18T16:35:55.448281+00:00",
+    "endedAt": "2026-06-18T16:36:04.792690+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 331,
+    "projectsUsed": 331
+  },
+  {
+    "jobId": "01f60c3bf1f04ebf85a339eb1f64201b",
+    "modelVersion": "ml-20260618T145118466169Z0000",
+    "startedAt": "2026-06-18T14:51:15.094538+00:00",
+    "endedAt": "2026-06-18T14:51:23.597119+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 330,
+    "projectsUsed": 330
+  },
+  {
+    "jobId": "--help",
+    "modelVersion": "ml-20260618T144832288299Z0000",
+    "startedAt": "2026-06-18T14:37:15.720192+00:00",
+    "endedAt": "2026-06-18T14:48:37.780036+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 330,
+    "projectsUsed": 330
+  },
+  {
+    "jobId": "--help",
+    "modelVersion": "ml-20260618T143847180499Z0000",
+    "startedAt": "2026-06-18T14:37:15.720192+00:00",
+    "endedAt": "2026-06-18T14:38:52.333150+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 330,
+    "projectsUsed": 330
+  },
+  {
+    "jobId": "86edb897f7124128bcc8dc1db68ba080",
+    "modelVersion": null,
+    "startedAt": "2026-06-18T14:37:15.720192+00:00",
+    "endedAt": "2026-06-18T14:37:19.829810+00:00",
+    "status": "FAILED",
+    "recordsUsed": null,
+    "projectsUsed": null,
+    "error": "merge_training_dataset() got an unexpected keyword argument 'organization_id'"
+  },
+  {
+    "jobId": "--help",
+    "modelVersion": null,
+    "startedAt": "2026-06-18T14:34:52.238940+00:00",
+    "endedAt": "2026-06-18T14:36:48.209486+00:00",
+    "status": "FAILED",
+    "recordsUsed": null,
+    "projectsUsed": null,
+    "error": "merge_training_dataset() got an unexpected keyword argument 'organization_id'"
+  },
+  {
     "jobId": "6050f33d69b441c28659b2bfcfa5d0f6",
     "modelVersion": "ml-20260608T084201428377Z0000",
     "startedAt": "2026-06-08T08:41:53.272041+00:00",

@@ -15,7 +15,7 @@ from feature_engineering.forecast_feature_builder import (
     build_on_time_probability_training_dataset,
 )
 from training.common import build_preprocessor, save_artifact
-from utils.paths import DATASETS_DIR, MODELS_DIR
+from utils.paths import DATASETS_DIR, MODELS_DIR, get_tenant_datasets_dir, get_tenant_models_dir
 
 
 ARTIFACT_NAME = "on_time_delivery_probability_model.pkl"
@@ -32,13 +32,14 @@ def _load_model_artifact(path):
         return None
 
 
-def _add_forecast_features(df):
+def _add_forecast_features(df, organization_id: int | None = None):
     if df.empty:
         return df
 
-    completion_artifact = _load_model_artifact(MODELS_DIR / "completion_forecast_model.pkl")
-    effort_artifact = _load_model_artifact(MODELS_DIR / "final_effort_forecast_model.pkl")
-    budget_artifact = _load_model_artifact(MODELS_DIR / "final_budget_forecast_model.pkl")
+    models_dir = get_tenant_models_dir(organization_id) if organization_id else MODELS_DIR
+    completion_artifact = _load_model_artifact(models_dir / "completion_forecast_model.pkl")
+    effort_artifact = _load_model_artifact(models_dir / "final_effort_forecast_model.pkl")
+    budget_artifact = _load_model_artifact(models_dir / "final_budget_forecast_model.pkl")
 
     def _forecast_values(row):
         row_values = {}
@@ -70,9 +71,11 @@ def _split_dataset(df):
     return df[ON_TIME_PROBABILITY_FEATURE_COLUMNS], df[ON_TIME_PROBABILITY_FEATURE_COLUMNS], df[TARGET_COLUMN], df[TARGET_COLUMN]
 
 
-def train_on_time_delivery_probability_model(dataset_path=None) -> dict:
-    dataset_path = dataset_path or DATASETS_DIR / DATASET_FILE
-    df = build_on_time_probability_training_dataset(output_path=dataset_path)
+def train_on_time_delivery_probability_model(dataset_path=None, organization_id: int | None = None) -> dict:
+    if dataset_path is None:
+        dataset_path = get_tenant_datasets_dir(organization_id) / DATASET_FILE if organization_id else DATASETS_DIR / DATASET_FILE
+    
+    df = build_on_time_probability_training_dataset(output_path=dataset_path, organization_id=organization_id)
     if len(df) < MIN_FORECAST_TRAINING_ROWS or df[TARGET_COLUMN].nunique() < 2:
         metrics = {
             "trained": False,
@@ -81,7 +84,7 @@ def train_on_time_delivery_probability_model(dataset_path=None) -> dict:
             "message": "Insufficient historical project data available for on-time probability modeling.",
         }
         save_artifact(
-            MODELS_DIR / ARTIFACT_NAME,
+            (get_tenant_models_dir(organization_id) / ARTIFACT_NAME if organization_id else MODELS_DIR / ARTIFACT_NAME),
             {
                 "pipeline": None,
                 "feature_columns": ON_TIME_PROBABILITY_FEATURE_COLUMNS,
@@ -93,7 +96,7 @@ def train_on_time_delivery_probability_model(dataset_path=None) -> dict:
         )
         return metrics
 
-    df = _add_forecast_features(df)
+    df = _add_forecast_features(df, organization_id=organization_id)
     df = df.fillna(0)
 
     X_train, X_test, y_train, y_test = _split_dataset(df)
@@ -118,7 +121,7 @@ def train_on_time_delivery_probability_model(dataset_path=None) -> dict:
         "residual_std": float(np.std(y_test - predictions)) if len(y_test) else 0.0,
     }
     save_artifact(
-        MODELS_DIR / ARTIFACT_NAME,
+        (get_tenant_models_dir(organization_id) / ARTIFACT_NAME if organization_id else MODELS_DIR / ARTIFACT_NAME),
         {
             "pipeline": pipeline,
             "feature_columns": ON_TIME_PROBABILITY_FEATURE_COLUMNS,

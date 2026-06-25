@@ -32,8 +32,10 @@ def log(message: str) -> None:
 def main(job_id: str) -> int:
     state = read_state()
     started_at = state.get("startedAt") or utc_now()
+    user_context = state.get("userContext") or {}
+    organization_id = user_context.get("organizationId")
     try:
-        metadata = run_training_pipeline(publish=True, job_id=job_id, log=log)
+        metadata = run_training_pipeline(publish=True, job_id=job_id, log=log, organization_id=organization_id)
         ended_at = utc_now()
         entry = {
             "jobId": job_id,

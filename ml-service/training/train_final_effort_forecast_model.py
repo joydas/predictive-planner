@@ -12,7 +12,7 @@ from feature_engineering.forecast_feature_builder import (
     build_final_effort_forecast_training_dataset,
 )
 from training.common import build_preprocessor, save_artifact
-from utils.paths import DATASETS_DIR, MODELS_DIR
+from utils.paths import DATASETS_DIR, MODELS_DIR, get_tenant_datasets_dir, get_tenant_models_dir
 
 
 TARGET_COLUMN = "actual_final_effort_pd"
@@ -21,22 +21,24 @@ ARTIFACT_NAME = "final_effort_forecast_model.pkl"
 
 def _split_dataset(df):
     if len(df) >= 8:
-        return train_test_split(df[FORECAST_FEATURE_COLUMNS], df[TARGET_COLUMN], test_size=0.25, random_state=42)
+        return train_test_split(df[FORECAST_FEATURE_COLUMNS], df[TARGET_COLUMN], test_size=0.25, random_state=42)     
     return df[FORECAST_FEATURE_COLUMNS], df[FORECAST_FEATURE_COLUMNS], df[TARGET_COLUMN], df[TARGET_COLUMN]
 
 
-def train_final_effort_forecast_model(dataset_path=None) -> dict:
-    dataset_path = dataset_path or DATASETS_DIR / "final_effort_forecast_training_dataset.csv"
-    df = build_final_effort_forecast_training_dataset(output_path=dataset_path)
+def train_final_effort_forecast_model(dataset_path=None, organization_id: int | None = None) -> dict:
+    if dataset_path is None:
+        dataset_path = get_tenant_datasets_dir(organization_id) / "final_effort_forecast_training_dataset.csv" if organization_id else DATASETS_DIR / "final_effort_forecast_training_dataset.csv"
+    
+    df = build_final_effort_forecast_training_dataset(output_path=dataset_path, organization_id=organization_id)
     if len(df) < MIN_FORECAST_TRAINING_ROWS:
         metrics = {
             "trained": False,
             "training_rows": int(len(df)),
             "minimum_required_rows": MIN_FORECAST_TRAINING_ROWS,
-            "message": "Insufficient historical project data available for forecasting.",
+            "message": "Insufficient historical project data available for forecasting. **",
         }
         save_artifact(
-            MODELS_DIR / ARTIFACT_NAME,
+            (get_tenant_models_dir(organization_id) / ARTIFACT_NAME if organization_id else MODELS_DIR / ARTIFACT_NAME),
             {
                 "pipeline": None,
                 "feature_columns": FORECAST_FEATURE_COLUMNS,
@@ -70,7 +72,7 @@ def train_final_effort_forecast_model(dataset_path=None) -> dict:
         "residual_std": residual_std,
     }
     save_artifact(
-        MODELS_DIR / ARTIFACT_NAME,
+        (get_tenant_models_dir(organization_id) / ARTIFACT_NAME if organization_id else MODELS_DIR / ARTIFACT_NAME),
         {
             "pipeline": pipeline,
             "feature_columns": FORECAST_FEATURE_COLUMNS,

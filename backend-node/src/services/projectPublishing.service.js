@@ -34,6 +34,7 @@ async function publishApprovedDraft(connection, draftId, approvedByUserId) {
     connection,
     projectId,
     draft.draftData?.teamComposition?.rows || [],
+    draft.organizationId,
   );
 
   const marked = await projectRepository.markDraftPublished(connection, draftId, projectId);

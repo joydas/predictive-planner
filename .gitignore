@@ -25,3 +25,14 @@ Thumbs.db
 gemini.md
 ml-service/reports/*
 ml-service/training/*
+
+# Tenant-specific ML directories and models
+ml-service/datasets/[0-9]*/
+ml-service/models/[0-9]*/
+ml-service/reports/[0-9]*/
+ml-service/models/.staging/
+ml-service/models/*_model.joblib
+ml-service/models/*_model.pkl
+ml-service/models/model_metadata.json
+ml-service/datasets/*.csv
+

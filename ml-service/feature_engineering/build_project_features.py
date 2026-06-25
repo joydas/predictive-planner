@@ -18,8 +18,8 @@ def build_project_features_from_projects(projects: pd.DataFrame) -> pd.DataFrame
         tech_stack = row.get("technology_stack") or technology.get("technology_stack") or ""
         technology_count = len([part for part in str(tech_stack).replace(";", ",").split(",") if part.strip()])
 
-        start_date = delivery.get("start_date")
-        planned_end_date = delivery.get("planned_end_date")
+        start_date = row.get("start_date") or delivery.get("start_date")
+        planned_end_date = row.get("planned_end_date") or delivery.get("planned_end_date")
         duration = 0
         if start_date and planned_end_date:
             duration = safe_days(pd.Series([start_date]), pd.Series([planned_end_date])).iloc[0]
@@ -37,11 +37,11 @@ def build_project_features_from_projects(projects: pd.DataFrame) -> pd.DataFrame
                 "project_type": row.get("project_type") or "",
                 "delivery_model": row.get("delivery_model") or "",
                 "technology_stack": tech_stack,
-                "complexity": row.get("complexity", 0),
-                "estimated_team_size": row.get("estimated_team_size", 0),
-                "planned_effort": row.get("planned_effort", 0),
-                "budget": row.get("budget", 0),
-                "predicted_hours": row.get("predicted_hours", 0),
+                "complexity": row.get("complexity") or row.get("complexity", 0),
+                "estimated_team_size": row.get("estimated_team_size") or row.get("estimated_team_size", 0),
+                "planned_effort": row.get("planned_effort") or row.get("planned_effort", 0),
+                "budget": row.get("budget") or row.get("budget", 0),
+                "predicted_hours": row.get("predicted_hours") or row.get("predicted_hours", 0),
                 "project_duration": duration,
                 "technology_count": technology_count,
                 "dependency_count": risks.get("dependency_count", 0),

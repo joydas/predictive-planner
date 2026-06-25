@@ -157,7 +157,8 @@ def _log_debug(payload: dict, raw: dict[str, float], post_processed: dict[str, i
 
 
 def build_staffing_recommendation(payload: dict) -> dict:
-    artifact = load_artifact("staffing_model.joblib")
+    organization_id = int(_number(payload.get("organizationId"), 0)) or None
+    artifact = load_artifact("staffing_model.joblib", organization_id)
     frame = build_prediction_frame(payload, artifact["feature_columns"])
     prediction = artifact["pipeline"].predict(frame)[0]
     target_columns = artifact["target_columns"]

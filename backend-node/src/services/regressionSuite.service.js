@@ -38,8 +38,8 @@ function normalizeRole(role) {
 }
 
 function assertAdmin(user) {
-  if (normalizeRole(user?.role) !== 'ADMIN') {
-    const error = new Error('Administration access requires ADMIN role');
+  if (normalizeRole(user?.role) !== 'SUPER_ADMIN') {
+    const error = new Error('Regression suite access requires SUPER_ADMIN role');
     error.status = 403;
     throw error;
   }

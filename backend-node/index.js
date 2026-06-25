@@ -4,12 +4,14 @@ const cors = require("cors");
 const axios = require("axios");
 const authRoutes = require("./src/routes/auth.routes");
 const adminRoutes = require("./src/routes/admin.routes");
+const administrationRoutes = require("./src/routes/administration.routes");
 const authController = require("./src/controllers/auth.controller");
 const projectRoutes = require("./src/routes/project.routes");
 const projectController = require("./src/controllers/project.controller");
 const crRoutes = require("./src/routes/cr.routes");
 const crController = require("./src/controllers/cr.controller");
 const notificationRoutes = require("./src/routes/notification.routes");
+const aiInsightRoutes = require("./src/routes/aiInsight.routes");
 const masterDataRoutes = require("./src/routes/masterData.routes");
 const analyticsRoutes = require("./src/routes/analytics.routes");
 const analyticsController = require("./src/controllers/analytics.controller");
@@ -111,6 +113,7 @@ app.get("/", (req, res) => {
 
 // Auth routes are mounted under /api/auth to clearly separate authentication from business APIs
 app.use('/api/auth', authRoutes);
+app.use('/api/administration', administrationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/project', projectRoutes);
 app.use('/api/cr', crRoutes);
@@ -118,6 +121,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/crs', crRoutes);
 app.use('/api/master-data', masterDataRoutes);
 app.use('/api/notification', notificationRoutes);
+app.use('/api/insights', aiInsightRoutes);
 
 app.use('/api/operational-dashboard', operationalDashboardRoutes);
 app.get('/api/analytics/variance-dashboard', authenticateToken, analyticsController.varianceDashboard);

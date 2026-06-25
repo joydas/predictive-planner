@@ -47,9 +47,15 @@ const navigationItems = [
 ];
 
 const adminNavigationItems = [
-  { icon: cilPeople, label: 'User Management', to: '/admin/users' },
+  { icon: cilPeople, label: 'Users', to: '/admin/users' },
   { icon: cilChart, label: 'ML Management', to: '/admin/ml' },
   { icon: cilFolderOpen, label: 'Data Management', to: '/admin/data' },
+];
+
+const superAdminNavigationItems = [
+  { icon: cilFolderOpen, label: 'Organizations', to: '/admin/organizations' },
+  { icon: cilPeople, label: 'Users', to: '/admin/users' },
+  { icon: cilChart, label: 'ML Management', to: '/admin/ml' },
   { icon: cilReload, label: 'Regression Suite', to: '/admin/regression-suite' },
 ];
 
@@ -84,9 +90,12 @@ const DefaultLayout = () => {
   const currentRole = String(currentUser?.role || '').toUpperCase();
   const isAccountManager = ['ACCOUNT_MANAGER', 'AM'].includes(currentRole);
   const isAdmin = currentRole === 'ADMIN';
+  const isSuperAdmin = currentRole === 'SUPER_ADMIN';
   const sidebarNavigationItems = isAdmin
     ? adminNavigationItems
-    : navigationItems.filter(({ to }) => (
+    : isSuperAdmin
+      ? superAdminNavigationItems
+      : navigationItems.filter(({ to }) => (
       isAccountManager ? !['/crs/create', '/projects/create'].includes(to) : true
     ));
   const isSidebarCollapsed = isDesktop && collapsed;

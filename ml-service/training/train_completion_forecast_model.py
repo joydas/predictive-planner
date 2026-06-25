@@ -12,7 +12,7 @@ from feature_engineering.forecast_feature_builder import (
     build_completion_forecast_training_dataset,
 )
 from training.common import build_preprocessor, save_artifact
-from utils.paths import DATASETS_DIR, MODELS_DIR
+from utils.paths import DATASETS_DIR, MODELS_DIR, get_tenant_datasets_dir, get_tenant_models_dir
 
 
 def _split_dataset(df):
@@ -21,18 +21,20 @@ def _split_dataset(df):
     return df[FORECAST_FEATURE_COLUMNS], df[FORECAST_FEATURE_COLUMNS], df["completion_delay_days"], df["completion_delay_days"]
 
 
-def train_completion_forecast_model(dataset_path=None) -> dict:
-    dataset_path = dataset_path or DATASETS_DIR / "completion_forecast_training_dataset.csv"
-    df = build_completion_forecast_training_dataset(output_path=dataset_path)
+def train_completion_forecast_model(dataset_path=None, organization_id: int | None = None) -> dict:
+    if dataset_path is None:
+        dataset_path = get_tenant_datasets_dir(organization_id) / "completion_forecast_training_dataset.csv" if organization_id else DATASETS_DIR / "completion_forecast_training_dataset.csv"
+    
+    df = build_completion_forecast_training_dataset(output_path=dataset_path, organization_id=organization_id)
     if len(df) < MIN_FORECAST_TRAINING_ROWS:
         metrics = {
             "trained": False,
             "training_rows": int(len(df)),
             "minimum_required_rows": MIN_FORECAST_TRAINING_ROWS,
-            "message": "Insufficient historical project data available for forecasting.",
+            "message": "Insufficient historical project data available for forecasting *.",
         }
         save_artifact(
-            MODELS_DIR / "completion_forecast_model.pkl",
+            (get_tenant_models_dir(organization_id) / "completion_forecast_model.pkl" if organization_id else MODELS_DIR / "completion_forecast_model.pkl"),
             {
                 "pipeline": None,
                 "feature_columns": FORECAST_FEATURE_COLUMNS,
@@ -66,7 +68,7 @@ def train_completion_forecast_model(dataset_path=None) -> dict:
         "residual_std": residual_std,
     }
     save_artifact(
-        MODELS_DIR / "completion_forecast_model.pkl",
+        (get_tenant_models_dir(organization_id) / "completion_forecast_model.pkl" if organization_id else MODELS_DIR / "completion_forecast_model.pkl"),
         {
             "pipeline": pipeline,
             "feature_columns": FORECAST_FEATURE_COLUMNS,

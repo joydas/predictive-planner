@@ -26,42 +26,43 @@ const CONFIG = {
   organizationId: 1,
   dryRun: process.argv.includes('--dry-run'),
   verbose: process.argv.includes('--verbose'),
+  PROJECT_COUNT: 5, // Total projects to generate (can be adjusted for testing)
 };
 
 // Data definitions
 const TECH_STACKS = {
   JAVA: {
-    projectCount: 50,
+    projectCount: CONFIG.PROJECT_COUNT,
     name: 'Java',
     stack: 'Java',
     roles: ['Java Developer', 'Java Lead', 'QA Lead', 'Manual Tester', 'Project Manager'],
   },
   REACT: {
-    projectCount: 30,
+    projectCount: CONFIG.PROJECT_COUNT,
     name: 'React',
     stack: 'React',
     roles: ['React Developer', 'React Lead', 'QA Lead', 'Automation Tester', 'Project Manager'],
   },
   DOTNET: {
-    projectCount: 40,
+    projectCount: CONFIG.PROJECT_COUNT,
     name: '.NET',
     stack: '.NET',
     roles: ['.NET Developer', '.NET Lead', 'QA Lead', 'Manual Tester', 'Project Manager'],
   },
   PYTHON: {
-    projectCount: 40,
+    projectCount: CONFIG.PROJECT_COUNT,
     name: 'Python',
     stack: 'Python',
     roles: ['Python Developer', 'Python Lead', 'QA Lead', 'DevOps Engineer', 'Project Manager'],
   },
   NODEJS: {
-    projectCount: 20,
+    projectCount: CONFIG.PROJECT_COUNT,
     name: 'Node.js',
     stack: 'NodeJS',
     roles: ['Node.js Developer', 'Node.js Lead', 'QA Lead', 'DevOps Engineer', 'Project Manager'],
   },
   SAP: {
-    projectCount: 20,
+    projectCount: CONFIG.PROJECT_COUNT,
     name: 'SAP',
     stack: 'SAP',
     roles: ['SAP Consultant', 'SAP Lead', 'QA Lead', 'Project Manager'],
@@ -476,8 +477,8 @@ async function generateCompletionHistory(connection, orgId, projectId, project, 
   await connection.query(
     `INSERT INTO project_completion_history 
      (organization_id, project_id, source_draft_id, completed_by_user_id, final_resource_loading, management_cost, contingency_cost, 
-      resource_cost, full_project_cost, actual_final_estimated_value, completion_payload)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      resource_cost, full_project_cost, actual_final_estimated_value, completion_payload,actual_completion_date, completed_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [orgId, projectId, sourceDraftId, ownerId, 
      JSON.stringify(project.teamRows),
      project.budget * 0.05,
@@ -490,7 +491,10 @@ async function generateCompletionHistory(connection, orgId, projectId, project, 
        completionOutcome: project.completionOutcome.name,
        actualEffort,
        actualBudget,
-     })]
+     }),
+    project.actualCompletionDate,
+    project.actualCompletionDate // forcing completed_at to be same as actual_completion_date for simplicity
+  ]
   );
 
   return true;

@@ -79,7 +79,7 @@ async function listUsers(organizationId) {
              u.updated_at AS updatedAt
       FROM app_user u
       LEFT JOIN app_user m ON m.user_id = u.manager_id AND m.organization_id = u.organization_id
-      WHERE u.organization_id = ?
+      WHERE u.organization_id <=> ?
       ORDER BY u.updated_at DESC, u.user_id DESC
     `,
     [organizationId]
@@ -99,7 +99,7 @@ async function listActiveAccountManagers(organizationId) {
       FROM app_user
       WHERE active_flag = 1
         AND role_name IN ('AM', 'ACCOUNT_MANAGER')
-        AND organization_id = ?
+        AND organization_id <=> ?
       ORDER BY user_name ASC
     `,
     [organizationId]
@@ -123,7 +123,7 @@ async function findById(userId, organizationId) {
              u.updated_at AS updatedAt
       FROM app_user u
       LEFT JOIN app_user m ON m.user_id = u.manager_id AND m.organization_id = u.organization_id
-      WHERE u.user_id = ? AND u.organization_id = ?
+      WHERE u.user_id = ? AND u.organization_id <=> ?
       LIMIT 1
     `,
     [userId, organizationId],
@@ -169,11 +169,18 @@ async function updateUser(userId, organizationId, user) {
           manager_id = ?,
           active_flag = ?${passwordSql},
           updated_at = NOW()
-      WHERE user_id = ? AND organization_id = ?
+      WHERE user_id = ? AND organization_id <=> ?
     `,
     values,
   );
-  return result.affectedRows > 0 ? findById(userId, organizationId) : null;
+  return result.affectedRows > 0 ? findById(userId, user.organizationId !== undefined ? user.organizationId : organizationId) : null;
+}
+
+async function recordLastLogin(userId) {
+  await pool.promise().query(
+    'UPDATE app_user SET last_login_at = NOW() WHERE user_id = ?',
+    [userId]
+  );
 }
 
 module.exports = {
@@ -183,5 +190,6 @@ module.exports = {
   findById,
   listActiveAccountManagers,
   listUsers,
+  recordLastLogin,
   updateUser,
 };

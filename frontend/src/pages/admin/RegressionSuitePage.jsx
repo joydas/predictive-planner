@@ -42,7 +42,8 @@ const formatDuration = (seconds) => {
 const valueOrDash = (value) => (value === null || value === undefined || value === '' ? '-' : value);
 
 const RegressionSuitePage = () => {
-  const isAdmin = String(authService.getUserRole() || '').toUpperCase() === 'ADMIN';
+  const userRole = String(authService.getUserRole() || '').toUpperCase();
+  const isAuthorized = userRole === 'SUPER_ADMIN';
   const [projectCount, setProjectCount] = useState(10);
   const [runs, setRuns] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, pageSize: 10, total: 0 });
@@ -86,21 +87,21 @@ const RegressionSuitePage = () => {
   }, []);
 
   useEffect(() => {
-    if (isAdmin) loadRuns();
-  }, [isAdmin, loadRuns]);
+    if (isAuthorized) loadRuns();
+  }, [isAuthorized, loadRuns]);
 
   useEffect(() => {
     if (displayedRun?.runId) loadRunDetail(displayedRun.runId, { quiet: true });
   }, [displayedRun?.runId, loadRunDetail]);
 
   useEffect(() => {
-    if (!isAdmin || !activeRun) return undefined;
+    if (!isAuthorized || !activeRun) return undefined;
     const timer = window.setInterval(() => {
       loadRuns({ quiet: true });
       loadRunDetail(activeRun.runId, { quiet: true });
     }, 3000);
     return () => window.clearInterval(timer);
-  }, [activeRun, isAdmin, loadRunDetail, loadRuns]);
+  }, [activeRun, isAuthorized, loadRunDetail, loadRuns]);
 
   const handleRun = async () => {
     setStarting(true);
@@ -119,8 +120,8 @@ const RegressionSuitePage = () => {
     }
   };
 
-  if (!isAdmin) {
-    return <CAlert color="danger">Administration access requires ADMIN role.</CAlert>;
+  if (!isAuthorized) {
+    return <CAlert color="danger">Regression suite access requires SUPER_ADMIN role.</CAlert>;
   }
 
   return (

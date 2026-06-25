@@ -5,12 +5,18 @@ import { formatCurrency } from '../../../utils/resourcePlanning';
 const SimilarProjectsSection = ({ projects }) => {
   const [expandedId, setExpandedId] = useState(null);
 
+  const getVarianceColor = (variance) => {
+    if (variance > 0) return 'danger';
+    if (variance < 0) return 'success';
+    return 'secondary';
+  };
+
   return (
     <div className="section-container">
       <div className="section-header">
         <div className="d-flex align-items-center gap-2">
           <h4>Similar Historical Projects</h4>
-          <CTooltip content="Similarity is determined using industry, technology, complexity, effort, budget, team size, duration, and CR history.">
+          <CTooltip content="Similarity is determined using industry, technology, project type, delivery model, budget, team size, and duration.">
             <span className="text-muted small" style={{ cursor: 'help' }}>ⓘ</span>
           </CTooltip>
         </div>
@@ -22,70 +28,98 @@ const SimilarProjectsSection = ({ projects }) => {
               <CTableRow>
                 <CTableHeaderCell>Similarity</CTableHeaderCell>
                 <CTableHeaderCell>Project Name</CTableHeaderCell>
-                <CTableHeaderCell>Technology</CTableHeaderCell>
-                <CTableHeaderCell className="text-end">Duration (Days)</CTableHeaderCell>
+                <CTableHeaderCell>Matching Factors</CTableHeaderCell>
+                <CTableHeaderCell className="text-end">Duration</CTableHeaderCell>
                 <CTableHeaderCell>Outcome</CTableHeaderCell>
+                <CTableHeaderCell className="text-end">Budget Variance</CTableHeaderCell>
                 <CTableHeaderCell></CTableHeaderCell>
               </CTableRow>
             </CTableHead>
             <CTableBody>
               {projects?.length > 0 ? (
-                projects.map((project) => (
-                  <React.Fragment key={project.projectId}>
-                    <CTableRow 
-                      className="similarity-row"
-                      onClick={() => setExpandedId(expandedId === project.projectId ? null : project.projectId)}
-                    >
-                      <CTableDataCell>
-                        <CBadge color="info" className="match-badge">
-                          {Math.round(project.similarity)}% Match
-                        </CBadge>
-                      </CTableDataCell>
-                      <CTableDataCell className="fw-semibold">
-                        {project.projectName || `Project ${project.projectId}`}
-                      </CTableDataCell>
-                      <CTableDataCell>{project.technology}</CTableDataCell>
-                      <CTableDataCell className="text-end">{project.actualDurationDays}</CTableDataCell>
-                      <CTableDataCell>
-                        <CBadge color={project.completedOnTime ? 'success' : 'warning'}>
-                          {project.completedOnTime ? 'On Time' : 'Delayed'}
-                        </CBadge>
-                      </CTableDataCell>
-                      <CTableDataCell className="text-center text-muted">
-                        {expandedId === project.projectId ? '▲' : '▼'}
-                      </CTableDataCell>
-                    </CTableRow>
-                    {expandedId === project.projectId && (
-                      <CTableRow>
-                        <CTableDataCell colSpan={6} className="p-0">
-                          <div className="similarity-details">
-                            <div className="row g-3">
-                              <div className="col-md-3">
-                                <div className="text-muted small">Actual Effort</div>
-                                <div>{project.actualEffort} PD</div>
-                              </div>
-                              <div className="col-md-3">
-                                <div className="text-muted small">Actual Budget</div>
-                                <div>{formatCurrency(project.actualBudget)}</div>
-                              </div>
-                              <div className="col-md-3">
-                                <div className="text-muted small">Industry</div>
-                                <div>{project.industry}</div>
-                              </div>
-                              <div className="col-md-3">
-                                <div className="text-muted small">Approved CRs</div>
-                                <div>{project.approvedCrCount}</div>
-                              </div>
-                            </div>
+                projects.map((project) => {
+                  const budgetVariance = (project.actualBudget || 0) - (project.budget || 0);
+                  return (
+                    <React.Fragment key={project.projectId}>
+                      <CTableRow 
+                        className="similarity-row"
+                        onClick={() => setExpandedId(expandedId === project.projectId ? null : project.projectId)}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <CTableDataCell>
+                          <CBadge color="info" className="match-badge">
+                            {Math.round(project.similarityScore || project.similarity || 0)}% Match
+                          </CBadge>
+                        </CTableDataCell>
+                        <CTableDataCell className="fw-semibold">
+                          {project.projectName || `Project ${project.projectId}`}
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          <div className="d-flex flex-wrap gap-1">
+                            {(project.matchingFactors || []).slice(0, 3).map((factor, idx) => (
+                              <CBadge key={idx} color="secondary" shape="rounded-pill" className="fw-normal">{factor}</CBadge>
+                            ))}
+                            {(project.matchingFactors?.length > 3) && (
+                              <CBadge color="light" textBgColor="dark" shape="rounded-pill" className="fw-normal">+{project.matchingFactors.length - 3}</CBadge>
+                            )}
                           </div>
                         </CTableDataCell>
+                        <CTableDataCell className="text-end">{project.actualDurationDays} Days</CTableDataCell>
+                        <CTableDataCell>
+                          <CBadge color={project.completedOnTime ? 'success' : 'warning'}>
+                            {project.status || (project.completedOnTime ? 'On Time' : 'Delayed')}
+                          </CBadge>
+                        </CTableDataCell>
+                        <CTableDataCell className="text-end">
+                          <span className={`text-${getVarianceColor(budgetVariance)}`}>
+                            {budgetVariance > 0 ? '+' : ''}{formatCurrency(budgetVariance)}
+                          </span>
+                        </CTableDataCell>
+                        <CTableDataCell className="text-center text-muted">
+                          {expandedId === project.projectId ? '▲' : '▼'}
+                        </CTableDataCell>
                       </CTableRow>
-                    )}
-                  </React.Fragment>
-                ))
+                      {expandedId === project.projectId && (
+                        <CTableRow>
+                          <CTableDataCell colSpan={7} className="p-0">
+                            <div className="similarity-details p-3 bg-light border-bottom">
+                              <div className="row g-3">
+                                <div className="col-md-3">
+                                  <div className="text-muted small">Actual Effort</div>
+                                  <div className="fw-semibold">{project.actualEffort} PD</div>
+                                </div>
+                                <div className="col-md-3">
+                                  <div className="text-muted small">Actual Budget</div>
+                                  <div className="fw-semibold">{formatCurrency(project.actualBudget)}</div>
+                                </div>
+                                <div className="col-md-3">
+                                  <div className="text-muted small">Industry</div>
+                                  <div className="fw-semibold">{project.industry || 'N/A'}</div>
+                                </div>
+                                <div className="col-md-3">
+                                  <div className="text-muted small">Approved CRs</div>
+                                  <div className="fw-semibold">{project.approvedCrCount}</div>
+                                </div>
+                                <div className="col-12 mt-2">
+                                  <div className="text-muted small mb-1">All Matching Factors</div>
+                                  <div className="d-flex flex-wrap gap-2">
+                                    {(project.matchingFactors || []).map((factor, idx) => (
+                                      <CBadge key={idx} color="secondary" variant="outline">{factor}</CBadge>
+                                    ))}
+                                    {!(project.matchingFactors?.length) && <span className="text-muted small italic">None</span>}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </CTableDataCell>
+                        </CTableRow>
+                      )}
+                    </React.Fragment>
+                  );
+                })
               ) : (
                 <CTableRow>
-                  <CTableDataCell colSpan={6} className="text-center text-muted py-3">
+                  <CTableDataCell colSpan={7} className="text-center text-muted py-4">
                     No similar historical projects found.
                   </CTableDataCell>
                 </CTableRow>

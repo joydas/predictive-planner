@@ -13,6 +13,8 @@ import UserManagementPage from './pages/admin/UserManagementPage';
 import MlAdministrationPage from './pages/admin/MlAdministrationPage';
 import DataManagementPage from './pages/admin/DataManagementPage';
 import RegressionSuitePage from './pages/admin/RegressionSuitePage';
+import OrganizationManagementPage from './pages/admin/OrganizationManagementPage';
+import SaasUserManagementPage from './pages/admin/SaasUserManagementPage';
 import AnalyticsOverview from './pages/analytics/AnalyticsOverview';
 import PMDashboard from './pages/analytics/PMDashboard';
 import AMDashboard from './pages/analytics/AMDashboard';
@@ -62,7 +64,9 @@ function App() {
           <Route path="crs" element={<CRListPage />} />
           <Route path="crs/create" element={<CreateCRPage />} />
           <Route path="crs/:crId" element={<CRDetailsPage />} />
-          <Route path="admin/users" element={<UserManagementPage />} />
+          <Route path="admin/organizations" element={<OrganizationManagementPage />} />
+          <Route path="admin/users" element={<SaasUserManagementPage />} />
+          <Route path="admin/tenant-users" element={<UserManagementPage />} />
           <Route path="admin/ml" element={<MlAdministrationPage />} />
           <Route path="admin/data" element={<DataManagementPage />} />
           <Route path="admin/regression-suite" element={<RegressionSuitePage />} />

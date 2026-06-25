@@ -104,6 +104,33 @@ def _log_forecast_population(log, metrics: dict | None, population: dict | None 
 
 
 def run_training_pipeline(publish: bool = True, job_id: str | None = None, log=print, organization_id: int | None = None) -> dict:
+    engine = get_engine()
+    
+    if organization_id is None:
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT organization_id FROM organization WHERE status = 'ACTIVE'"))
+            active_org_ids = [row[0] for row in result.fetchall()]
+        
+        log(f"Found active organizations: {active_org_ids}")
+        results = {}
+        for org_id in active_org_ids:
+            log(f"--- Starting training pipeline for Organization ID: {org_id} ---")
+            try:
+                results[org_id] = run_training_pipeline(publish=publish, job_id=job_id, log=log, organization_id=org_id)
+            except Exception as e:
+                log(f"Error training organization {org_id}: {str(e)}")
+        return {"multi_tenant_results": results}
+
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("SELECT status FROM organization WHERE organization_id = :org_id"),
+            {"org_id": organization_id}
+        ).fetchone()
+        
+    if not result or result[0] != "ACTIVE":
+        log(f"Skipping training pipeline: Organization ID {organization_id} is not ACTIVE or does not exist.")
+        return {"status": "skipped", "reason": f"Organization {organization_id} is inactive or not found"}
+
     ensure_runtime_dirs(organization_id=organization_id)
     
     base_datasets_dir = get_tenant_datasets_dir(organization_id) if organization_id else DATASETS_DIR

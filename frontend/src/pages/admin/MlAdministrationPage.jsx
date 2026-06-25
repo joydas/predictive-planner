@@ -42,7 +42,8 @@ const loadStoredTrainingLogs = () => {
 };
 
 const MlAdministrationPage = () => {
-  const isAdmin = String(authService.getUserRole() || '').toUpperCase() === 'ADMIN';
+  const userRole = String(authService.getUserRole() || '').toUpperCase();
+  const isAuthorized = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
   const [modelInfo, setModelInfo] = useState(null);
   const [outputLogs, setOutputLogs] = useState(loadStoredTrainingLogs);
   const [loading, setLoading] = useState(false);
@@ -70,16 +71,16 @@ const MlAdministrationPage = () => {
   }, []);
 
   useEffect(() => {
-    if (isAdmin) loadModelInfo();
-  }, [isAdmin, loadModelInfo]);
+    if (isAuthorized) loadModelInfo();
+  }, [isAuthorized, loadModelInfo]);
 
   useEffect(() => {
-    if (!isAdmin || !isRunning) return undefined;
+    if (!isAuthorized || !isRunning) return undefined;
     const timer = window.setInterval(() => {
       loadModelInfo({ quiet: true });
     }, 3000);
     return () => window.clearInterval(timer);
-  }, [isAdmin, isRunning, loadModelInfo]);
+  }, [isAuthorized, isRunning, loadModelInfo]);
 
   useEffect(() => {
     const latestLogs = modelInfo?.logs || [];
@@ -116,8 +117,8 @@ const MlAdministrationPage = () => {
     }
   };
 
-  if (!isAdmin) {
-    return <CAlert color="danger">Administration access requires ADMIN role.</CAlert>;
+  if (!isAuthorized) {
+    return <CAlert color="danger">Administration access requires ADMIN or SUPER_ADMIN role.</CAlert>;
   }
 
   return (

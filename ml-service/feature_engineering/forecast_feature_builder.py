@@ -111,9 +111,9 @@ def _regression_filter(alias: str) -> str:
     return f"AND COALESCE({alias}.is_regression_data, 0) = 0" if _has_column("project", "is_regression_data") else ""
 
 
-def _read_project_rows(project_id: int | None = None, completed_only: bool = False, organization_id: int | None = None) -> pd.DataFrame:
+def _read_project_rows(project_id: int | None = None, completed_only: bool = True, organization_id: int | None = None) -> pd.DataFrame:
     project_filter = "AND p.project_id = :project_id" if project_id is not None else ""
-    completed_filter = "AND COALESCE(p.workflow_status, pd.workflow_status) IN ('COMPLETE', 'CLOSED', 'COMPLETED') AND COALESCE(p.actual_completion_date, latest_completion.actual_completion_date) IS NOT NULL" if completed_only else ""
+    completed_filter = "AND (COALESCE(p.workflow_status, pd.workflow_status) IN ('COMPLETE', 'CLOSED', 'COMPLETED') OR pch_exists.project_id IS NOT NULL)" if completed_only else ""
     regression_filter = _regression_filter("p")
     tenant_filter = "AND p.organization_id = :org_id" if organization_id is not None else ""
     test_data_filter = "AND UPPER(COALESCE(p.project_type, JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.basicInfo.project_type')), '')) <> 'TEST DATA'"
@@ -126,15 +126,16 @@ def _read_project_rows(project_id: int | None = None, completed_only: bool = Fal
         text(
             f"""
             SELECT
+              p.organization_id AS organization_id,
               p.project_id AS project_id,
               p.project_name AS project_name,
               p.approved_data AS approved_data,
-              JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.basicInfo.industry')) AS industry,
-              JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.technology.technology_stack')) AS technology,
-              JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.technology.complexity')) AS complexity,
-              JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.basicInfo.project_type')) AS project_type,
-              JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.deliveryDetails.start_date')) AS start_date,
-              JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.deliveryDetails.planned_end_date')) AS planned_completion_date,
+              COALESCE(p.industry, JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.basicInfo.industry')), JSON_UNQUOTE(JSON_EXTRACT(pd.draft_data, '$.basicInfo.industry'))) AS industry,
+              COALESCE(p.technology_stack, JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.technology.technology_stack')), JSON_UNQUOTE(JSON_EXTRACT(pd.draft_data, '$.technology.technology_stack'))) AS technology,
+              COALESCE(p.complexity, JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.technology.complexity')), JSON_UNQUOTE(JSON_EXTRACT(pd.draft_data, '$.technology.complexity'))) AS complexity,
+              COALESCE(p.project_type, JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.basicInfo.project_type')), JSON_UNQUOTE(JSON_EXTRACT(pd.draft_data, '$.basicInfo.project_type'))) AS project_type,
+              COALESCE(p.start_date, JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.deliveryDetails.start_date')), JSON_UNQUOTE(JSON_EXTRACT(pd.draft_data, '$.deliveryDetails.start_date'))) AS start_date,
+              COALESCE(p.planned_end_date, JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.deliveryDetails.planned_end_date')), JSON_UNQUOTE(JSON_EXTRACT(pd.draft_data, '$.deliveryDetails.planned_end_date'))) AS planned_completion_date,
               p.current_planned_effort,
               p.current_planned_budget,
               p.current_planned_team_size,
@@ -155,6 +156,9 @@ def _read_project_rows(project_id: int | None = None, completed_only: bool = Fal
                 GROUP BY project_id
               ) latest ON latest.completion_id = pch.completion_id
             ) latest_completion ON latest_completion.project_id = p.project_id
+            LEFT JOIN (
+              SELECT DISTINCT project_id FROM project_completion_history
+            ) pch_exists ON pch_exists.project_id = p.project_id
             WHERE 1 = 1
               {completed_filter}
               {project_filter}
@@ -446,6 +450,8 @@ def _assemble_features(projects: pd.DataFrame, include_target: bool = False, org
         df = df[df["completion_delay_days"].notna()]
 
     columns = ["project_id", "project_name", "planned_completion_date", *FORECAST_FEATURE_COLUMNS]
+    if "organization_id" in df.columns:
+        columns.append("organization_id")
     if include_target:
         columns.append("completion_delay_days")
     return df[columns]
@@ -553,7 +559,7 @@ def build_on_time_probability_training_dataset(output_path=None, organization_id
 
 
 def build_on_time_probability_input(project_id: int, organization_id: int | None = None) -> dict:
-    dataset = _assemble_features(_read_project_rows(project_id=project_id, organization_id=organization_id), include_target=False, organization_id=organization_id)
+    dataset = _assemble_features(_read_project_rows(project_id=project_id, completed_only=False, organization_id=organization_id), include_target=False, organization_id=organization_id)
     if dataset.empty:
         raise ValueError(f"Project not found for on-time probability input: {project_id}")
     row = dataset.iloc[0]
@@ -566,39 +572,42 @@ def build_on_time_probability_input(project_id: int, organization_id: int | None
 
 
 def build_completion_forecast_input(project_id: int, organization_id: int | None = None) -> dict:
-    dataset = _assemble_features(_read_project_rows(project_id=project_id, organization_id=organization_id), include_target=False, organization_id=organization_id)
+    dataset = _assemble_features(_read_project_rows(project_id=project_id, completed_only=False, organization_id=organization_id), include_target=False, organization_id=organization_id)
     if dataset.empty:
         raise ValueError(f"Project not found for completion forecast: {project_id}")
     row = dataset.iloc[0]
     return {
         "projectId": int(row["project_id"]),
         "projectName": row["project_name"],
+        "organizationId": int(row["organization_id"]) if pd.notna(row["organization_id"]) else None,
         "plannedCompletionDate": str(row["planned_completion_date"] or "")[:10],
         "features": row[FORECAST_FEATURE_COLUMNS].to_dict(),
     }
 
 
 def build_final_effort_forecast_input(project_id: int, organization_id: int | None = None) -> dict:
-    dataset = _assemble_final_effort_dataset(_read_project_rows(project_id=project_id, organization_id=organization_id), include_target=False, organization_id=organization_id)
+    dataset = _assemble_final_effort_dataset(_read_project_rows(project_id=project_id, completed_only=False, organization_id=organization_id), include_target=False, organization_id=organization_id)
     if dataset.empty:
         raise ValueError(f"Project not found for final effort forecast: {project_id}")
     row = dataset.iloc[0]
     return {
         "projectId": int(row["project_id"]),
         "projectName": row["project_name"],
+        "organizationId": int(row["organization_id"]) if pd.notna(row["organization_id"]) else None,
         "currentPlannedEffort": _to_number(row["current_planned_effort"]),
         "features": row[FORECAST_FEATURE_COLUMNS].to_dict(),
     }
 
 
 def build_final_budget_forecast_input(project_id: int, organization_id: int | None = None) -> dict:
-    dataset = _assemble_final_budget_dataset(_read_project_rows(project_id=project_id, organization_id=organization_id), include_target=False, organization_id=organization_id)
+    dataset = _assemble_final_budget_dataset(_read_project_rows(project_id=project_id, completed_only=False, organization_id=organization_id), include_target=False, organization_id=organization_id)
     if dataset.empty:
         raise ValueError(f"Project not found for final budget forecast: {project_id}")
     row = dataset.iloc[0]
     return {
         "projectId": int(row["project_id"]),
         "projectName": row["project_name"],
+        "organizationId": int(row["organization_id"]) if pd.notna(row["organization_id"]) else None,
         "currentPlannedBudget": _to_number(row["current_planned_budget"]),
         "features": row[FORECAST_FEATURE_COLUMNS].to_dict(),
     }
@@ -730,9 +739,12 @@ def _completed_similarity_dataset(organization_id: int | None = None) -> pd.Data
         return cached.copy()
 
     projects = _read_project_rows(completed_only=True, organization_id=organization_id)
+    if projects.empty:
+        projects = _read_project_rows(completed_only=False, organization_id=organization_id)
+        
     dataset = _assemble_features(projects, include_target=False, organization_id=organization_id)
     if dataset.empty:
-        _SIMILAR_COMPLETED_CACHE.update({cache_key: dataset, f"{cache_key}_expires_at": now + _SIMILAR_CACHE_SECONDS})
+        _SIMILAR_COMPLETED_CACHE.update({cache_key: dataset, f"{cache_key}_expires_at": now + _SIMILAR_COMPLETED_SECONDS})
         return dataset.copy()
 
     actuals = projects[
@@ -796,7 +808,7 @@ def find_similar_historical_projects(
     candidate_project_ids: list[int] | None = None,
     organization_id: int | None = None,
 ) -> list[dict]:
-    target = _assemble_features(_read_project_rows(project_id=project_id, organization_id=organization_id), include_target=False, organization_id=organization_id)
+    target = _assemble_features(_read_project_rows(project_id=project_id, completed_only=False, organization_id=organization_id), include_target=False, organization_id=organization_id)
     if target.empty:
         raise ValueError(f"Project not found for similar historical projects: {project_id}")
 
@@ -808,6 +820,7 @@ def find_similar_historical_projects(
     if candidate_project_ids is not None:
         allowed_ids = {int(value) for value in candidate_project_ids if value}
         candidates = candidates[candidates["project_id"].isin(allowed_ids)].copy()
+    
     if candidates.empty:
         return []
 

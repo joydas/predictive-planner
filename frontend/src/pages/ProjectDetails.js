@@ -45,7 +45,7 @@ const forecastStatus = (delayDays) => {
   const delay = Number(delayDays || 0);
   if (delay <= 0) return 'On Track';
   if (delay <= 14) return 'Minor Delay';
-  if (delay <= 30) return 'Moderate Delay';
+  if (delay <= 50) return 'Moderate Delay';
   return 'High Delay Risk';
 };
 
@@ -259,12 +259,7 @@ const ProjectDetails = () => {
             estimation={estimation}
           />
           
-          <AiInsights 
-            recommendation={recommendation}
-            forecast={forecast}
-            deliveryRisk={forecast?.onTimeProbability}
-            similarProjectsCount={similarProjects?.similarProjects?.length || 0}
-          />
+          <AiInsights projectId={projectId} />
 
           <TeamSection teamRows={displayPlanning.rows} />
 
