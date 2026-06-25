@@ -13,9 +13,9 @@ const SimilarProjectsSection = ({ projects }) => {
 
   return (
     <div className="section-container">
-      <div className="section-header">
+      <div className="section-header card-header">
         <div className="d-flex align-items-center gap-2">
-          <h4>Similar Historical Projects</h4>
+          <strong>Similar Historical Projects</strong>
           <CTooltip content="Similarity is determined using industry, technology, project type, delivery model, budget, team size, and duration.">
             <span className="text-muted small" style={{ cursor: 'help' }}>ⓘ</span>
           </CTooltip>

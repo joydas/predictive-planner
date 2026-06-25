@@ -800,9 +800,9 @@ function buildProgressContext(project, snapshots = [], selectedSnapshot = null) 
   const current = project?.baselineTracking?.current || {};
   const estimation = project?.baselineTracking?.estimation || {};
   const approvedScheduleImpactDays = normalizeNumber(project?.totalCrScheduleImpactDays, 0);
-  const plannedDuration = getCalendarDays(delivery.start_date, delivery.planned_end_date)
+  const plannedDuration = getCalendarDays(project.startDate, project.plannedEndDate)
     + approvedScheduleImpactDays;
-  const effectiveEndDate = addCalendarDays(delivery.planned_end_date, approvedScheduleImpactDays);
+  const effectiveEndDate = addCalendarDays(project.plannedEndDate, approvedScheduleImpactDays);
   return {
     project: {
       projectId: project.projectId,
@@ -815,8 +815,8 @@ function buildProgressContext(project, snapshots = [], selectedSnapshot = null) 
       plannedBudget: current.budget,
       plannedTeamSize: current.teamSize,
       plannedDuration,
-      startDate: delivery.start_date,
-      plannedEndDate: delivery.planned_end_date,
+      startDate: project.startDate,
+      plannedEndDate: project.plannedEndDate,
       effectiveEndDate,
       approvedScheduleImpactDays,
       currentEstimation: estimation.actualFinalEstimatedValue ?? estimation.pmEstimatedValue,
@@ -938,13 +938,13 @@ async function completeProject(projectId, user, payload) {
       payload,
       ...completion,
     });
-    console.info('Storing project completion actuals', {
-      projectId,
-      actualEffort: completion.actualEffort,
-      actualBudget: completion.fullProjectCost,
-      actualTeamSize: completion.actualTeamSize,
-      actualFinalEstimatedValue: completion.actualFinalEstimatedValue,
-    });
+    // console.info('Storing project completion actuals', {
+    //   projectId,
+    //   actualEffort: completion.actualEffort,
+    //   actualBudget: completion.fullProjectCost,
+    //   actualTeamSize: completion.actualTeamSize,
+    //   actualFinalEstimatedValue: completion.actualFinalEstimatedValue,
+    // });
     const actualsUpdated = await projectRepository.updateProjectActuals(connection, projectId, {
       actualEffort: completion.actualEffort,
       actualBudget: completion.fullProjectCost,

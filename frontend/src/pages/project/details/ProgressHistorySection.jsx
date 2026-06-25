@@ -17,10 +17,10 @@ const ProgressHistorySection = ({ snapshots }) => {
   return (
     <div className="section-container">
       <div 
-        className="section-header collapsible-header" 
+        className="section-header card-header collapsible-header" 
         onClick={() => setIsOpen(!isOpen)}
       >
-        <h4>Progress History ({snapshots?.length || 0})</h4>
+        <strong>Progress History ({snapshots?.length || 0})</strong>
         <span className={`collapsible-icon ${isOpen ? 'open' : ''}`}>▼</span>
       </div>
       {isOpen && (

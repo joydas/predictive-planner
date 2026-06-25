@@ -2015,7 +2015,7 @@ async function markProjectComplete(connection, draftId, projectId, user, comment
         (project_id, organization_id, from_status, to_status, action_by_user_id, action_by_role, action_comment, action_type)
       VALUES (?, ?, 'APPROVED', 'COMPLETE', ?, ?, ?, 'COMPLETE')
     `,
-    [draftId, user.organizationId, user.userId, String(user.role || '').toUpperCase(), comment],
+    [projectId, user.organizationId, user.userId, String(user.role || '').toUpperCase(), comment],
   );
 
   return true;

@@ -43,8 +43,8 @@
 
 .section-header {
   padding: 1rem 1.5rem;
-  background: #f8fbff;
-  border-bottom: 1px solid #d8e3f5;
+  background: rgb(23, 28, 176);
+  border-bottom: 1px solid rgb(18, 22, 140);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -54,7 +54,11 @@
   margin: 0;
   font-size: 1.1rem;
   font-weight: 700;
-  color: #303c54;
+  color: #ffffff;
+}
+
+.section-header .collapsible-icon {
+  color: #ffffff;
 }
 
 .section-body {
@@ -98,7 +102,7 @@
 }
 
 .collapsible-header:hover {
-  background: #f0f4f8;
+  background: rgb(30, 36, 200);
 }
 
 .collapsible-icon {

@@ -19,8 +19,8 @@ const ProjectOverview = ({ project, basicInfo, deliveryDetails, technology, risk
 
   return (
     <div className="section-container">
-      <div className="section-header">
-        <h4>Project Overview</h4>
+      <div className="card-header">
+        <strong>Project Overview</strong>
       </div>
       <div className="section-body">
         <div className="overview-grid">

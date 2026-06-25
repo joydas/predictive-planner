@@ -17,10 +17,10 @@ const ChangeRequestsSection = ({ crs }) => {
   return (
     <div className="section-container">
       <div 
-        className="section-header collapsible-header" 
+        className="section-header card-header collapsible-header" 
         onClick={() => setIsOpen(!isOpen)}
       >
-        <h4>Change Requests ({crs?.length || 0})</h4>
+        <strong>Change Requests ({crs?.length || 0})</strong>
         <span className={`collapsible-icon ${isOpen ? 'open' : ''}`}>▼</span>
       </div>
       {isOpen && (

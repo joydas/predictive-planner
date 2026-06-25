@@ -6,8 +6,8 @@ import { formatCurrency } from '../../../utils/resourcePlanning';
 const TeamSection = ({ teamRows }) => {
   return (
     <div className="section-container">
-      <div className="section-header">
-        <h4>Team & Resource Loading</h4>
+      <div className="card-header">
+        <strong>Team & Resource Loading</strong>
       </div>
       <div className="section-body p-0">
         <div className="table-responsive">

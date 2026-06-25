@@ -248,7 +248,9 @@ const ProjectDetails = () => {
       />
 
       <CRow>
-        <CCol lg={8}>
+        <CCol lg={12}>
+          <AiInsights projectId={projectId} />
+
           <ProjectOverview 
             project={project}
             basicInfo={basicInfo}
@@ -258,8 +260,6 @@ const ProjectDetails = () => {
             financial={financial}
             estimation={estimation}
           />
-          
-          <AiInsights projectId={projectId} />
 
           <TeamSection teamRows={displayPlanning.rows} />
 
@@ -270,6 +270,9 @@ const ProjectDetails = () => {
           <SimilarProjectsSection projects={similarProjects?.similarProjects} />
         </CCol>
 
+        
+      </CRow>
+      <CRow>
         <CCol lg={4}>
           <WorkflowPanel
             status={project.workflowStatus}
