@@ -142,13 +142,14 @@ def _read_project_rows(project_id: int | None = None, completed_only: bool = Tru
               p.pm_estimated_value,
               p.ai_estimated_value,
               p.actual_effort,
-              p.actual_budget,
+              coalesce(p.actual_budget, latest_completion.full_project_cost) as actual_budget,
               p.actual_team_size,
               COALESCE(p.actual_completion_date, latest_completion.actual_completion_date) AS actual_completion_date
             FROM project p
             LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
             LEFT JOIN (
-              SELECT pch.project_id, DATE(pch.completed_at) AS actual_completion_date
+              SELECT pch.project_id, DATE(pch.completed_at) AS actual_completion_date, 
+              full_project_cost
               FROM project_completion_history pch
               INNER JOIN (
                 SELECT project_id, MAX(completion_id) AS completion_id

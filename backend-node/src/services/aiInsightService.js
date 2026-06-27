@@ -99,7 +99,7 @@ class AiInsightService {
         ? `Project is behind schedule at ${completionPct.toFixed(0)}% completion. Forecasted delay of ${delayDays} day(s) (~${weeksDiff} week${weeksDiff > 1 ? 's' : ''}). Immediate attention recommended.`
         : `Project at ${completionPct.toFixed(0)}% completion. Delivery is currently aligned with plan despite being slightly behind expected progress.`,
       confidence: 'High',
-      status: delayDays > 14 ? 'critical' : delayDays > 0 ? 'at_risk' : 'on_track',
+      status: delayDays > 50 ? 'critical' : delayDays > 0 ? 'at_risk' : 'on_track',
       supportingEvidence: `Forecast based on current trajectory, progress patterns, and ${completion.similarProjectsUsed || 'historical'} similar projects.`,
       forecastDelayDays: Math.max(0, delayDays),
       forecastCompletionDate: forecastDate,
@@ -140,6 +140,7 @@ class AiInsightService {
     const forecastBudget = budgetForecast.forecastAvailable !== false
       ? Number(budgetForecast.forecastFinalBudget || 0)
       : (burnRatio ? budget * burnRatio : 0);
+
 
     const budgetVariancePct = budget > 0 ? ((forecastBudget - budget) / budget * 100).toFixed(1) : 0;
 
