@@ -2,34 +2,38 @@
 
 /**
  * Predictive Planner – One-Time Data Rejuvenation Utility
- * 
+ *
  * Purpose: Generate ~200 realistic projects with complete execution history
  * Execution: Manual one-time run
  * Usage: node utils/dataRejuvenation.js [--dry-run]
- * 
+ *
  * Generated Data:
  * - ~200 Projects across 6 tech stacks
  * - Realistic team compositions
- * - Calculated budgets (role-based rates)
+ * - Calculated budgets (role-based rates, bottom-up per resource row)
+ * - current_planned_* set correctly from bottom-up resource cost on creation
  * - Project completion outcomes (40% on-time, 40% minor delay, 20% major delay)
  * - 0-5 change requests per project
  * - Monthly progress snapshots
  * - Team loading snapshots
- * - Completion history
+ * - Completion history with resource_cost = SUM of per-row costs
+ * - project_completion_resource_loading rows populated to match resource_cost
  * - Forecast records
  */
 
 const { pool } = require('../src/config/db.config');
-const TenantContext = require('../src/utils/tenantContext');
 
 const CONFIG = {
   organizationId: 1,
   dryRun: process.argv.includes('--dry-run'),
   verbose: process.argv.includes('--verbose'),
-  PROJECT_COUNT: 5, // Total projects to generate (can be adjusted for testing)
+  PROJECT_COUNT: 5,
 };
 
-// Data definitions
+// ============================================================================
+// STATIC DATA DEFINITIONS
+// ============================================================================
+
 const TECH_STACKS = {
   JAVA: {
     projectCount: CONFIG.PROJECT_COUNT,
@@ -78,7 +82,10 @@ const PROJECT_SERIES = {
   SAP: ['Sapphire', 'Sage'],
 };
 
-const CLIENTS = ['Acme Corp', 'Global Retail', 'NextGen Bank', 'HealthOne', 'TechSphere', 'Innovate Ltd', 'Future Systems', 'Smart Solutions'];
+const CLIENTS = [
+  'Acme Corp', 'Global Retail', 'NextGen Bank', 'HealthOne',
+  'TechSphere', 'Innovate Ltd', 'Future Systems', 'Smart Solutions',
+];
 
 const INDUSTRIES = ['BFSI', 'HEALTHCARE', 'RETAIL', 'TELECOM', 'TECHNOLOGY', 'MANUFACTURING'];
 
@@ -88,15 +95,15 @@ const BUSINESS_CRITICALITY = ['Low', 'Medium', 'High', 'Critical'];
 
 // Duration distribution: [3-6 months: 30%, 6-9 months: 50%, 9-12 months: 20%]
 const DURATION_DISTRIBUTION = [
-  { min: 90, max: 180, weight: 0.30 }, // 3-6 months
-  { min: 180, max: 270, weight: 0.50 }, // 6-9 months
-  { min: 270, max: 360, weight: 0.20 }, // 9-12 months
+  { min: 90,  max: 180, weight: 0.30 },
+  { min: 180, max: 270, weight: 0.50 },
+  { min: 270, max: 360, weight: 0.20 },
 ];
 
 const COMPLETION_OUTCOMES = [
-  { name: 'On Time', delayDays: 0, weight: 0.40 },
-  { name: 'Minor Delay', delayDays: 15, weight: 0.40 },
-  { name: 'Major Delay', delayDays: 45, weight: 0.20 },
+  { name: 'On Time',      delayDays: 0,  weight: 0.40 },
+  { name: 'Minor Delay',  delayDays: 15, weight: 0.40 },
+  { name: 'Major Delay',  delayDays: 45, weight: 0.20 },
 ];
 
 // ============================================================================
@@ -105,8 +112,7 @@ const COMPLETION_OUTCOMES = [
 
 function log(message, isWarning = false) {
   if (CONFIG.verbose || isWarning) {
-    const prefix = isWarning ? '⚠️ ' : '✓ ';
-    console.log(`${prefix} ${message}`);
+    console.log(`${isWarning ? '⚠️ ' : '✓ '} ${message}`);
   }
 }
 
@@ -149,216 +155,252 @@ function toDateOnly(date) {
   return date.toISOString().split('T')[0];
 }
 
+/**
+ * Count working days (Mon–Fri) between two dates, inclusive.
+ * Mirrors getWorkingDays() in project.service.js.
+ */
+function countWorkingDays(startDate, endDate) {
+  const start = new Date(`${startDate}T00:00:00`);
+  const end   = new Date(`${endDate}T00:00:00`);
+  if (end < start) return 0;
+  let days = 0;
+  const cur = new Date(start);
+  while (cur <= end) {
+    const d = cur.getDay();
+    if (d !== 0 && d !== 6) days++;
+    cur.setDate(cur.getDate() + 1);
+  }
+  return days;
+}
+
 // ============================================================================
-// DATA GENERATION FUNCTIONS
+// MASTER DATA
 // ============================================================================
 
 async function getMasterData() {
-  try {
-    const [roles] = await pool.promise().query(
-      'SELECT role_id, role_name FROM md_role WHERE active_flag = 1 ORDER BY role_name'
-    );
-    const [rateCards] = await pool.promise().query(
-      `SELECT rc.role_id, rc.rate_per_day, rc.location_type 
-       FROM md_rate_card rc 
-       WHERE rc.active_flag = 1 
-       AND rc.effective_from <= CURRENT_DATE() 
+  const [roles] = await pool.promise().query(
+    'SELECT role_id, role_name FROM md_role WHERE active_flag = 1 ORDER BY role_name'
+  );
+  const [rateCards] = await pool.promise().query(
+    `SELECT rc.role_id, rc.rate_per_day, rc.location_type
+     FROM md_rate_card rc
+     WHERE rc.active_flag = 1
+       AND rc.effective_from <= CURRENT_DATE()
        AND (rc.effective_to IS NULL OR rc.effective_to >= CURRENT_DATE())`
-    );
-    const [industries] = await pool.promise().query(
-      'SELECT industry_id, industry_code, industry_name FROM md_industry WHERE is_active = 1'
-    );
-
-    return { roles, rateCards, industries };
-  } catch (error) {
-    console.error('Failed to fetch master data:', error.message);
-    throw error;
-  }
+  );
+  const [industries] = await pool.promise().query(
+    'SELECT industry_id, industry_code, industry_name FROM md_industry WHERE is_active = 1'
+  );
+  return { roles, rateCards, industries };
 }
 
-function buildTeamComposition(techStack, masterData) {
-  const roleNames = TECH_STACKS[techStack].roles;
+// ============================================================================
+// TEAM COMPOSITION & BUDGET  (bottom-up, per-row cost)
+// ============================================================================
+
+/**
+ * Returns the daily rate for a role + location combination.
+ * Falls back to ONSITE rate, then to a sensible default.
+ */
+function getRatePerDay(roleId, locationType, rateCards) {
+  const exact = rateCards.find(
+    rc => rc.role_id === roleId && rc.location_type === locationType
+  );
+  if (exact) return parseFloat(exact.rate_per_day);
+
+  // Fall back to ONSITE rate if OFFSHORE not found (or vice-versa)
+  const fallback = rateCards.find(rc => rc.role_id === roleId);
+  return fallback ? parseFloat(fallback.rate_per_day) : 500;
+}
+
+/**
+ * Build team rows and compute per-row cost bottom-up.
+ *
+ * Each row stores:
+ *   workingDays   – calendar working days for this resource over the project span
+ *   plannedEffort – count × (allocation/100) × workingDays  (person-days)
+ *   ratePerDay    – from rate card
+ *   plannedCost   – plannedEffort × ratePerDay              (currency)
+ *
+ * This is the same formula used in deriveResourcePlanning() in project.service.js.
+ */
+function buildTeamComposition(techKey, masterData, startDateStr, endDateStr) {
+  const roleNames = TECH_STACKS[techKey].roles;
+  const workingDays = countWorkingDays(startDateStr, endDateStr);
+
+  // Map display role name → role_id using a prefix match
   const roleIdMap = {};
-
-  // Map role names to role IDs
   for (const roleName of roleNames) {
-    const roleRecord = masterData.roles.find(r => 
-      r.role_name.toLowerCase().includes(roleName.toLowerCase().split(' ')[0])
+    const firstWord = roleName.toLowerCase().split(' ')[0];
+    const rec = masterData.roles.find(r =>
+      r.role_name.toLowerCase().includes(firstWord)
     );
-    if (roleRecord) {
-      roleIdMap[roleName] = roleRecord.role_id;
-    }
+    if (rec) roleIdMap[roleName] = rec.role_id;
   }
 
-  // Build team with realistic counts
-  const teamRows = [];
-  const leadRole = roleNames.find(r => r.includes('Lead'));
-  const devRoles = roleNames.filter(r => r.includes('Developer') || r.includes('Consultant'));
-  const qaRoles = roleNames.filter(r => r.includes('QA'));
-  const testRoles = roleNames.filter(r => r.includes('Tester'));
+  const leadRole    = roleNames.find(r => r.includes('Lead'));
+  const devRoles    = roleNames.filter(r => r.includes('Developer') || r.includes('Consultant'));
+  const qaRoles     = roleNames.filter(r => r.includes('QA'));
+  const testRoles   = roleNames.filter(r => r.includes('Tester'));
   const devOpsRoles = roleNames.filter(r => r.includes('DevOps'));
-  const pmRoles = roleNames.filter(r => r.includes('Project Manager'));
+  const pmRoles     = roleNames.filter(r => r.includes('Project Manager'));
 
-  // Add team members
+  const specs = [];
+
   if (leadRole && roleIdMap[leadRole]) {
-    teamRows.push({
-      roleId: roleIdMap[leadRole],
-      roleName: leadRole,
-      count: 1,
-      locationType: 'ONSITE',
-      allocationPercent: 100,
-    });
+    specs.push({ roleName: leadRole, roleId: roleIdMap[leadRole], count: 1, locationType: 'ONSITE', allocationPercent: 100 });
   }
-
-  devRoles.forEach(role => {
-    if (roleIdMap[role]) {
-      teamRows.push({
-        roleId: roleIdMap[role],
-        roleName: role,
-        count: getRandomNumber(3, 8),
-        locationType: getRandomItem(['ONSITE', 'OFFSHORE', 'HYBRID']),
-        allocationPercent: 100,
-      });
-    }
+  devRoles.forEach(r => {
+    if (roleIdMap[r]) specs.push({ roleName: r, roleId: roleIdMap[r], count: getRandomNumber(3, 8), locationType: getRandomItem(['ONSITE', 'OFFSHORE', 'HYBRID']), allocationPercent: 100 });
+  });
+  qaRoles.forEach(r => {
+    if (roleIdMap[r]) specs.push({ roleName: r, roleId: roleIdMap[r], count: getRandomNumber(2, 4), locationType: getRandomItem(['ONSITE', 'OFFSHORE']), allocationPercent: 100 });
+  });
+  testRoles.forEach(r => {
+    if (roleIdMap[r]) specs.push({ roleName: r, roleId: roleIdMap[r], count: getRandomNumber(1, 3), locationType: 'OFFSHORE', allocationPercent: 100 });
+  });
+  devOpsRoles.forEach(r => {
+    if (roleIdMap[r]) specs.push({ roleName: r, roleId: roleIdMap[r], count: 1, locationType: 'HYBRID', allocationPercent: 100 });
+  });
+  pmRoles.forEach(r => {
+    if (roleIdMap[r]) specs.push({ roleName: r, roleId: roleIdMap[r], count: 1, locationType: 'ONSITE', allocationPercent: 100 });
   });
 
-  qaRoles.forEach(role => {
-    if (roleIdMap[role]) {
-      teamRows.push({
-        roleId: roleIdMap[role],
-        roleName: role,
-        count: getRandomNumber(2, 4),
-        locationType: getRandomItem(['ONSITE', 'OFFSHORE']),
-        allocationPercent: 100,
-      });
-    }
+  // Enrich each row with cost fields
+  const rows = specs.map(spec => {
+    // HYBRID isn't in the rate card ENUM; treat as ONSITE for billing
+    const billingLocation = spec.locationType === 'HYBRID' ? 'ONSITE' : spec.locationType;
+    const ratePerDay    = getRatePerDay(spec.roleId, billingLocation, masterData.rateCards);
+    const plannedEffort = spec.count * (spec.allocationPercent / 100) * workingDays; // person-days
+    const plannedCost   = plannedEffort * ratePerDay;
+
+    return {
+      ...spec,
+      role:             spec.roleName,
+      startDate:        startDateStr,
+      endDate:          endDateStr,
+      ratePerDay,
+      workingDays,
+      durationDays:     workingDays,
+      plannedEffort,    // person-days
+      plannedCost,      // currency
+    };
   });
 
-  testRoles.forEach(role => {
-    if (roleIdMap[role]) {
-      teamRows.push({
-        roleId: roleIdMap[role],
-        roleName: role,
-        count: getRandomNumber(1, 3),
-        locationType: 'OFFSHORE',
-        allocationPercent: 100,
-      });
-    }
-  });
+  // Bottom-up aggregates (mirrors deriveResourcePlanning in project.service.js)
+  const baseResourceCost   = rows.reduce((s, r) => s + r.plannedCost,   0);
+  const plannedEffortTotal = rows.reduce((s, r) => s + r.plannedEffort, 0);
+  const estimatedTeamSize  = rows.reduce((s, r) => s + r.count,         0);
 
-  devOpsRoles.forEach(role => {
-    if (roleIdMap[role]) {
-      teamRows.push({
-        roleId: roleIdMap[role],
-        roleName: role,
-        count: 1,
-        locationType: 'HYBRID',
-        allocationPercent: 100,
-      });
-    }
-  });
-
-  pmRoles.forEach(role => {
-    if (roleIdMap[role]) {
-      teamRows.push({
-        roleId: roleIdMap[role],
-        roleName: role,
-        count: 1,
-        locationType: 'ONSITE',
-        allocationPercent: 100,
-      });
-    }
-  });
-
-  return teamRows;
-}
-
-function calculateBudget(teamRows, durationDays, rateCards, startDate, endDate) {
-  let totalCost = 0;
-  let totalEffort = 0;
-
-  for (const row of teamRows) {
-    const rateCard = rateCards.find(rc => rc.role_id === row.roleId);
-    const dailyRate = rateCard ? rateCard.rate_per_day : 500; // Fallback rate
-
-    // Enrich row with keys expected by the UI and repository
-    row.role = row.roleName;
-    row.startDate = toDateOnly(startDate);
-    row.endDate = toDateOnly(endDate);
-    row.ratePerDay = dailyRate;
-    row.durationDays = Math.ceil(durationDays);
-    row.workingDays = Math.ceil(durationDays * (5 / 7)); // Approximation of working days
-    row.plannedEffort = row.count * row.workingDays;
-    row.plannedCost = row.plannedEffort * dailyRate;
-
-    totalCost += row.plannedCost;
-    totalEffort += row.plannedEffort;
-  }
+  // Apply a small management + contingency reserve (10%) to arrive at planned budget
+  const reservePercent = 10;
+  const budget = baseResourceCost * (1 + reservePercent / 100);
 
   return {
-    budget: Math.ceil(totalCost),
-    plannedEffort: Math.ceil(totalEffort),
-    estimatedTeamSize: teamRows.reduce((sum, r) => sum + r.count, 0),
+    rows,
+    baseResourceCost: Math.ceil(baseResourceCost),
+    plannedEffort:    Math.ceil(plannedEffortTotal),
+    estimatedTeamSize,
+    budget:           Math.ceil(budget),
   };
 }
+
+// ============================================================================
+// PROJECT GENERATION
+// ============================================================================
 
 async function generateProject(index, techKey, masterData) {
-  const startDate = addDays(new Date('2023-01-01'), getRandomNumber(0, 730));
-  const durationDays = getWeightedRandom(DURATION_DISTRIBUTION);
-  const plannedEndDate = addDays(startDate, getRandomNumber(durationDays.min, durationDays.max));
+  const startDate      = addDays(new Date('2023-01-01'), getRandomNumber(0, 730));
+  const durationBucket = getWeightedRandom(DURATION_DISTRIBUTION);
+  const plannedEndDate = addDays(startDate, getRandomNumber(durationBucket.min, durationBucket.max));
 
-  const teamRows = buildTeamComposition(techKey, masterData);
-  const { budget, plannedEffort, estimatedTeamSize } = calculateBudget(
-    teamRows,
-    (plannedEndDate - startDate) / (1000 * 60 * 60 * 24),
-    masterData.rateCards,
-    startDate,
-    plannedEndDate
-  );
+  const startDateStr = toDateOnly(startDate);
+  const endDateStr   = toDateOnly(plannedEndDate);
 
-  const completionOutcome = getWeightedRandom(COMPLETION_OUTCOMES);
+  const team = buildTeamComposition(techKey, masterData, startDateStr, endDateStr);
+
+  const completionOutcome    = getWeightedRandom(COMPLETION_OUTCOMES);
   const actualCompletionDate = addDays(plannedEndDate, completionOutcome.delayDays);
-
-  const projectName = generateProjectName(techKey, index);
-  const industryRecord = getRandomItem(masterData.industries);
+  const industryRecord       = getRandomItem(masterData.industries);
 
   return {
-    projectName,
-    clientName: getRandomItem(CLIENTS),
-    industry: industryRecord.industry_name,
-    industryCode: industryRecord.industry_code,
-    projectType: getRandomItem(['Greenfield', 'Brownfield', 'Maintenance']),
-    deliveryModel: getRandomItem(DELIVERY_MODELS),
+    projectName:         generateProjectName(techKey, index),
+    clientName:          getRandomItem(CLIENTS),
+    industry:            industryRecord.industry_name,
+    industryCode:        industryRecord.industry_code,
+    projectType:         getRandomItem(['Greenfield', 'Brownfield', 'Maintenance']),
+    deliveryModel:       getRandomItem(DELIVERY_MODELS),
     businessCriticality: getRandomItem(BUSINESS_CRITICALITY),
-    technologyStack: TECH_STACKS[techKey].stack,
-    complexity: getRandomNumber(1, 5),
-    pmEstimatedValue: plannedEffort,
-    budget,
-    estimatedTeamSize,
-    plannedEffort,
-    startDate: toDateOnly(startDate),
-    plannedEndDate: toDateOnly(plannedEndDate),
+    technologyStack:     TECH_STACKS[techKey].stack,
+    complexity:          getRandomNumber(1, 5),
+    startDate:           startDateStr,
+    plannedEndDate:      endDateStr,
     actualCompletionDate: toDateOnly(actualCompletionDate),
     completionOutcome,
-    teamRows,
+    // bottom-up financial values
+    teamRows:          team.rows,
+    baseResourceCost:  team.baseResourceCost,
+    plannedEffort:     team.plannedEffort,
+    estimatedTeamSize: team.estimatedTeamSize,
+    budget:            team.budget,
+    pmEstimatedValue:  team.plannedEffort,
   };
 }
 
+// ============================================================================
+// PERSISTENCE FUNCTIONS
+// ============================================================================
+
+/**
+ * Insert project row.
+ *
+ * current_planned_* is set to the bottom-up derived values (plannedEffort,
+ * budget, estimatedTeamSize) so it matches the resource-loading sum exactly.
+ * This mirrors what project.service.js / deriveResourcePlanning() produces
+ * when a real project is approved through the UI.
+ */
 async function persistProject(connection, project, organizationId, ownerId) {
   const [result] = await connection.query(
-    `INSERT INTO project 
-     (organization_id, owner_id, project_name, client_name, industry, industry_code, 
-      project_type, delivery_model, business_criticality, technology_stack, 
-      architecture_type, cloud_platform, complexity, estimated_team_size, 
-      planned_effort, budget, billing_model, start_date, planned_end_date, 
-      pm_estimated_value, workflow_status, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'APPROVED', 'APPROVED')`,
-    [organizationId, ownerId, project.projectName, project.clientName, project.industry,
-     project.industryCode, project.projectType, project.deliveryModel, project.businessCriticality || 'Medium',
-     project.technologyStack, project.architectureType || 'Microservices', project.cloudPlatform || 'AWS',
-     project.complexity, project.estimatedTeamSize, project.plannedEffort, project.budget,
-     project.billingModel || 'Time & Material', project.startDate, project.plannedEndDate,
-     project.pmEstimatedValue]
+    `INSERT INTO project
+       (organization_id, owner_id, project_name, client_name, industry, industry_code,
+        project_type, delivery_model, business_criticality, technology_stack,
+        architecture_type, cloud_platform, complexity, estimated_team_size,
+        planned_effort, budget, billing_model, start_date, planned_end_date,
+        pm_estimated_value,
+        pm_baseline_effort, pm_baseline_budget, pm_baseline_team_size,
+        current_planned_effort, current_planned_budget, current_planned_team_size,
+        workflow_status, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'APPROVED', 'APPROVED')`,
+    [
+      organizationId,
+      ownerId,
+      project.projectName,
+      project.clientName,
+      project.industry,
+      project.industryCode,
+      project.projectType,
+      project.deliveryModel,
+      project.businessCriticality || 'Medium',
+      project.technologyStack,
+      'Microservices',   // architectureType default
+      'AWS',             // cloudPlatform default
+      project.complexity,
+      project.estimatedTeamSize,
+      project.plannedEffort,          // planned_effort  = bottom-up person-days
+      project.budget,                 // budget          = baseResourceCost + reserve
+      'Time & Material',
+      project.startDate,
+      project.plannedEndDate,
+      project.pmEstimatedValue,
+      // pm_baseline mirrors what the UI stores when a PM submits
+      project.plannedEffort,          // pm_baseline_effort
+      project.budget,                 // pm_baseline_budget
+      project.estimatedTeamSize,      // pm_baseline_team_size
+      // current_planned = bottom-up derived values (not a copy of a UI field)
+      project.plannedEffort,          // current_planned_effort
+      project.budget,                 // current_planned_budget
+      project.estimatedTeamSize,      // current_planned_team_size
+    ]
   );
 
   const projectId = result.insertId;
@@ -366,206 +408,279 @@ async function persistProject(connection, project, organizationId, ownerId) {
     "UPDATE project SET project_code = CONCAT('PRJ-', LPAD(project_id, 6, '0')) WHERE project_id = ?",
     [projectId]
   );
-
   return projectId;
 }
 
-async function generateProgressSnapshots(connection, orgId, projectId, startDate, endDate, ownerId) {
-  const snapshots = [];
+async function generateProgressSnapshots(connection, orgId, projectId, startDate, endDate, ownerId, budget, plannedEffort, estimatedTeamSize) {
   const durationDays = (new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24);
-  const monthCount = Math.ceil(durationDays / 30);
+  const monthCount   = Math.ceil(durationDays / 30);
 
-  let currentDate = new Date(startDate);
   let previousPercent = 0;
 
   for (let month = 0; month < monthCount; month++) {
-    const snapshotDate = toDateOnly(addDays(currentDate, month * 30));
+    const snapshotDate      = toDateOnly(addDays(new Date(startDate), month * 30));
+    const monthProgress     = (month + 1) / monthCount;
+    const variation         = getRandomFloat(-5, 10);
+    const completionPercent = Math.min(100, Math.max(previousPercent, monthProgress * 100 + variation));
 
-    // Generate realistic non-linear progress
-    const monthProgress = (month + 1) / monthCount;
-    const baseProgress = monthProgress * 100;
-    const variation = getRandomFloat(-5, 10);
-    let completionPercent = Math.min(100, Math.max(previousPercent, baseProgress + variation));
+    const actualEffortVal = parseFloat((plannedEffort * (completionPercent / 100) * getRandomFloat(0.9, 1.1)).toFixed(2));
+    const actualBudgetVal = parseFloat((budget * (completionPercent / 100) * getRandomFloat(0.9, 1.15)).toFixed(2));
+    const actualTeamSizeVal = parseFloat((estimatedTeamSize * getRandomFloat(0.9, 1.1)).toFixed(2));
 
-    snapshots.push({
-      projectId,
-      snapshotDate,
-      actualEffortPd: completionPercent * 0.8, // Effort trails slightly behind
-      actualBudget: completionPercent * 0.7,
-      actualTeamSize: getRandomFloat(0.6, 1.0),
-      actualCompletionPercent: completionPercent,
-      remarks: `Progress update - ${completionPercent.toFixed(0)}% complete`,
-      createdBy: ownerId,
-    });
+    await connection.query(
+      `INSERT INTO project_progress_snapshot
+         (organization_id, project_id, snapshot_date, actual_effort_pd, actual_budget,
+          actual_team_size, actual_completion_percent, remarks, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        orgId,
+        projectId,
+        snapshotDate,
+        actualEffortVal,
+        actualBudgetVal,
+        actualTeamSizeVal,
+        completionPercent,
+        `Progress update – ${completionPercent.toFixed(0)}% complete`,
+        ownerId,
+      ]
+    );
 
     previousPercent = completionPercent;
   }
 
-  for (const snapshot of snapshots) {
+  return monthCount;
+}
+
+async function generateChangeRequests(connection, orgId, projectId, maxCrs, ownerId) {
+  const count = getRandomNumber(0, maxCrs);
+  for (let i = 0; i < count; i++) {
     await connection.query(
-      `INSERT INTO project_progress_snapshot 
-       (organization_id, project_id, snapshot_date, actual_effort_pd, actual_budget, actual_team_size, actual_completion_percent, remarks, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [orgId, snapshot.projectId, snapshot.snapshotDate, snapshot.actualEffortPd, snapshot.actualBudget,
-       snapshot.actualTeamSize, snapshot.actualCompletionPercent, snapshot.remarks, snapshot.createdBy]
+      `INSERT INTO change_request
+         (organization_id, project_id, cr_code, cr_title, cr_description, cr_category,
+          severity, priority, status, effort_impact, budget_impact, team_size_impact,
+          submitted_by_user_id, workflow_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'APPROVED')`,
+      [
+        orgId,
+        projectId,
+        `CR-${String(i + 1).padStart(3, '0')}`,
+        `Change Request ${i + 1}`,
+        'Realistic change request for project maintenance and enhancement',
+        getRandomItem(['Enhancement', 'Defect Fix', 'Performance', 'Security']),
+        getRandomItem(['Low', 'Medium', 'High']),
+        getRandomItem(['Low', 'Medium', 'High', 'Critical']),
+        'APPROVED',
+        getRandomNumber(10, 100),
+        getRandomNumber(5000, 50000),
+        getRandomNumber(1, 5),
+        ownerId,
+      ]
     );
   }
-
-  return snapshots.length;
+  return count;
 }
 
-async function generateChangeRequests(connection, orgId, projectId, crCount, ownerId) {
-  const crCountActual = getRandomNumber(0, crCount || 5);
-  if (crCountActual === 0) return 0;
-
-  let created = 0;
-
-  for (let i = 0; i < crCountActual; i++) {
-    const effortImpact = getRandomNumber(10, 100);
-    const budgetImpact = getRandomNumber(5000, 50000);
-    const teamSizeImpact = getRandomNumber(1, 5);
-
-    const [result] = await connection.query(
-      `INSERT INTO change_request 
-       (organization_id, project_id, cr_code, cr_title, cr_description, cr_category, severity, 
-        priority, status, effort_impact, budget_impact, team_size_impact, submitted_by_user_id, workflow_status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [orgId, projectId, 
-       `CR-${String(i + 1).padStart(3, '0')}`,
-       `Change Request ${i + 1}`,
-       `Realistic change request for project maintenance and enhancement`,
-       getRandomItem(['Enhancement', 'Defect Fix', 'Performance', 'Security']),
-       getRandomItem(['Low', 'Medium', 'High']),
-       getRandomItem(['Low', 'Medium', 'High', 'Critical']),
-       'APPROVED', effortImpact, budgetImpact, teamSizeImpact, ownerId, 'APPROVED']
-    );
-
-    created++;
-  }
-
-  return created;
-}
-
+/**
+ * Generate completion history with resource_cost = sum of individual row costs.
+ *
+ * Bugs fixed:
+ *  1. resource_cost was previously set to `actualBudget * 0.85` — an arbitrary
+ *     percentage that had no relation to the per-row loading cost. It is now
+ *     computed by summing each row's actualCost (count × ratePerDay × effortDays).
+ *
+ *  2. project_completion_resource_loading was never populated by this script,
+ *     leaving the table empty while resource_cost in the parent record had an
+ *     unverifiable number. Rows are now inserted so the SUM(actual_cost) in
+ *     project_completion_resource_loading equals resource_cost exactly.
+ *
+ *  3. actualCost formula: cost = count × ratePerDay × effortDays (person-days).
+ *     effort stored in this table is DAYS, consistent with md_rate_card.rate_per_day.
+ */
 async function generateCompletionHistory(connection, orgId, projectId, project, ownerId) {
-  const actualEffort = project.plannedEffort * getRandomFloat(0.8, 1.2);
-  const actualBudget = project.budget * getRandomFloat(0.85, 1.15);
+  // Apply a ±15% variance to simulate actuals vs plan
+  const actualVarianceFactor = getRandomFloat(0.85, 1.15);
 
-  // Create a draft record first (required for completion_history)
+  // Build actual resource loading rows from the planned team composition,
+  // applying the variance factor uniformly to effort (and therefore cost).
+  const actualRows = project.teamRows.map(row => {
+    const effortDays = Math.ceil(row.workingDays * actualVarianceFactor);   // person-days per head
+    const actualCost = row.count * row.ratePerDay * effortDays;             // consistent formula
+    return {
+      role:         row.roleName,
+      location:     row.locationType === 'HYBRID' ? 'ONSITE' : row.locationType,
+      count:        row.count,
+      rate:         row.ratePerDay,
+      effort:       effortDays,         // days — matches rate_per_day unit
+      actualCost,
+    };
+  });
+
+  // resource_cost = bottom-up sum of individual row costs (no magic percentage)
+  const resourceCost    = actualRows.reduce((s, r) => s + r.actualCost, 0);
+  const managementCost  = project.budget * 0.05;
+  const contingencyCost = project.budget * 0.10;
+  const fullProjectCost = resourceCost + managementCost + contingencyCost;
+  const actualEffort    = actualRows.reduce((s, r) => s + (r.count * r.effort), 0);
+
+  // Create a draft record (required FK for completion_history)
   const [draftResult] = await connection.query(
-    `INSERT INTO project_drafts (organization_id, owner_id, draft_data, status, workflow_status, submitted_by_user_id, is_published, published_project_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [orgId, ownerId, 
-     JSON.stringify({
-       projectName: project.projectName,
-       teamRows: project.teamRows,
-       technologyStack: project.technologyStack,
-     }),
-     'PUBLISHED',
-     'APPROVED',
-     ownerId,
-     1,
-     projectId]
+    `INSERT INTO project_drafts
+       (organization_id, owner_id, draft_data, status, workflow_status,
+        submitted_by_user_id, is_published, published_project_id)
+     VALUES (?, ?, ?, 'PUBLISHED', 'APPROVED', ?, 1, ?)`,
+    [
+      orgId,
+      ownerId,
+      JSON.stringify({ projectName: project.projectName, teamRows: project.teamRows, technologyStack: project.technologyStack }),
+      ownerId,
+      projectId,
+    ]
   );
   const sourceDraftId = draftResult.insertId;
 
-  // Link draft back to project to avoid "DRF-" prefixes and duplicate records in admin view
   await connection.query(
     'UPDATE project SET source_draft_id = ? WHERE project_id = ?',
     [sourceDraftId, projectId]
   );
 
-  await connection.query(
-    `INSERT INTO project_completion_history 
-     (organization_id, project_id, source_draft_id, completed_by_user_id, final_resource_loading, management_cost, contingency_cost, 
-      resource_cost, full_project_cost, actual_final_estimated_value, completion_payload,actual_completion_date, completed_at)
+  // Insert completion header
+  const [completionResult] = await connection.query(
+    `INSERT INTO project_completion_history
+       (organization_id, project_id, source_draft_id, completed_by_user_id,
+        final_resource_loading, management_cost, contingency_cost,
+        resource_cost, full_project_cost,
+        actual_final_estimated_value, completion_payload,
+        actual_completion_date, completed_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [orgId, projectId, sourceDraftId, ownerId, 
-     JSON.stringify(project.teamRows),
-     project.budget * 0.05,
-     project.budget * 0.10,
-     actualBudget * 0.85,
-     actualBudget,
-     actualEffort,
-     JSON.stringify({
-       projectName: project.projectName,
-       completionOutcome: project.completionOutcome.name,
-       actualEffort,
-       actualBudget,
-     }),
-    project.actualCompletionDate,
-    project.actualCompletionDate // forcing completed_at to be same as actual_completion_date for simplicity
-  ]
+    [
+      orgId,
+      projectId,
+      sourceDraftId,
+      ownerId,
+      JSON.stringify(actualRows),         // final_resource_loading JSON
+      Math.ceil(managementCost),
+      Math.ceil(contingencyCost),
+      Math.ceil(resourceCost),            // = SUM(actual_cost) of detail rows below
+      Math.ceil(fullProjectCost),
+      Math.ceil(actualEffort),
+      JSON.stringify({
+        projectName:       project.projectName,
+        completionOutcome: project.completionOutcome.name,
+        actualEffort,
+        actualBudget:      fullProjectCost,
+      }),
+      project.actualCompletionDate,
+      project.actualCompletionDate,
+    ]
+  );
+
+  const completionId = completionResult.insertId;
+
+  // Insert per-row detail into project_completion_resource_loading.
+  // SUM(actual_cost) across these rows will equal resource_cost exactly.
+  if (actualRows.length > 0) {
+    const resourceValues = actualRows.map(row => [
+      orgId,
+      completionId,
+      projectId,
+      row.role,
+      row.location,
+      row.count,
+      row.rate,
+      row.effort,
+      Math.ceil(row.actualCost),
+    ]);
+    await connection.query(
+      `INSERT INTO project_completion_resource_loading
+         (organization_id, completion_id, project_id, role, location,
+          resource_count, rate, effort, actual_cost)
+       VALUES ?`,
+      [resourceValues]
+    );
+  }
+
+  // Update project actuals so the project table stays consistent
+  await connection.query(
+    `UPDATE project
+     SET actual_effort = ?,
+         actual_budget = ?,
+         actual_team_size = ?,
+         actual_completion_date = ?
+     WHERE project_id = ?`,
+    [
+      Math.ceil(actualEffort),
+      Math.ceil(fullProjectCost),
+      project.estimatedTeamSize,
+      project.actualCompletionDate,
+      projectId,
+    ]
   );
 
   return true;
 }
 
-async function generateForecastSnapshot(connection, orgId, projectId, project, ownerId) {
-  // Generate limited forecast records (50% of projects)
+async function generateForecastSnapshot(connection, orgId, projectId, project) {
   if (Math.random() > 0.5) return false;
 
-  const forecastEffort = project.plannedEffort * getRandomFloat(0.9, 1.1);
-  const forecastBudget = project.budget * getRandomFloat(0.9, 1.1);
-  const forecastDate = addDays(new Date(project.startDate), getRandomNumber(30, 90));
-  const forecastCompletionDate = addDays(new Date(project.plannedEndDate), getRandomNumber(-10, 20));
-  const delayDays = (forecastCompletionDate - new Date(project.plannedEndDate)) / (1000 * 60 * 60 * 24);
-  const confidence = getRandomFloat(70, 95);
+  const forecastEffort           = project.plannedEffort * getRandomFloat(0.9, 1.1);
+  const forecastBudget           = project.budget       * getRandomFloat(0.9, 1.1);
+  const forecastDate             = addDays(new Date(project.startDate), getRandomNumber(30, 90));
+  const forecastCompletionDate   = addDays(new Date(project.plannedEndDate), getRandomNumber(-10, 20));
+  const delayDays                = Math.round(
+    (forecastCompletionDate - new Date(project.plannedEndDate)) / (1000 * 60 * 60 * 24)
+  );
 
   await connection.query(
-    `INSERT INTO project_forecast_snapshot 
-     (organization_id, project_id, snapshot_date, forecast_completion_date, forecast_delay_days, forecast_final_effort, forecast_final_budget, forecast_confidence)
+    `INSERT INTO project_forecast_snapshot
+       (organization_id, project_id, snapshot_date, forecast_completion_date,
+        forecast_delay_days, forecast_final_effort, forecast_final_budget, forecast_confidence)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [orgId, projectId, toDateOnly(forecastDate), toDateOnly(forecastCompletionDate), delayDays, forecastEffort, forecastBudget, confidence]
+    [
+      orgId,
+      projectId,
+      toDateOnly(forecastDate),
+      toDateOnly(forecastCompletionDate),
+      delayDays,
+      Math.ceil(forecastEffort),
+      Math.ceil(forecastBudget),
+      getRandomFloat(70, 95),
+    ]
   );
 
   return true;
 }
 
 // ============================================================================
-// MAIN EXECUTION
+// MAIN
 // ============================================================================
 
 async function execute() {
   console.log('🚀 Predictive Planner – Data Rejuvenation Utility');
-  console.log(`📊 Configuration: Organization ID = ${CONFIG.organizationId}, Dry Run = ${CONFIG.dryRun}`);
+  console.log(`📊 Configuration: Org ID = ${CONFIG.organizationId}, Dry Run = ${CONFIG.dryRun}`);
   console.log('---');
 
   let connection;
 
   try {
-    // Set tenant context
-    //TenantContext.setOrganizationId(CONFIG.organizationId);
-
-    // Get master data
-    log('Fetching master data...');
     const masterData = await getMasterData();
     log(`Found ${masterData.roles.length} roles, ${masterData.rateCards.length} rate cards`);
 
-    // Get or create test user
-    let ownerId = 1; // Default owner ID
+    const ownerId = 1;
     const [userRows] = await pool.promise().query(
-      'SELECT user_id FROM app_user WHERE user_id = ? LIMIT 1',
-      [ownerId]
+      'SELECT user_id FROM app_user WHERE user_id = ? LIMIT 1', [ownerId]
     );
-    if (userRows.length === 0) {
-      log(`User ID ${ownerId} does not exist, will use as-is`, true);
-    }
+    if (userRows.length === 0) log(`User ID ${ownerId} does not exist`, true);
 
-    // Initialize counters
     const stats = {
-      projectsCreated: 0,
-      projectsByTech: {},
-      snapshotsCreated: 0,
-      crsCreated: 0,
-      completionRecordsCreated: 0,
-      forecastsCreated: 0,
+      projectsCreated: 0, projectsByTech: {},
+      snapshotsCreated: 0, crsCreated: 0,
+      completionRecordsCreated: 0, forecastsCreated: 0,
     };
 
     if (CONFIG.dryRun) {
       console.log('\n🔍 DRY RUN MODE – No data will be persisted\n');
     }
 
-    // Generate projects
     connection = await pool.promise().getConnection();
     await connection.beginTransaction();
 
@@ -576,27 +691,32 @@ async function execute() {
       for (let i = 0; i < techConfig.projectCount; i++) {
         try {
           log(`[${techKey}] Generating project ${i + 1}/${techConfig.projectCount}...`);
-
-          // Generate project data
           const project = await generateProject(projectIndex, techKey, masterData);
 
           if (!CONFIG.dryRun) {
-            // Persist project
             const projectId = await persistProject(connection, project, CONFIG.organizationId, ownerId);
 
-            // Generate related data
-            await generateProgressSnapshots(connection, CONFIG.organizationId, projectId, project.startDate, project.plannedEndDate, ownerId);
-            const crsCreated = await generateChangeRequests(connection, CONFIG.organizationId, projectId, 5, ownerId);
-            await generateCompletionHistory(connection, CONFIG.organizationId, projectId, project, ownerId);
-            const forecastCreated = await generateForecastSnapshot(connection, CONFIG.organizationId, projectId, project, ownerId);
+            const snapshots = await generateProgressSnapshots(
+              connection, CONFIG.organizationId, projectId,
+              project.startDate, project.plannedEndDate, ownerId,
+              project.budget, project.plannedEffort, project.estimatedTeamSize
+            );
+            const crs = await generateChangeRequests(
+              connection, CONFIG.organizationId, projectId, 5, ownerId
+            );
+            await generateCompletionHistory(
+              connection, CONFIG.organizationId, projectId, project, ownerId
+            );
+            const forecast = await generateForecastSnapshot(
+              connection, CONFIG.organizationId, projectId, project
+            );
 
-            // Update stats
             stats.projectsCreated++;
             stats.projectsByTech[techKey]++;
-            stats.snapshotsCreated += Math.ceil(((new Date(project.plannedEndDate) - new Date(project.startDate)) / (1000 * 60 * 60 * 24)) / 30);
-            stats.crsCreated += crsCreated;
+            stats.snapshotsCreated += snapshots;
+            stats.crsCreated += crs;
             stats.completionRecordsCreated++;
-            if (forecastCreated) stats.forecastsCreated++;
+            if (forecast) stats.forecastsCreated++;
           } else {
             stats.projectsCreated++;
             stats.projectsByTech[techKey]++;
@@ -613,21 +733,18 @@ async function execute() {
       }
     }
 
-    // Commit transaction
-    if (!CONFIG.dryRun) {
-      await connection.commit();
-    }
+    if (!CONFIG.dryRun) await connection.commit();
 
     console.log('\n✅ Data Generation Summary:');
-    console.log(`   Projects Created:          ${stats.projectsCreated}`);
+    console.log(`   Projects Created:       ${stats.projectsCreated}`);
     console.log(`   By Technology:`);
     for (const [tech, count] of Object.entries(stats.projectsByTech)) {
       if (count > 0) console.log(`      ${tech}: ${count}`);
     }
-    console.log(`   Progress Snapshots:        ${stats.snapshotsCreated}`);
-    console.log(`   Change Requests:           ${stats.crsCreated}`);
-    console.log(`   Completion Records:        ${stats.completionRecordsCreated}`);
-    console.log(`   Forecast Records:          ${stats.forecastsCreated}`);
+    console.log(`   Progress Snapshots:     ${stats.snapshotsCreated}`);
+    console.log(`   Change Requests:        ${stats.crsCreated}`);
+    console.log(`   Completion Records:     ${stats.completionRecordsCreated}`);
+    console.log(`   Forecast Records:       ${stats.forecastsCreated}`);
 
     if (CONFIG.dryRun) {
       console.log('\n⚠️  DRY RUN COMPLETED – No changes made to database');
@@ -639,24 +756,14 @@ async function execute() {
   } catch (error) {
     console.error('\n❌ Fatal Error:', error.message);
     if (connection && !CONFIG.dryRun) {
-      try {
-        await connection.rollback();
-      } catch (rollbackError) {
-        console.error('Rollback failed:', rollbackError.message);
-      }
+      try { await connection.rollback(); } catch (_) {}
     }
     process.exit(1);
   } finally {
-    if (connection) {
-      connection.release();
-    }
+    if (connection) connection.release();
     await pool.end();
   }
 }
 
-// Execute
-if (require.main === module) {
-  execute();
-}
-
+if (require.main === module) execute();
 module.exports = { execute };

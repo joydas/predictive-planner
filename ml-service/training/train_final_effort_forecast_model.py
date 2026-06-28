@@ -15,7 +15,7 @@ from training.common import build_preprocessor, save_artifact
 from utils.paths import DATASETS_DIR, MODELS_DIR, get_tenant_datasets_dir, get_tenant_models_dir
 
 
-TARGET_COLUMN = "actual_final_effort_pd"
+TARGET_COLUMN = "effort_multiplier"
 ARTIFACT_NAME = "final_effort_forecast_model.pkl"
 
 
@@ -42,13 +42,15 @@ def train_final_effort_forecast_model(dataset_path=None, organization_id: int | 
             {
                 "pipeline": None,
                 "feature_columns": FORECAST_FEATURE_COLUMNS,
-                "target": TARGET_COLUMN,
+                "target": "actual_final_effort_pd",
                 "metrics": metrics,
                 "minimum_required_rows": MIN_FORECAST_TRAINING_ROWS,
                 "training_rows": int(len(df)),
             },
         )
         return metrics
+
+    df["effort_multiplier"] = df["actual_final_effort_pd"] / df["current_planned_effort"].replace(0, 1)
 
     X_train, X_test, y_train, y_test = _split_dataset(df)
     pipeline = Pipeline(
@@ -58,17 +60,21 @@ def train_final_effort_forecast_model(dataset_path=None, organization_id: int | 
         ]
     )
     pipeline.fit(X_train, y_train)
-    predictions = pipeline.predict(X_test)
+    predictions_multipliers = pipeline.predict(X_test)
 
-    residuals = np.asarray(y_test) - np.asarray(predictions)
+    current_efforts_test = X_test["current_planned_effort"].to_numpy()
+    predictions = predictions_multipliers * current_efforts_test
+    y_test_absolute = y_test * current_efforts_test
+
+    residuals = np.asarray(y_test_absolute) - np.asarray(predictions)
     residual_std = float(np.std(residuals)) if len(residuals) else 0.0
-    mae = float(mean_absolute_error(y_test, predictions))
+    mae = float(mean_absolute_error(y_test_absolute, predictions))
     metrics = {
         "trained": True,
         "training_rows": int(len(df)),
-        "rmse": float(math.sqrt(mean_squared_error(y_test, predictions))),
+        "rmse": float(math.sqrt(mean_squared_error(y_test_absolute, predictions))),
         "mae": mae,
-        "r2": float(r2_score(y_test, predictions)) if len(y_test) > 1 else 0.0,
+        "r2": float(r2_score(y_test_absolute, predictions)) if len(y_test_absolute) > 1 else 0.0,
         "residual_std": residual_std,
     }
     save_artifact(

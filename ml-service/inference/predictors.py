@@ -803,9 +803,16 @@ def predict_final_effort_forecast(payload: dict) -> dict:
     features = forecast_input["features"]
     frame = pd.DataFrame([{column: features.get(column, 0) for column in feature_columns}])
     pipeline = artifact["pipeline"]
-    raw_effort = float(max(pipeline.predict(frame)[0], 0))
-    forecast_final_effort = int(round(raw_effort))
+    target_type = artifact.get("target", "actual_final_effort_pd")
+    raw_prediction = float(max(pipeline.predict(frame)[0], 0))
     current_planned_effort = float(forecast_input.get("currentPlannedEffort") or 0)
+    
+    if target_type == "effort_multiplier":
+        raw_effort = raw_prediction * current_planned_effort
+    else:
+        raw_effort = raw_prediction
+        
+    forecast_final_effort = int(round(raw_effort))
     forecast_variance = int(round(forecast_final_effort - current_planned_effort))
     confidence = _effort_forecast_confidence(pipeline, frame, artifact, raw_effort)
 
@@ -827,6 +834,7 @@ def predict_final_budget_forecast(payload: dict) -> dict:
         return {"forecastAvailable": False, "message": "Project id is required for forecasting."}
 
     forecast_input = build_final_budget_forecast_input(project_id)
+    
     organization_id = forecast_input.get("organizationId")
     try:
         artifact = load_artifact("final_budget_forecast_model.pkl", organization_id)
@@ -843,9 +851,16 @@ def predict_final_budget_forecast(payload: dict) -> dict:
     features = forecast_input["features"]
     frame = pd.DataFrame([{column: features.get(column, 0) for column in feature_columns}])
     pipeline = artifact["pipeline"]
-    raw_budget = float(max(pipeline.predict(frame)[0], 0))
-    forecast_final_budget = int(round(raw_budget))
+    target_type = artifact.get("target", "actual_final_budget")
+    raw_prediction = float(max(pipeline.predict(frame)[0], 0))
     current_planned_budget = float(forecast_input.get("currentPlannedBudget") or 0)
+    
+    if target_type == "budget_multiplier":
+        raw_budget = raw_prediction * current_planned_budget
+    else:
+        raw_budget = raw_prediction
+        
+    forecast_final_budget = int(round(raw_budget))
     forecast_variance = int(round(forecast_final_budget - current_planned_budget))
     confidence = _value_forecast_confidence(pipeline, frame, artifact, raw_budget)
 

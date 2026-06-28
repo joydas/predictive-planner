@@ -402,7 +402,8 @@ def _assemble_features(projects: pd.DataFrame, include_target: bool = False, org
     project_ids = [int(value) for value in projects["project_id"].tolist()]
     cr = _read_cr_rows(project_ids, organization_id=organization_id)
     progress = _progress_features(_read_progress_rows(project_ids, organization_id=organization_id), project_ids)
-    df = projects.merge(cr, on="project_id", how="left").merge(progress, on="project_id", how="left")
+    projects_clean = projects.drop(columns=["actual_team_size"], errors="ignore")
+    df = projects_clean.merge(cr, on="project_id", how="left").merge(progress, on="project_id", how="left")
 
     df["planned_duration_days"] = df.apply(
         lambda row: _days_between(row["start_date"], row["planned_completion_date"], inclusive=True),
@@ -522,6 +523,7 @@ def build_final_effort_forecast_training_dataset(output_path=None, organization_
 
 def build_final_budget_forecast_training_dataset(output_path=None, organization_id: int | None = None) -> pd.DataFrame:
     dataset = _assemble_final_budget_dataset(_read_project_rows(completed_only=True, organization_id=organization_id), include_target=True, organization_id=organization_id)
+    # print(dataset[["project_id", "actual_final_budget"]].head(20))
     if output_path is not None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         dataset.to_csv(output_path, index=False)

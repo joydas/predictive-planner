@@ -1,5 +1,14 @@
 [
   {
+    "jobId": "5d82628a63cd4bf7bd11d7d41a26fb17",
+    "modelVersion": "ml-20260627T115920467963Z0000",
+    "startedAt": "2026-06-27T11:59:10.111272+00:00",
+    "endedAt": "2026-06-27T11:59:35.186335+00:00",
+    "status": "SUCCESS",
+    "recordsUsed": 31,
+    "projectsUsed": 31
+  },
+  {
     "jobId": "bc36e67eceaf42cc9561d8bac56966bc",
     "modelVersion": "ml-20260624T151613677926Z0000",
     "startedAt": "2026-06-24T15:16:08.654604+00:00",
