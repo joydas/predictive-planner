@@ -17,6 +17,7 @@ const analyticsRoutes = require("./src/routes/analytics.routes");
 const analyticsController = require("./src/controllers/analytics.controller");
 const resourceRoutes = require("./src/routes/resource.routes");
 const operationalDashboardRoutes = require("./src/routes/operationalDashboard.routes");
+const configRoutes = require("./src/routes/config.routes");
 const projectRepository = require("./src/repositories/project.repository");
 const { authenticateToken } = require("./src/middleware/auth.middleware");
 const { pool: db, DB_CONFIG } = require("./src/config/db.config");
@@ -122,6 +123,7 @@ app.use('/api/crs', crRoutes);
 app.use('/api/master-data', masterDataRoutes);
 app.use('/api/notification', notificationRoutes);
 app.use('/api/insights', aiInsightRoutes);
+app.use('/api/config', configRoutes);
 
 app.use('/api/operational-dashboard', operationalDashboardRoutes);
 app.get('/api/analytics/variance-dashboard', authenticateToken, analyticsController.varianceDashboard);

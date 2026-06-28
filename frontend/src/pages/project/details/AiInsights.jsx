@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CAlert, CBadge, CButton, CSpinner } from '@coreui/react';
 import { useNavigate } from 'react-router-dom';
 import { getProjectInsights } from '../../../services/projectService';
+import authService from '../../../services/authService';
 
 const statusColors = {
   on_track: { bg: '#e6f9ed', border: '#34d399', badge: 'success', label: 'On Track' },
@@ -24,7 +25,7 @@ const getConfidenceColor = (confidence) => {
   return 'secondary';
 };
 
-const InsightCard = ({ insight, navigate }) => {
+const InsightCard = ({ insight, navigate, statusColors }) => {
   const colors = statusColors[insight.status] || statusColors.on_track;
   const icon = typeIcons[insight.type] || '\ud83d\udca1';
 
@@ -147,7 +148,22 @@ const AiInsights = ({ projectId }) => {
   const [insights, setInsights] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [colorsConfig, setColorsConfig] = useState({
+    on_track: { bg: '#e6f9ed', border: '#34d399', badge: 'success', label: 'On Track' },
+    at_risk: { bg: '#fff7e6', border: '#f59e0b', badge: 'warning', label: 'At Risk' },
+    critical: { bg: '#fee2e2', border: '#ef4444', badge: 'danger', label: 'Critical' },
+  });
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const loadConfig = async () => {
+      const config = await authService.getRiskConfig();
+      if (config && config.statusColors) {
+        setColorsConfig(config.statusColors);
+      }
+    };
+    loadConfig();
+  }, []);
 
   useEffect(() => {
     if (!projectId) return;
@@ -251,7 +267,7 @@ const AiInsights = ({ projectId }) => {
           borderRadius: '0 0 0.5rem 0.5rem'
         }}>
           {insights.map((insight, index) => (
-            <InsightCard key={index} insight={insight} navigate={navigate} />
+            <InsightCard key={index} insight={insight} navigate={navigate} statusColors={colorsConfig} />
           ))}
         </div>
       </div>

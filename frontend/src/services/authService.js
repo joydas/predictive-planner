@@ -29,6 +29,18 @@ class AuthService {
       // Store JWT and user in localStorage for authenticated requests
       if (data.token) {
         localStorage.setItem('token', data.token);
+        // Pre-fetch and cache risk config once per log-in
+        try {
+          const configRes = await fetch(`${API_BASE_URL}/api/config/risk`, {
+            headers: { Authorization: `Bearer ${data.token}` }
+          });
+          if (configRes.ok) {
+            const configData = await configRes.json();
+            localStorage.setItem('riskConfig', JSON.stringify(configData));
+          }
+        } catch (e) {
+          console.error('Failed to pre-fetch risk config on login', e);
+        }
       }
 
       if (data.user) {
@@ -42,11 +54,39 @@ class AuthService {
   }
 
   /**
+   * Get risk configuration (loads from cache or API)
+   */
+  async getRiskConfig() {
+    const cached = localStorage.getItem('riskConfig');
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch (e) {
+        console.error('Error parsing cached riskConfig', e);
+      }
+    }
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/config/risk`, {
+        headers: this.getAuthHeader()
+      });
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem('riskConfig', JSON.stringify(data));
+        return data;
+      }
+    } catch (error) {
+      console.error('Failed to fetch risk config dynamically', error);
+    }
+    return null;
+  }
+
+  /**
    * Logout user and clear authentication state from localStorage
    */
   logout() {
     localStorage.removeItem('user');
     localStorage.removeItem('token');
+    localStorage.removeItem('riskConfig');
   }
 
   /**
