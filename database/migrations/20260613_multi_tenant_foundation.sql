@@ -67,7 +67,6 @@ DELIMITER ;
 -- Apply to identified tables
 CALL add_organization_id_column('app_user');
 CALL add_organization_id_column('project');
-CALL add_organization_id_column('project_drafts');
 CALL add_organization_id_column('change_request');
 CALL add_organization_id_column('project_progress_snapshot');
 CALL add_organization_id_column('project_team_snapshot');

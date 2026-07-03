@@ -6,7 +6,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from sqlalchemy import bindparam, inspect, text
+from sqlalchemy import bindparam, text
 
 from config.db import get_engine
 
@@ -100,20 +100,13 @@ def _days_since(value: Any, today: date | None = None) -> int:
     return max((today - value_date).days, 0)
 
 
-def _has_column(table_name: str, column_name: str) -> bool:
-    inspector = inspect(get_engine())
-    if not inspector.has_table(table_name):
-        return False
-    return any(column["name"] == column_name for column in inspector.get_columns(table_name))
-
-
 def _regression_filter(alias: str) -> str:
-    return f"AND COALESCE({alias}.is_regression_data, 0) = 0" if _has_column("project", "is_regression_data") else ""
+    return f"AND COALESCE({alias}.is_regression_data, 0) = 0"
 
 
 def _read_project_rows(project_id: int | None = None, completed_only: bool = True, organization_id: int | None = None) -> pd.DataFrame:
     project_filter = "AND p.project_id = :project_id" if project_id is not None else ""
-    completed_filter = "AND (COALESCE(p.workflow_status, pd.workflow_status) IN ('COMPLETE', 'CLOSED', 'COMPLETED') OR pch_exists.project_id IS NOT NULL)" if completed_only else ""
+    completed_filter = "AND (p.workflow_status IN ('COMPLETE', 'CLOSED', 'COMPLETED') OR pch_exists.project_id IS NOT NULL)" if completed_only else ""
     regression_filter = _regression_filter("p")
     tenant_filter = "AND p.organization_id = :org_id" if organization_id is not None else ""
     test_data_filter = "AND UPPER(COALESCE(p.project_type, JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.basicInfo.project_type')), '')) <> 'TEST DATA'"
@@ -130,12 +123,12 @@ def _read_project_rows(project_id: int | None = None, completed_only: bool = Tru
               p.project_id AS project_id,
               p.project_name AS project_name,
               p.approved_data AS approved_data,
-              COALESCE(p.industry, JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.basicInfo.industry')), JSON_UNQUOTE(JSON_EXTRACT(pd.draft_data, '$.basicInfo.industry'))) AS industry,
-              COALESCE(p.technology_stack, JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.technology.technology_stack')), JSON_UNQUOTE(JSON_EXTRACT(pd.draft_data, '$.technology.technology_stack'))) AS technology,
-              COALESCE(p.complexity, JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.technology.complexity')), JSON_UNQUOTE(JSON_EXTRACT(pd.draft_data, '$.technology.complexity'))) AS complexity,
-              COALESCE(p.project_type, JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.basicInfo.project_type')), JSON_UNQUOTE(JSON_EXTRACT(pd.draft_data, '$.basicInfo.project_type'))) AS project_type,
-              COALESCE(p.start_date, JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.deliveryDetails.start_date')), JSON_UNQUOTE(JSON_EXTRACT(pd.draft_data, '$.deliveryDetails.start_date'))) AS start_date,
-              COALESCE(p.planned_end_date, JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.deliveryDetails.planned_end_date')), JSON_UNQUOTE(JSON_EXTRACT(pd.draft_data, '$.deliveryDetails.planned_end_date'))) AS planned_completion_date,
+              COALESCE(p.industry, JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.basicInfo.industry'))) AS industry,
+              COALESCE(p.technology_stack, JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.technology.technology_stack'))) AS technology,
+              COALESCE(p.complexity, JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.technology.complexity'))) AS complexity,
+              COALESCE(p.project_type, JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.basicInfo.project_type'))) AS project_type,
+              COALESCE(p.start_date, JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.deliveryDetails.start_date'))) AS start_date,
+              COALESCE(p.planned_end_date, JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.deliveryDetails.planned_end_date'))) AS planned_completion_date,
               p.current_planned_effort,
               p.current_planned_budget,
               p.current_planned_team_size,
@@ -146,7 +139,6 @@ def _read_project_rows(project_id: int | None = None, completed_only: bool = Tru
               p.actual_team_size,
               COALESCE(p.actual_completion_date, latest_completion.actual_completion_date) AS actual_completion_date
             FROM project p
-            LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
             LEFT JOIN (
               SELECT pch.project_id, DATE(pch.completed_at) AS actual_completion_date, 
               full_project_cost
@@ -193,7 +185,6 @@ def summarize_forecast_training_population(organization_id: int | None = None) -
               SUM(CASE WHEN {test_type_expression} = 'TEST DATA' THEN 1 ELSE 0 END) AS excluded_test_data,
               SUM(CASE WHEN {test_type_expression} <> 'TEST DATA' THEN 1 ELSE 0 END) AS completed
             FROM project p
-            LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
             LEFT JOIN md_project_type mpt ON mpt.project_type_id = p.project_type_id
             LEFT JOIN (
               SELECT pch.project_id, DATE(pch.completed_at) AS actual_completion_date
@@ -204,7 +195,7 @@ def summarize_forecast_training_population(organization_id: int | None = None) -
                 GROUP BY project_id
               ) latest ON latest.completion_id = pch.completion_id
             ) latest_completion ON latest_completion.project_id = p.project_id
-            WHERE COALESCE(p.workflow_status, pd.workflow_status) IN ('COMPLETE', 'CLOSED', 'COMPLETED')
+            WHERE p.workflow_status IN ('COMPLETE', 'CLOSED', 'COMPLETED')
               AND COALESCE(p.actual_completion_date, latest_completion.actual_completion_date) IS NOT NULL
               {tenant_filter}
               {regression_filter}

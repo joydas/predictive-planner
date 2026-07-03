@@ -122,7 +122,6 @@ def model_feature_columns(df: pd.DataFrame) -> list[str]:
     excluded.update(
         {
             "project_id",
-            "source_draft_id",
             "project_code",
             "project_name",
             "client_name",

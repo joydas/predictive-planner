@@ -1,14 +1,14 @@
 {
   "status": "SUCCESS",
-  "jobId": "5d82628a63cd4bf7bd11d7d41a26fb17",
-  "startedAt": "2026-06-27T11:59:10.111272+00:00",
-  "endedAt": "2026-06-27T11:59:35.186335+00:00",
-  "recordsUsed": 31,
-  "modelVersion": "ml-20260627T115920467963Z0000",
+  "jobId": "f084821235c94fdd939200f8c68bb8bc",
+  "startedAt": "2026-07-03T15:35:24.995902+00:00",
+  "endedAt": "2026-07-03T15:35:34.127289+00:00",
+  "recordsUsed": 33,
+  "modelVersion": "ml-20260703T153530119500Z0000",
   "error": null,
-  "logPath": "C:\\OurWorkspace\\Dipanjan\\AI\\predictive-planner\\ml-service\\reports\\training_jobs\\5d82628a63cd4bf7bd11d7d41a26fb17.log",
+  "logPath": "C:\\OurWorkspace\\Dipanjan\\AI\\predictive-planner\\ml-service\\reports\\training_jobs\\f084821235c94fdd939200f8c68bb8bc.log",
   "pid": null,
-  "projectsUsed": 31,
+  "projectsUsed": 33,
   "userContext": {
     "userId": 5,
     "organizationId": 1

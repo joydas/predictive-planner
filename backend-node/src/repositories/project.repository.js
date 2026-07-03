@@ -1,279 +1,14 @@
 const { pool: db } = require('../config/db.config');
 const TenantContext = require('../utils/tenantContext');
 
-async function ensureDraftTable() {
-  await addColumnIfMissing('project_drafts', 'is_regression_data', `
-    ALTER TABLE project_drafts
-    ADD COLUMN is_regression_data TINYINT(1) NOT NULL DEFAULT 0 AFTER published_at
-  `);
-  return true;
-}
-
-async function ensureApprovedProjectTables() {
-  await addColumnIfMissing('project', 'status', `
-    ALTER TABLE project
-    ADD COLUMN status VARCHAR(32) NOT NULL DEFAULT 'APPROVED' AFTER owner_id,
-    ADD INDEX idx_project_status (status)
-  `);
-  await addColumnIfMissing('project', 'workflow_status', `
-    ALTER TABLE project
-    ADD COLUMN workflow_status VARCHAR(32) NOT NULL DEFAULT 'APPROVED' AFTER status,
-    ADD INDEX idx_project_workflow_status (workflow_status)
-  `);
-  await addColumnIfMissing('project', 'submitted_by_user_id', `
-    ALTER TABLE project
-    ADD COLUMN submitted_by_user_id BIGINT UNSIGNED NULL AFTER workflow_status,
-    ADD INDEX idx_project_submitted_by (submitted_by_user_id)
-  `);
-  await addColumnIfMissing('project', 'submitted_at', `
-    ALTER TABLE project
-    ADD COLUMN submitted_at TIMESTAMP NULL DEFAULT NULL AFTER submitted_by_user_id
-  `);
-  await addColumnIfMissing('project', 'latest_comment', `
-    ALTER TABLE project
-    ADD COLUMN latest_comment TEXT NULL AFTER approved_at
-  `);
-  await addColumnIfMissing('project', 'current_status_id', `
-    ALTER TABLE project
-    ADD COLUMN current_status_id INT NULL AFTER workflow_status
-  `);
-  await makeProjectSourceDraftNullable();
-  await addColumnIfMissing('project', 'industry_code', `
-    ALTER TABLE project
-    ADD COLUMN industry_code VARCHAR(50) NULL AFTER industry,
-    ADD INDEX idx_project_industry_code (industry_code)
-  `);
-  await addColumnIfMissing('project', 'pm_estimated_value', `
-    ALTER TABLE project
-    ADD COLUMN pm_estimated_value DECIMAL(12,2) NULL DEFAULT NULL AFTER predicted_hours
-  `);
-  await addColumnIfMissing('project', 'ai_estimated_value', `
-    ALTER TABLE project
-    ADD COLUMN ai_estimated_value DECIMAL(12,2) NULL DEFAULT NULL AFTER pm_estimated_value
-  `);
-  await addColumnIfMissing('project', 'actual_final_estimated_value', `
-    ALTER TABLE project
-    ADD COLUMN actual_final_estimated_value DECIMAL(12,2) NULL DEFAULT NULL AFTER actual_team_size
-  `);
-  await addColumnIfMissing('project', 'total_cr_estimation_impact', `
-    ALTER TABLE project
-    ADD COLUMN total_cr_estimation_impact DECIMAL(12,2) NOT NULL DEFAULT 0 AFTER total_cr_team_impact
-  `);
-  await addColumnIfMissing('project', 'actual_completion_date', `
-    ALTER TABLE project
-    ADD COLUMN actual_completion_date DATE NULL AFTER actual_final_estimated_value
-  `);
-  await addColumnIfMissing('project', 'business_criticality', `
-    ALTER TABLE project
-    ADD COLUMN business_criticality VARCHAR(50) NULL AFTER delivery_model
-  `);
-  await addColumnIfMissing('project', 'architecture_type', `
-    ALTER TABLE project
-    ADD COLUMN architecture_type VARCHAR(100) NULL AFTER technology_stack
-  `);
-  await addColumnIfMissing('project', 'cloud_platform', `
-    ALTER TABLE project
-    ADD COLUMN cloud_platform VARCHAR(100) NULL AFTER architecture_type
-  `);
-  await addColumnIfMissing('project', 'billing_model', `
-    ALTER TABLE project
-    ADD COLUMN billing_model VARCHAR(100) NULL AFTER budget
-  `);
-  await addColumnIfMissing('project', 'start_date', `
-    ALTER TABLE project
-    ADD COLUMN start_date DATE NULL AFTER billing_model
-  `);
-  await addColumnIfMissing('project', 'planned_end_date', `
-    ALTER TABLE project
-    ADD COLUMN planned_end_date DATE NULL AFTER start_date
-  `);
-  await addColumnIfMissing('project', 'is_regression_data', `
-    ALTER TABLE project
-    ADD COLUMN is_regression_data TINYINT(1) NOT NULL DEFAULT 0 AFTER approved_data
-  `);
-
-  return true;
-}
-
-async function makeProjectSourceDraftNullable() {
-  const [columns] = await db.promise().query(
-    `
-      SELECT IS_NULLABLE AS isNullable
-      FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = 'project'
-        AND COLUMN_NAME = 'source_draft_id'
-      LIMIT 1
-    `,
-  );
-  if (columns[0]?.isNullable === 'NO') {
-    await db.promise().query('ALTER TABLE project MODIFY source_draft_id BIGINT UNSIGNED NULL');
-  }
-}
-
-async function addColumnIfMissing(tableName, columnName, alterSql) {
-  const [columns] = await db.promise().query(
-    `
-      SELECT COLUMN_NAME AS columnName
-      FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = ?
-        AND COLUMN_NAME = ?
-      LIMIT 1
-    `,
-    [tableName, columnName],
-  );
-
-  if (columns.length) {
-    return false;
-  }
-  await db.promise().query(alterSql);
-  return true;
-}
-
-async function ensureProjectCompletionTables() {
-  await db.promise().query(`
-    CREATE TABLE IF NOT EXISTS project_completion_history (
-      completion_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-      project_id BIGINT UNSIGNED NOT NULL,
-      source_draft_id BIGINT UNSIGNED NULL,
-      completed_by_user_id BIGINT UNSIGNED NOT NULL,
-      final_resource_loading JSON NOT NULL,
-      management_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
-      contingency_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
-      resource_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
-      full_project_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
-      dependency_count DECIMAL(10,2) NULL DEFAULT NULL,
-      requirement_stability_index DECIMAL(10,2) NULL DEFAULT NULL,
-      actual_cr_volatility VARCHAR(50) NULL DEFAULT NULL,
-      risk_level_indicators JSON NULL,
-      actual_final_estimated_value DECIMAL(12,2) NULL DEFAULT NULL,
-      completion_payload JSON NOT NULL,
-      completed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (completion_id),
-      INDEX idx_project_completion_project (project_id),
-      INDEX idx_project_completion_draft (source_draft_id),
-      INDEX idx_project_completion_completed_at (completed_at)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
-
-  const [sourceDraftColumns] = await db.promise().query(
-    `
-      SELECT IS_NULLABLE AS isNullable
-      FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = 'project_completion_history'
-        AND COLUMN_NAME = 'source_draft_id'
-      LIMIT 1
-    `,
-  );
-
-  if (sourceDraftColumns[0]?.isNullable === 'NO') {
-    await db.promise().query('ALTER TABLE project_completion_history MODIFY source_draft_id BIGINT UNSIGNED NULL');
-  }
-
-  const [completionColumns] = await db.promise().query(
-    `
-      SELECT DATA_TYPE AS dataType
-      FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = 'project_completion_history'
-        AND COLUMN_NAME = 'actual_cr_volatility'
-      LIMIT 1
-    `,
-  );
-
-  if (completionColumns[0]?.dataType !== 'varchar') {
-    await db.promise().query(`
-      ALTER TABLE project_completion_history
-      MODIFY actual_cr_volatility VARCHAR(50) NULL DEFAULT NULL
-    `);
-  }
-
-  await addColumnIfMissing('project_completion_history', 'actual_final_estimated_value', `
-    ALTER TABLE project_completion_history
-    ADD COLUMN actual_final_estimated_value DECIMAL(12,2) NULL DEFAULT NULL AFTER risk_level_indicators
-  `);
-  await addColumnIfMissing('project_completion_history', 'actual_completion_date', `
-    ALTER TABLE project_completion_history
-    ADD COLUMN actual_completion_date DATE NULL AFTER actual_final_estimated_value
-  `);
-
-  await db.promise().query(`
-    CREATE TABLE IF NOT EXISTS project_completion_resource_loading (
-      completion_resource_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-      completion_id BIGINT UNSIGNED NOT NULL,
-      project_id BIGINT UNSIGNED NOT NULL,
-      role VARCHAR(100) NOT NULL,
-      location VARCHAR(100) NOT NULL,
-      resource_count DECIMAL(10,2) NOT NULL DEFAULT 0,
-      rate DECIMAL(14,2) NOT NULL DEFAULT 0,
-      effort DECIMAL(14,2) NOT NULL DEFAULT 0,
-      actual_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (completion_resource_id),
-      INDEX idx_completion_resource_completion (completion_id),
-      INDEX idx_completion_resource_project (project_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
-}
-
-async function ensureProjectProgressTables() {
-  await ensureApprovedProjectTables();
-  await db.promise().query(`
-    CREATE TABLE IF NOT EXISTS project_progress_snapshot (
-      snapshot_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-      project_id BIGINT UNSIGNED NOT NULL,
-      snapshot_date DATE NOT NULL,
-      actual_effort_pd DECIMAL(12,2) NOT NULL DEFAULT 0,
-      actual_budget DECIMAL(14,2) NOT NULL DEFAULT 0,
-      actual_team_size DECIMAL(10,2) NOT NULL DEFAULT 0,
-      actual_completion_percent DECIMAL(5,2) NOT NULL DEFAULT 0,
-      remarks TEXT NULL,
-      created_by BIGINT UNSIGNED NOT NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      PRIMARY KEY (snapshot_id),
-      UNIQUE KEY uq_project_progress_snapshot_date (project_id, snapshot_date),
-      INDEX idx_project_progress_project (project_id),
-      INDEX idx_project_progress_snapshot_date (snapshot_date),
-      INDEX idx_project_progress_created_by (created_by)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
-}
-
-async function createDraft(ownerId, draftData, status = 'DRAFT') {
-  await ensureDraftTable();
-  const organizationId = TenantContext.getOrganizationId();
-  const sql = `
-    INSERT INTO project_drafts (organization_id, owner_id, draft_data, status)
-    VALUES (?, ?, ?, ?)
-  `;
-  const [result] = await db.promise().query(sql, [organizationId, ownerId, JSON.stringify(draftData), status]);
-  return { draftId: result.insertId };
-}
-
-async function updateDraft(draftId, ownerId, draftData, status = 'DRAFT') {
-  await ensureDraftTable();
-  const organizationId = TenantContext.getOrganizationId();
-  const sql = `
-    UPDATE project_drafts
-    SET draft_data = ?, updated_at = NOW(), status = ?
-    WHERE draft_id = ? AND owner_id = ? AND organization_id = ? AND workflow_status <> 'APPROVED'
-      AND COALESCE(is_regression_data, 0) = 0
-  `;
-  const [result] = await db.promise().query(sql, [JSON.stringify(draftData), status, draftId, ownerId, organizationId]);
-  return result.affectedRows > 0;
-}
 
 async function createLifecycleProjectDraft(ownerId, organizationId, draftData, status = 'DRAFT') {
-  await ensureApprovedProjectTables();
   const values = buildProjectPersistenceValues(draftData, ownerId);
   const orgId = organizationId || TenantContext.getOrganizationId();
   const [result] = await db.promise().query(
     `
       INSERT INTO project
-        (organization_id, source_draft_id, owner_id, status, workflow_status, project_name, client_name, industry, industry_code,
+        (organization_id, owner_id, status, workflow_status, project_name, client_name, industry, industry_code,
          project_type, delivery_model, business_criticality, technology_stack, architecture_type, cloud_platform, 
          complexity, estimated_team_size, planned_effort, budget, billing_model, start_date, planned_end_date,
          predicted_hours, pm_estimated_value, ai_estimated_value, actual_final_estimated_value,
@@ -281,7 +16,7 @@ async function createLifecycleProjectDraft(ownerId, organizationId, draftData, s
          pm_baseline_effort, pm_baseline_budget, pm_baseline_team_size,
          current_planned_effort, current_planned_budget, current_planned_team_size,
          approved_data)
-      VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     [
       orgId,
@@ -330,7 +65,6 @@ async function createLifecycleProjectDraft(ownerId, organizationId, draftData, s
 }
 
 async function updateLifecycleProjectDraft(projectId, ownerId, organizationId, draftData) {
-  await ensureApprovedProjectTables();
   const orgId = organizationId || TenantContext.getOrganizationId();
   const values = buildProjectPersistenceValues(draftData, ownerId);
   const [result] = await db.promise().query(
@@ -369,7 +103,6 @@ async function updateLifecycleProjectDraft(projectId, ownerId, organizationId, d
           updated_at = NOW()
       WHERE project_id = ?
         AND organization_id = ?
-        AND source_draft_id IS NULL
         AND owner_id = ?
         AND workflow_status IN ('DRAFT', 'RETURNED', 'REJECTED')
         AND COALESCE(is_regression_data, 0) = 0
@@ -414,7 +147,6 @@ async function updateLifecycleProjectDraft(projectId, ownerId, organizationId, d
 }
 
 async function getLifecycleProjectDraftById(projectId, ownerId = null) {
-  await ensureApprovedProjectTables();
   const organizationId = TenantContext.getOrganizationId();
   const params = [projectId, organizationId];
   let ownerClause = '';
@@ -426,7 +158,6 @@ async function getLifecycleProjectDraftById(projectId, ownerId = null) {
     `
       SELECT p.project_id AS projectId,
              p.organization_id AS organizationId,
-             p.source_draft_id AS sourceDraftId,
 
              p.project_code AS projectCode,
              p.owner_id AS ownerId,
@@ -452,7 +183,6 @@ async function getLifecycleProjectDraftById(projectId, ownerId = null) {
       FROM project p
       WHERE p.project_id = ?
         AND p.organization_id = ?
-        AND p.source_draft_id IS NULL
         ${ownerClause}
         AND COALESCE(p.is_regression_data, 0) = 0
       LIMIT 1
@@ -483,7 +213,6 @@ async function transitionLifecycleProjectInTransaction(connection, projectId, tr
       SET ${fields.join(', ')}
       WHERE project_id = ?
         AND organization_id = ?
-        AND source_draft_id IS NULL
         AND workflow_status = ?
         AND COALESCE(is_regression_data, 0) = 0
     `,
@@ -515,58 +244,7 @@ async function transitionLifecycleProjectInTransaction(connection, projectId, tr
   );
 }
 
-async function getDraftById(draftId, ownerId) {
-  await ensureDraftTable();
-  const organizationId = TenantContext.getOrganizationId();
-  const sql = `
-    SELECT draft_id AS draftId,
-           organization_id AS organizationId,
-           owner_id AS ownerId,
-           draft_data AS draftData,
-           status,
-           workflow_status AS workflowStatus,
-           submitted_by_user_id AS submittedByUserId,
-           (SELECT manager_id FROM app_user WHERE user_id = submitted_by_user_id AND organization_id = project_drafts.organization_id) AS submittedByManagerId,
-           (SELECT manager_id FROM app_user WHERE user_id = owner_id AND organization_id = project_drafts.organization_id) AS ownerManagerId,
-           approved_by_user_id AS approvedByUserId,
-           submitted_at AS submittedAt,
-           approved_at AS approvedAt,
-           latest_comment AS latestComment,
-           is_published AS isPublished,
-           published_project_id AS publishedProjectId,
-           published_at AS publishedAt,
-           created_at AS createdAt,
-           updated_at AS updatedAt
-    FROM project_drafts
-    WHERE draft_id = ? AND owner_id = ? AND organization_id = ?
-      AND COALESCE(is_regression_data, 0) = 0
-    LIMIT 1
-  `;
-  const [rows] = await db.promise().query(sql, [draftId, ownerId, organizationId]);
-  if (!rows.length) {
-    return null;
-  }
 
-  return {
-  ...rows[0],
-  organizationId: rows[0].organizationId,
-  draftData: parseDraftData(rows[0].draftData),
-  };
-
-}
-
-async function markDraftSubmitted(draftId, ownerId) {
-  await ensureDraftTable();
-  const organizationId = TenantContext.getOrganizationId();
-  const sql = `
-    UPDATE project_drafts
-    SET status = 'SUBMITTED', updated_at = NOW()
-    WHERE draft_id = ? AND owner_id = ? AND organization_id = ?
-      AND COALESCE(is_regression_data, 0) = 0
-  `;
-  const [result] = await db.promise().query(sql, [draftId, ownerId, organizationId]);
-  return result.affectedRows > 0;
-}
 
 function parseDraftData(rawDraftData) {
   if (!rawDraftData) {
@@ -826,34 +504,7 @@ function mapLifecycleProjectRow(row) {
   };
 }
 
-async function findProjects() {
-  await ensureDraftTable();
-  const organizationId = TenantContext.getOrganizationId();
-  const query = `
-    SELECT draft_id AS projectId,
-           owner_id AS ownerId,
-           draft_data AS draftData,
-           status,
-           workflow_status AS workflowStatus,
-           submitted_by_user_id AS submittedByUserId,
-           (SELECT manager_id FROM app_user WHERE user_id = submitted_by_user_id AND organization_id = project_drafts.organization_id) AS submittedByManagerId,
-           (SELECT manager_id FROM app_user WHERE user_id = owner_id AND organization_id = project_drafts.organization_id) AS ownerManagerId,
-           approved_by_user_id AS approvedByUserId,
-           submitted_at AS submittedAt,
-           approved_at AS approvedAt,
-           latest_comment AS latestComment,
-           is_published AS isPublished,
-           published_project_id AS publishedProjectId,
-           published_at AS publishedAt,
-           created_at AS createdAt,
-           updated_at AS updatedAt
-    FROM project_drafts
-    WHERE organization_id = ? AND workflow_status IN ('SUBMITTED', 'RETURNED', 'APPROVED', 'REJECTED')
-    ORDER BY updated_at DESC
-  `;
-  const [rows] = await db.promise().query(query, [organizationId]);
-  return rows.map(mapDraftDataToProject);
-}
+
 
 const PROJECT_SORT_COLUMNS = {
   createdAt: 'p.created_at',
@@ -941,7 +592,7 @@ function buildLifecycleProjectListWhere(filters) {
   const actorRoleRaw = String(filters.role || '').toUpperCase();
   const actorRole = actorRoleRaw === 'AM' ? 'ACCOUNT_MANAGER' : actorRoleRaw;
   const organizationId = TenantContext.getOrganizationId();
-  const where = ['ap.organization_id = ?', 'ap.source_draft_id IS NULL'];
+  const where = ['ap.organization_id = ?'];
   const params = [organizationId];
 
   if (actorRole === 'ACCOUNT_MANAGER') {
@@ -1036,10 +687,6 @@ function mapProjectListRow(row) {
 }
 
 async function findProjectsForPm(filters) {
-  await ensureDraftTable();
-  await ensureApprovedProjectTables();
-  await ensureProjectProgressTables();
-
   const organizationId = TenantContext.getOrganizationId();
   const page = Math.max(1, Number(filters.page) || 1);
   const pageSize = Math.min(100, Math.max(1, Number(filters.pageSize) || 10));
@@ -1059,167 +706,23 @@ async function findProjectsForPm(filters) {
   };
   const sortColumn = sortAliases[filters.sortBy] || 'updatedAt';
   const sortOrder = String(filters.sortOrder || 'DESC').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-  const where = buildProjectListWhere(filters);
   const lifecycleWhere = buildLifecycleProjectListWhere(filters);
 
   const [countRows] = await db.promise().query(
     `
       SELECT COUNT(*) AS totalRecords FROM (
-        SELECT p.draft_id
-        FROM project_drafts p
-        WHERE ${where.sql}
-          AND p.is_published = 0
-        UNION ALL
-        SELECT ap.project_id
-        FROM project ap
-        INNER JOIN project_drafts p ON p.draft_id = ap.source_draft_id AND p.organization_id = ap.organization_id
-        WHERE ${where.sql}
-          AND p.is_published = 1
-          AND COALESCE(ap.is_regression_data, 0) = 0
-        UNION ALL
         SELECT ap.project_id
         FROM project ap
         WHERE ${lifecycleWhere.sql}
       ) records
     `,
-    [...where.params, ...where.params, ...lifecycleWhere.params],
+    [...lifecycleWhere.params],
   );
 
   const [rows] = await db.promise().query(
     `
       SELECT * FROM (
-      SELECT p.draft_id AS projectId,
-             p.draft_id AS draftId,
-             p.published_project_id AS publishedProjectId,
-             'DRAFT' AS recordType,
-             CONCAT('PRJ-', LPAD(p.draft_id, 6, '0')) AS projectCode,
-             JSON_UNQUOTE(JSON_EXTRACT(p.draft_data, '$.basicInfo.project_name')) AS projectName,
-             JSON_UNQUOTE(JSON_EXTRACT(p.draft_data, '$.basicInfo.client_name')) AS clientName,
-             JSON_UNQUOTE(JSON_EXTRACT(p.draft_data, '$.basicInfo.industry')) AS industry,
-             JSON_UNQUOTE(JSON_EXTRACT(p.draft_data, '$.basicInfo.delivery_model')) AS deliveryModel,
-             p.workflow_status AS currentStatus,
-             'Not Measured' AS severity,
-             JSON_UNQUOTE(JSON_EXTRACT(p.draft_data, '$.deliveryDetails.start_date')) AS startDate,
-             JSON_UNQUOTE(JSON_EXTRACT(p.draft_data, '$.deliveryDetails.planned_end_date')) AS plannedEndDate,
-             JSON_UNQUOTE(JSON_EXTRACT(p.draft_data, '$.deliveryDetails.planned_end_date')) AS effectiveEndDate,
-             0 AS approvedScheduleImpactDays,
-             p.created_at AS createdAt,
-             p.updated_at AS updatedAt,
-             COALESCE(p.is_regression_data, 0) AS isRegressionData,
-             reviewer.action_comment AS reviewerComment
-      FROM project_drafts p
-      LEFT JOIN (
-        SELECT h.project_id, h.action_comment
-        FROM project_workflow_history h
-        INNER JOIN (
-          SELECT project_id, MAX(workflow_history_id) AS workflow_history_id
-          FROM project_workflow_history
-          WHERE action_by_role = 'ACCOUNT_MANAGER' AND organization_id = ?
-          GROUP BY project_id
-        ) latest
-          ON latest.workflow_history_id = h.workflow_history_id
-        WHERE h.organization_id = ?
-      ) reviewer
-        ON reviewer.project_id = p.draft_id
-      WHERE ${where.sql}
-        AND p.is_published = 0
-      UNION ALL
-      SELECT ap.project_id AS projectId,
-             p.draft_id AS draftId,
-             ap.project_id AS publishedProjectId,
-             'APPROVED_PROJECT' AS recordType,
-             COALESCE(ap.project_code, CONCAT('PRJ-', LPAD(ap.project_id, 6, '0'))) AS projectCode,
-             ap.project_name AS projectName,
-             ap.client_name AS clientName,
-             COALESCE(NULLIF(ap.industry, ''), ap.industry_code) AS industry,
-             ap.delivery_model AS deliveryModel,
-             CASE WHEN p.workflow_status = 'COMPLETE' THEN 'COMPLETE' ELSE 'APPROVED' END AS currentStatus,
-             CASE
-               WHEN latest_progress.snapshot_id IS NULL THEN 'Not Measured'
-               WHEN ABS(
-                 LEAST(100, GREATEST(0, (
-                   (DATEDIFF(latest_progress.snapshot_date, ap.start_date) + 1)
-                   / NULLIF(
-                     (DATEDIFF(ap.planned_end_date, ap.start_date) + 1)
-                     + COALESCE(cr_schedule.totalScheduleImpactDays, 0),
-                     0
-                   )
-                 ) * 100)) - COALESCE(latest_progress.actual_completion_percent, 0)
-               ) <= 10 THEN 'Normal'
-               WHEN ABS(
-                 LEAST(100, GREATEST(0, (
-                   (DATEDIFF(latest_progress.snapshot_date, ap.start_date) + 1)
-                   / NULLIF(
-                     (DATEDIFF(ap.planned_end_date, ap.start_date) + 1)
-                     + COALESCE(cr_schedule.totalScheduleImpactDays, 0),
-                     0
-                   )
-                 ) * 100)) - COALESCE(latest_progress.actual_completion_percent, 0)
-               ) <= 20 THEN 'Medium'
-               WHEN ABS(
-                 LEAST(100, GREATEST(0, (
-                   (DATEDIFF(latest_progress.snapshot_date, ap.start_date) + 1)
-                   / NULLIF(
-                     (DATEDIFF(ap.planned_end_date, ap.start_date) + 1)
-                     + COALESCE(cr_schedule.totalScheduleImpactDays, 0),
-                     0
-                   )
-                 ) * 100)) - COALESCE(latest_progress.actual_completion_percent, 0)
-               ) <= 40 THEN 'High'
-               ELSE 'Urgent'
-             END AS severity,
-             ap.start_date AS startDate,
-             ap.planned_end_date AS plannedEndDate,
-             DATE_ADD(
-               ap.planned_end_date,
-               INTERVAL COALESCE(cr_schedule.totalScheduleImpactDays, 0) DAY
-             ) AS effectiveEndDate,
-             COALESCE(cr_schedule.totalScheduleImpactDays, 0) AS approvedScheduleImpactDays,
-             ap.created_at AS createdAt,
-             p.updated_at AS updatedAt,
-             COALESCE(ap.is_regression_data, p.is_regression_data, 0) AS isRegressionData,
-             reviewer.action_comment AS reviewerComment
-      FROM project ap
-      INNER JOIN project_drafts p ON p.draft_id = ap.source_draft_id AND p.organization_id = ap.organization_id
-      LEFT JOIN (
-        SELECT progress.*
-        FROM project_progress_snapshot progress
-        INNER JOIN (
-          SELECT project_id, MAX(snapshot_date) AS snapshot_date
-          FROM project_progress_snapshot
-          WHERE organization_id = ?
-          GROUP BY project_id
-        ) latest
-          ON latest.project_id = progress.project_id
-         AND latest.snapshot_date = progress.snapshot_date
-        WHERE progress.organization_id = ?
-      ) latest_progress
-        ON latest_progress.project_id = ap.project_id
-      LEFT JOIN (
-        SELECT project_id, SUM(schedule_impact_days) AS totalScheduleImpactDays
-        FROM change_request
-        WHERE workflow_status = 'APPROVED' AND organization_id = ?
-        GROUP BY project_id
-      ) cr_schedule
-        ON cr_schedule.project_id = ap.project_id
-      LEFT JOIN (
-        SELECT h.project_id, h.action_comment
-        FROM project_workflow_history h
-        INNER JOIN (
-          SELECT project_id, MAX(workflow_history_id) AS workflow_history_id
-          FROM project_workflow_history
-          WHERE action_by_role = 'ACCOUNT_MANAGER' AND organization_id = ?
-          GROUP BY project_id
-        ) latest
-          ON latest.workflow_history_id = h.workflow_history_id
-        WHERE h.organization_id = ?
-      ) reviewer
-        ON reviewer.project_id = p.draft_id
-      WHERE ${where.sql}
-        AND p.is_published = 1
-        AND COALESCE(ap.is_regression_data, 0) = 0
-      UNION ALL
-      SELECT ap.project_id AS projectId,
+        SELECT ap.project_id AS projectId,
              ap.project_id AS draftId,
              ap.project_id AS publishedProjectId,
              CASE WHEN ap.workflow_status IN ('APPROVED', 'ACTIVE', 'COMPLETED', 'COMPLETE') THEN 'APPROVED_PROJECT' ELSE 'PROJECT' END AS recordType,
@@ -1317,15 +820,6 @@ async function findProjectsForPm(filters) {
     [
       organizationId,
       organizationId,
-      ...where.params,
-      organizationId,
-      organizationId,
-      organizationId,
-      organizationId,
-      organizationId,
-      ...where.params,
-      organizationId,
-      organizationId,
       organizationId,
       organizationId,
       organizationId,
@@ -1346,33 +840,16 @@ async function findProjectsForPm(filters) {
 }
 
 async function findApprovedProjectsAvailableForCr(user) {
-  await ensureDraftTable();
-  await ensureApprovedProjectTables();
   const organizationId = TenantContext.getOrganizationId();
   const rawRole = String(user.role || '').toUpperCase();
   const role = rawRole === 'AM' ? 'ACCOUNT_MANAGER' : rawRole;
-  const params = [];
-  const where = ['ap.organization_id = ?', 'pd.organization_id = ?'];
   const lifecycleParams = [];
-  const lifecycleWhere = ['ap.organization_id = ?', 'ap.source_draft_id IS NULL'];
+  const lifecycleWhere = ['ap.organization_id = ?'];
 
   if (role === 'PM') {
-    where.push('(ap.owner_id = ? OR pd.submitted_by_user_id = ?)');
-    params.push(user.userId, user.userId);
     lifecycleWhere.push('(ap.owner_id = ? OR ap.submitted_by_user_id = ?)');
     lifecycleParams.push(user.userId, user.userId);
   } else if (role === 'ACCOUNT_MANAGER') {
-    where.push(`(
-      EXISTS (
-        SELECT 1
-        FROM app_user assigned_pm
-        WHERE assigned_pm.user_id = COALESCE(pd.submitted_by_user_id, ap.owner_id)
-          AND assigned_pm.manager_id = ?
-          AND assigned_pm.organization_id = ap.organization_id
-      )
-      OR ap.approved_by_user_id = ?
-    )`);
-    params.push(user.userId, user.userId);
     lifecycleWhere.push(`(
       EXISTS (
         SELECT 1
@@ -1387,43 +864,6 @@ async function findApprovedProjectsAvailableForCr(user) {
   } else {
     return [];
   }
-
-  const [rows] = await db.promise().query(
-    `
-      SELECT ap.project_id AS projectId,
-             COALESCE(ap.project_code, CONCAT('PRJ-', LPAD(ap.project_id, 6, '0'))) AS projectCode,
-             ap.project_name AS projectName,
-             ap.client_name AS clientName,
-             COALESCE(NULLIF(ap.industry, ''), ap.industry_code) AS industry,
-             ap.delivery_model AS deliveryModel,
-             ap.current_planned_effort AS currentPlannedEffort,
-             ap.current_planned_budget AS currentPlannedBudget,
-             ap.current_planned_team_size AS currentPlannedTeamSize,
-             ap.actual_final_estimated_value AS currentEstimation,
-             (
-               DATEDIFF(JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.planned_end_date')),
-                        JSON_UNQUOTE(JSON_EXTRACT(ap.approved_data, '$.deliveryDetails.start_date'))) + 1
-             ) + COALESCE(cr_schedule.totalScheduleImpactDays, 0) AS currentPlannedDuration,
-             CASE WHEN pd.workflow_status = 'COMPLETE' THEN 'COMPLETE' ELSE 'APPROVED' END AS currentStatus,
-             'APPROVED_PROJECT' AS recordType,
-             CASE WHEN pd.workflow_status = 'APPROVED' THEN 1 ELSE 0 END AS canCreateCr
-      FROM project ap
-      INNER JOIN project_drafts pd ON pd.draft_id = ap.source_draft_id AND pd.organization_id = ap.organization_id
-      LEFT JOIN (
-        SELECT project_id, SUM(schedule_impact_days) AS totalScheduleImpactDays
-        FROM change_request
-        WHERE workflow_status = 'APPROVED' AND organization_id = ?
-        GROUP BY project_id
-      ) cr_schedule
-        ON cr_schedule.project_id = ap.project_id
-      WHERE ${where.join(' AND ')}
-        AND pd.workflow_status = 'APPROVED'
-        AND COALESCE(ap.is_regression_data, 0) = 0
-        AND COALESCE(pd.is_regression_data, 0) = 0
-      ORDER BY ap.updated_at DESC, ap.project_id DESC
-    `,
-    [organizationId, organizationId, organizationId, ...params],
-  );
 
   const [lifecycleRows] = await db.promise().query(
     `
@@ -1460,7 +900,7 @@ async function findApprovedProjectsAvailableForCr(user) {
     [organizationId, organizationId, ...lifecycleParams],
   );
 
-  return [...rows, ...lifecycleRows].map((row) => ({
+  return [...lifecycleRows].map((row) => ({
     ...row,
     canCreateCr: Boolean(row.canCreateCr),
     currentApprovedValues: {
@@ -1482,44 +922,14 @@ async function getSubmittedProjectById(projectId) {
   if (lifecycleProject && ['SUBMITTED', 'RETURNED', 'APPROVED', 'REJECTED'].includes(String(lifecycleProject.workflowStatus || '').toUpperCase())) {
     return lifecycleProject;
   }
-
-  await ensureDraftTable();
-  const organizationId = TenantContext.getOrganizationId();
-  const query = `
-    SELECT draft_id AS projectId,
-           organization_id AS organizationId,
-           owner_id AS ownerId,
-           draft_data AS draftData,
-           status,
-           workflow_status AS workflowStatus,
-           submitted_by_user_id AS submittedByUserId,
-           approved_by_user_id AS approvedByUserId,
-           submitted_at AS submittedAt,
-           approved_at AS approvedAt,
-           latest_comment AS latestComment,
-           is_published AS isPublished,
-           published_project_id AS publishedProjectId,
-           published_at AS publishedAt,
-           created_at AS createdAt,
-           updated_at AS updatedAt
-    FROM project_drafts
-    WHERE draft_id = ? AND organization_id = ? AND workflow_status IN ('SUBMITTED', 'RETURNED', 'APPROVED', 'REJECTED')
-    LIMIT 1
-  `;
-  const [rows] = await db.promise().query(query, [projectId, organizationId]);
-  if (!rows.length) {
-    return null;
-  }
-  return mapDraftDataToProject(rows[0]);
+  return null;
 }
 
 async function getProjectById(projectId) {
-  await ensureApprovedProjectTables();
   const organizationId = TenantContext.getOrganizationId();
   const query = `
         SELECT ap.project_id AS projectId,
            ap.organization_id AS organizationId,
-           ap.source_draft_id AS sourceDraftId,
            ap.project_code AS projectCode,
            ap.owner_id AS ownerId,
            ap.project_name AS projectName,
@@ -1559,28 +969,19 @@ async function getProjectById(projectId) {
            ap.total_cr_team_impact AS totalCrTeamImpact,
            ap.total_cr_estimation_impact AS totalCrEstimationImpact,
            COALESCE(cr_schedule.totalScheduleImpactDays, 0) AS totalCrScheduleImpactDays,
-           CASE
-             WHEN ap.source_draft_id IS NULL THEN ap.workflow_status
-             WHEN pd.workflow_status = 'COMPLETE' THEN 'COMPLETED'
-             ELSE 'APPROVED'
-           END AS status,
-           CASE
-             WHEN ap.source_draft_id IS NULL THEN ap.workflow_status
-             WHEN pd.workflow_status = 'COMPLETE' THEN 'COMPLETED'
-             ELSE 'APPROVED'
-           END AS workflowStatus,
-           COALESCE(ap.submitted_by_user_id, pd.submitted_by_user_id) AS submittedByUserId,
-           (SELECT manager_id FROM app_user WHERE user_id = COALESCE(ap.submitted_by_user_id, pd.submitted_by_user_id) AND organization_id = ap.organization_id) AS submittedByManagerId,
+           ap.workflow_status AS status,
+           ap.workflow_status AS workflowStatus,
+           ap.submitted_by_user_id AS submittedByUserId,
+           (SELECT manager_id FROM app_user WHERE user_id = ap.submitted_by_user_id AND organization_id = ap.organization_id) AS submittedByManagerId,
            (SELECT manager_id FROM app_user WHERE user_id = ap.owner_id AND organization_id = ap.organization_id) AS ownerManagerId,
            ap.approved_by_user_id AS approvedByUserId,
-           COALESCE(ap.submitted_at, pd.submitted_at) AS submittedAt,
+           ap.submitted_at AS submittedAt,
            ap.approved_at AS approvedAt,
-           COALESCE(ap.latest_comment, pd.latest_comment) AS latestComment,
+           ap.latest_comment AS latestComment,
            ap.created_at AS createdAt,
-           COALESCE(ap.updated_at, pd.updated_at) AS updatedAt
-           ,COALESCE(ap.is_regression_data, pd.is_regression_data, 0) AS isRegressionData
+           ap.updated_at AS updatedAt,
+           COALESCE(ap.is_regression_data, 0) AS isRegressionData
     FROM project ap
-    LEFT JOIN project_drafts pd ON pd.draft_id = ap.source_draft_id AND pd.organization_id = ap.organization_id
     LEFT JOIN (
       SELECT project_id, SUM(schedule_impact_days) AS totalScheduleImpactDays
       FROM change_request
@@ -1692,7 +1093,6 @@ async function getProjectById(projectId) {
     plannedEndDate: rows[0].plannedEndDate,
     billingModel: rows[0].billingModel,
   };
-  await ensureProjectProgressTables();
   const [progressRows] = await db.promise().query(
     `
       SELECT snapshot_id AS snapshotId,
@@ -1767,7 +1167,6 @@ function buildProjectPersistenceValues(data = {}, ownerId, approvedByUserId = nu
 }
 
 async function findProgressSnapshots(projectId) {
-  await ensureProjectProgressTables();
   const organizationId = TenantContext.getOrganizationId();
   const project = await getProjectById(projectId, organizationId);
   const [rows] = await db.promise().query(
@@ -1793,7 +1192,6 @@ async function findProgressSnapshots(projectId) {
 }
 
 async function getProgressSnapshotByDate(projectId, snapshotDate) {
-  await ensureProjectProgressTables();
   const organizationId = TenantContext.getOrganizationId();
   const project = await getProjectById(projectId, organizationId);
   const [rows] = await db.promise().query(
@@ -1819,13 +1217,11 @@ async function getProgressSnapshotByDate(projectId, snapshotDate) {
 }
 
 async function getLatestProgressSnapshot(projectId) {
-  await ensureProjectProgressTables();
   const snapshots = await findProgressSnapshots(projectId);
   return snapshots[0] || null;
 }
 
 async function upsertProgressSnapshot(projectId, userId, snapshot) {
-  await ensureProjectProgressTables();
   const organizationId = TenantContext.getOrganizationId();
   await db.promise().query(
     `
@@ -1862,20 +1258,15 @@ async function getProjectForCompletion(connection, projectId) {
     `
       SELECT ap.project_id AS projectId,
              ap.organization_id AS organizationId,
-             ap.source_draft_id AS sourceDraftId,
              ap.owner_id AS ownerId,
              ap.project_name AS projectName,
              ap.project_code AS projectCode,
              ap.actual_final_estimated_value AS actualFinalEstimatedValue,
              ap.actual_completion_date AS actualCompletionDate,
-             COALESCE(ap.submitted_by_user_id, pd.submitted_by_user_id) AS submittedByUserId,
-             COALESCE(ap.approved_by_user_id, pd.approved_by_user_id) AS approvedByUserId,
-             CASE
-               WHEN ap.source_draft_id IS NULL THEN ap.workflow_status
-               ELSE pd.workflow_status
-             END AS workflowStatus
+             ap.submitted_by_user_id AS submittedByUserId,
+             ap.approved_by_user_id AS approvedByUserId,
+             ap.workflow_status AS workflowStatus
       FROM project ap
-      LEFT JOIN project_drafts pd ON pd.draft_id = ap.source_draft_id AND pd.organization_id = ap.organization_id
       WHERE ap.project_id = ? AND ap.organization_id = ?
       FOR UPDATE
     `,
@@ -1889,16 +1280,15 @@ async function insertProjectCompletion(connection, completion) {
   const [result] = await connection.query(
     `
       INSERT INTO project_completion_history
-        (organization_id, project_id, source_draft_id, completed_by_user_id, final_resource_loading,
+        (organization_id, project_id, completed_by_user_id, final_resource_loading,
          management_cost, contingency_cost, resource_cost, full_project_cost,
          dependency_count, requirement_stability_index, actual_cr_volatility,
          risk_level_indicators, actual_final_estimated_value, actual_completion_date, completion_payload)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     [
       organizationId,
       completion.projectId,
-      completion.sourceDraftId,
       completion.completedByUserId,
       JSON.stringify(completion.finalResourceLoading),
       completion.managementCost,
@@ -1963,49 +1353,20 @@ async function updateProjectActuals(connection, projectId, actuals) {
   return result.affectedRows > 0;
 }
 
-async function markProjectComplete(connection, draftId, projectId, user, comment) {
-  if (!draftId) {
-    const [projectResult] = await connection.query(
-      `
-        UPDATE project
-        SET status = 'COMPLETED',
-            workflow_status = 'COMPLETED',
-            latest_comment = ?,
-            updated_at = NOW()
-        WHERE project_id = ? AND workflow_status IN ('APPROVED', 'ACTIVE')
-      `,
-      [comment, projectId],
-    );
-
-    if (projectResult.affectedRows === 0) {
-      return false;
-    }
-
-    await connection.query(
-      `
-        INSERT INTO project_workflow_history
-          (project_id, organization_id, from_status, to_status, action_by_user_id, action_by_role, action_comment, action_type)
-        VALUES (?, ?, 'APPROVED', 'COMPLETED', ?, ?, ?, 'COMPLETE')
-      `,
-      [projectId, user.organizationId, user.userId, String(user.role || '').toUpperCase(), comment],
-    );
-
-    return true;
-  }
-
-  const [result] = await connection.query(
+async function markProjectComplete(connection, projectId, user, comment) {
+  const [projectResult] = await connection.query(
     `
-      UPDATE project_drafts
-      SET status = 'COMPLETE',
-          workflow_status = 'COMPLETE',
+      UPDATE project
+      SET status = 'COMPLETED',
+          workflow_status = 'COMPLETED',
           latest_comment = ?,
           updated_at = NOW()
-      WHERE draft_id = ? AND workflow_status = 'APPROVED'
+      WHERE project_id = ? AND workflow_status IN ('APPROVED', 'ACTIVE')
     `,
-    [comment, draftId],
+    [comment, projectId],
   );
 
-  if (result.affectedRows === 0) {
+  if (projectResult.affectedRows === 0) {
     return false;
   }
 
@@ -2013,7 +1374,7 @@ async function markProjectComplete(connection, draftId, projectId, user, comment
     `
       INSERT INTO project_workflow_history
         (project_id, organization_id, from_status, to_status, action_by_user_id, action_by_role, action_comment, action_type)
-      VALUES (?, ?, 'APPROVED', 'COMPLETE', ?, ?, ?, 'COMPLETE')
+      VALUES (?, ?, 'APPROVED', 'COMPLETED', ?, ?, ?, 'COMPLETE')
     `,
     [projectId, user.organizationId, user.userId, String(user.role || '').toUpperCase(), comment],
   );
@@ -2021,145 +1382,7 @@ async function markProjectComplete(connection, draftId, projectId, user, comment
   return true;
 }
 
-async function getDraftProjectById(draftId) {
-  await ensureDraftTable();
-  const organizationId = TenantContext.getOrganizationId();
-  const query = `
-    SELECT draft_id AS projectId,
-           organization_id AS organizationId,
-           owner_id AS ownerId,
-           draft_data AS draftData,
-           status,
-           workflow_status AS workflowStatus,
-           submitted_by_user_id AS submittedByUserId,
-           (SELECT manager_id FROM app_user WHERE user_id = submitted_by_user_id AND organization_id = project_drafts.organization_id) AS submittedByManagerId,
-           (SELECT manager_id FROM app_user WHERE user_id = owner_id AND organization_id = project_drafts.organization_id) AS ownerManagerId,
-           approved_by_user_id AS approvedByUserId,
-           submitted_at AS submittedAt,
-           approved_at AS approvedAt,
-           latest_comment AS latestComment,
-           is_published AS isPublished,
-           published_project_id AS publishedProjectId,
-           published_at AS publishedAt,
-           created_at AS createdAt,
-           updated_at AS updatedAt
-           ,COALESCE(is_regression_data, 0) AS isRegressionData
-    FROM project_drafts
-    WHERE draft_id = ? AND organization_id = ?
-    LIMIT 1
-  `;
-  const [rows] = await db.promise().query(query, [draftId, organizationId]);
-  if (!rows.length) return null;
-  return mapDraftDataToProject(rows[0]);
-}
-async function getDraftForPublishing(connection, draftId) {
-  const [rows] = await connection.query(
-    `
-      SELECT draft_id AS draftId,
-             organization_id AS organizationId,
-             owner_id AS ownerId,
-             draft_data AS draftData,
-             workflow_status AS workflowStatus,
-             approved_by_user_id AS approvedByUserId,
-             approved_at AS approvedAt,
-             is_published AS isPublished,
-             published_project_id AS publishedProjectId
-      FROM project_drafts
-      WHERE draft_id = ?
-      FOR UPDATE
-    `,
-    [draftId],
-  );
-  if (!rows.length) return null;
-  return {
-    ...rows[0],
-    draftData: parseDraftData(rows[0].draftData),
-    isPublished: Boolean(rows[0].isPublished),
-  };
-}
 
-async function insertApprovedProject(connection, draft, approvedByUserId) {
-  const organizationId = draft.organizationId || TenantContext.getOrganizationId();
-  if (!organizationId) {
-    const error = new Error('Organization context is required to publish approved project');
-    error.status = 400;
-    throw error;
-  }
-  const data = draft.draftData || {};
-  const basic = data.basicInfo || {};
-  const technology = data.technology || {};
-  const financial = data.financial || {};
-  const aiBaseline = extractAiBaseline(data);
-  const pmEstimatedValue = extractPmEstimatedValue(data);
-  const aiEstimatedValue = extractAiEstimatedValue(data);
-  const pmBaseline = {
-    effort: normalizeNumber(financial.planned_effort, 0),
-    budget: normalizeNumber(financial.budget, 0),
-    teamSize: normalizeNumber(financial.estimated_team_size, 0),
-  };
-  console.info('Initializing project baselines', {
-    draftId: draft.draftId,
-    aiBaseline,
-    pmBaseline,
-  });
-  const [result] = await connection.query(
-    `
-      INSERT INTO project
-        (organization_id, source_draft_id, owner_id, project_name, client_name, industry, industry_code, project_type, delivery_model,
-         business_criticality, technology_stack, architecture_type, cloud_platform, complexity, estimated_team_size, planned_effort, budget, 
-         billing_model, start_date, planned_end_date, predicted_hours,
-         pm_estimated_value, ai_estimated_value, actual_final_estimated_value,
-         ai_baseline_effort, ai_baseline_budget, ai_baseline_team_size,
-         pm_baseline_effort, pm_baseline_budget, pm_baseline_team_size,
-         current_planned_effort, current_planned_budget, current_planned_team_size,
-         approved_data, approved_by_user_id, approved_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-    `,
-    [
-      organizationId,
-      draft.draftId,
-      draft.ownerId,
-      basic.project_name || 'Untitled Project',
-      basic.client_name || '',
-      basic.industry || '',
-      basic.industry_code || basic.industryCode || '',
-      basic.project_type || '',
-      basic.delivery_model || '',
-      basic.business_criticality || '',
-      technology.technology_stack || '',
-      technology.architecture_type || '',
-      technology.cloud_platform || '',
-      normalizeNumber(technology.complexity, 0),
-      pmBaseline.teamSize,
-      pmBaseline.effort,
-      pmBaseline.budget,
-      financial.billing_model || '',
-      toDateOnly(data.deliveryDetails?.start_date),
-      toDateOnly(data.deliveryDetails?.planned_end_date),
-      pmEstimatedValue,
-      aiEstimatedValue,
-      pmEstimatedValue,
-      aiBaseline.effort,
-      aiBaseline.budget,
-      aiBaseline.teamSize,
-      pmBaseline.effort,
-      pmBaseline.budget,
-      pmBaseline.teamSize,
-      pmBaseline.effort,
-      pmBaseline.budget,
-      pmBaseline.teamSize,
-      JSON.stringify(data),
-      approvedByUserId,
-    ],
-  );
-
-  await connection.query(
-    "UPDATE project SET project_code = CONCAT('PRJ-', LPAD(project_id, 6, '0')) WHERE project_id = ?",
-    [result.insertId],
-  );
-
-  return result.insertId;
-}
 
 async function insertProjectTeamSnapshots(connection, projectId, teamRows = [], organizationId = null) {
   if (!Array.isArray(teamRows) || teamRows.length === 0) return;
@@ -2211,51 +1434,26 @@ async function insertProjectTeamSnapshotsIfMissing(connection, projectId, teamRo
   await insertProjectTeamSnapshots(connection, projectId, teamRows, orgId);
 }
 
-async function markDraftPublished(connection, draftId, projectId) {
-  const [result] = await connection.query(
-    `
-      UPDATE project_drafts
-      SET is_published = 1,
-          published_project_id = ?,
-          published_at = NOW()
-      WHERE draft_id = ? AND is_published = 0
-    `,
-    [projectId, draftId],
-  );
-  return result.affectedRows > 0;
-}
+
 
 module.exports = {
-  createDraft,
-  updateDraft,
   createLifecycleProjectDraft,
   updateLifecycleProjectDraft,
   getLifecycleProjectDraftById,
   transitionLifecycleProjectInTransaction,
-  getDraftById,
-  markDraftSubmitted,
-  findProjects,
   findApprovedProjectsAvailableForCr,
   findProjectsForPm,
   getSubmittedProjectById,
   getProjectById,
-  getDraftProjectById,
-  getDraftForPublishing,
-  ensureApprovedProjectTables,
-  ensureProjectCompletionTables,
-  ensureProjectProgressTables,
-  ensureDraftTable,
   findProgressSnapshots,
   getLatestProgressSnapshot,
   getProgressSnapshotByDate,
   getProjectForCompletion,
   insertProjectCompletion,
   updateProjectActuals,
-  insertApprovedProject,
   insertProjectTeamSnapshots,
   insertProjectTeamSnapshotsIfMissing,
   markProjectComplete,
-  markDraftPublished,
   upsertProgressSnapshot,
   insertProject,
 };

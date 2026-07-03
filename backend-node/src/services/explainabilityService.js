@@ -13,12 +13,12 @@ function normalizeRole(user) {
   return role === 'AM' ? 'ACCOUNT_MANAGER' : role;
 }
 
-function visibilityWhere(user, projectAlias = 'p', draftAlias = 'pd') {
+function visibilityWhere(user, projectAlias = 'p') {
   const role = normalizeRole(user);
   if (role === 'ADMIN') return { sql: '1 = 1', params: [] };
   if (role === 'PM') {
     return {
-      sql: `(${projectAlias}.owner_id = ? OR COALESCE(${projectAlias}.submitted_by_user_id, ${draftAlias}.submitted_by_user_id) = ?)`,
+      sql: `(${projectAlias}.owner_id = ? OR ${projectAlias}.submitted_by_user_id = ?)`,
       params: [user.userId, user.userId],
     };
   }
@@ -29,7 +29,7 @@ function visibilityWhere(user, projectAlias = 'p', draftAlias = 'pd') {
         OR EXISTS (
           SELECT 1
           FROM app_user assigned_pm
-          WHERE assigned_pm.user_id = COALESCE(${projectAlias}.submitted_by_user_id, ${draftAlias}.submitted_by_user_id, ${projectAlias}.owner_id)
+          WHERE assigned_pm.user_id = COALESCE(${projectAlias}.submitted_by_user_id, ${projectAlias}.owner_id)
             AND assigned_pm.manager_id = ?
         )
       )`,
@@ -45,7 +45,6 @@ async function canAccessProject(user, projectId) {
     `
       SELECT p.project_id AS projectId, p.updated_at AS updatedAt
       FROM project p
-      LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
       WHERE p.project_id = ?
         AND ${visibility.sql}
       LIMIT 1

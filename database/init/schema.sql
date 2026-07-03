@@ -65,29 +65,6 @@ CREATE TABLE md_industry (
   INDEX idx_md_industry_active_name (is_active, industry_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE project_drafts (
-  draft_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  owner_id BIGINT UNSIGNED NOT NULL,
-  draft_data JSON NOT NULL,
-  status VARCHAR(32) NOT NULL DEFAULT 'DRAFT',
-  workflow_status VARCHAR(32) NOT NULL DEFAULT 'DRAFT',
-  submitted_by_user_id BIGINT UNSIGNED NULL,
-  approved_by_user_id BIGINT UNSIGNED NULL,
-  submitted_at TIMESTAMP NULL DEFAULT NULL,
-  approved_at TIMESTAMP NULL DEFAULT NULL,
-  latest_comment TEXT NULL,
-  is_published TINYINT(1) NOT NULL DEFAULT 0,
-  published_project_id BIGINT UNSIGNED NULL,
-  published_at TIMESTAMP NULL DEFAULT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (draft_id),
-  INDEX idx_project_drafts_owner_id (owner_id),
-  INDEX idx_project_drafts_workflow_status (workflow_status),
-  INDEX idx_project_drafts_submitted_by (submitted_by_user_id),
-  INDEX idx_project_drafts_created_at (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
 CREATE TABLE project_workflow_history (
   workflow_history_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   project_id BIGINT UNSIGNED NOT NULL,
@@ -105,7 +82,6 @@ CREATE TABLE project_workflow_history (
 
 CREATE TABLE project (
   project_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  source_draft_id BIGINT UNSIGNED NOT NULL,
   owner_id BIGINT UNSIGNED NOT NULL,
   project_code VARCHAR(32) NULL,
   project_name VARCHAR(255) NOT NULL,
@@ -146,7 +122,6 @@ CREATE TABLE project (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (project_id),
-  UNIQUE KEY uq_project_source_draft (source_draft_id),
   INDEX idx_project_owner_id (owner_id),
   INDEX idx_project_industry_code (industry_code),
   INDEX idx_project_approved_at (approved_at)
@@ -195,7 +170,6 @@ CREATE TABLE project_team_snapshot (
 CREATE TABLE project_completion_history (
   completion_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   project_id BIGINT UNSIGNED NOT NULL,
-  source_draft_id BIGINT UNSIGNED NOT NULL,
   completed_by_user_id BIGINT UNSIGNED NOT NULL,
   final_resource_loading JSON NOT NULL,
   management_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
@@ -212,7 +186,6 @@ CREATE TABLE project_completion_history (
   completed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (completion_id),
   INDEX idx_project_completion_project (project_id),
-  INDEX idx_project_completion_draft (source_draft_id),
   INDEX idx_project_completion_completed_at (completed_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -345,14 +318,14 @@ CREATE TABLE cr_workflow_history (
 
 CREATE TABLE ml_prediction_log (
   prediction_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  project_draft_id BIGINT UNSIGNED NULL,
+  project_id BIGINT UNSIGNED NULL,
   prediction_type VARCHAR(64) NOT NULL,
   request_payload JSON NOT NULL,
   prediction_response JSON NOT NULL,
   generated_by_user_id BIGINT UNSIGNED NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (prediction_id),
-  INDEX idx_ml_prediction_log_draft (project_draft_id),
+  INDEX idx_ml_prediction_log_project (project_id),
   INDEX idx_ml_prediction_log_user (generated_by_user_id),
   INDEX idx_ml_prediction_log_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -360,7 +333,7 @@ CREATE TABLE ml_prediction_log (
 CREATE TABLE ml_prediction_feedback (
   feedback_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   prediction_id BIGINT UNSIGNED NULL,
-  project_draft_id BIGINT UNSIGNED NULL,
+  project_id BIGINT UNSIGNED NULL,
   final_staffing JSON NULL,
   staffing_override_diff JSON NULL,
   final_effort DECIMAL(12,2) NULL DEFAULT 0,
@@ -372,7 +345,7 @@ CREATE TABLE ml_prediction_feedback (
   feedback_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (feedback_id),
   INDEX idx_ml_prediction_feedback_prediction (prediction_id),
-  INDEX idx_ml_prediction_feedback_draft (project_draft_id),
+  INDEX idx_ml_prediction_feedback_project (project_id),
   INDEX idx_ml_prediction_feedback_created_at (feedback_created_at),
   CONSTRAINT fk_ml_prediction_feedback_prediction
     FOREIGN KEY (prediction_id) REFERENCES ml_prediction_log(prediction_id)

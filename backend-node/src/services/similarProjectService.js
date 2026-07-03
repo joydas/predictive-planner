@@ -10,12 +10,12 @@ function normalizeRole(user) {
   return role === 'AM' ? 'ACCOUNT_MANAGER' : role;
 }
 
-function visibilityWhere(user, projectAlias = 'p', draftAlias = 'pd') {
+function visibilityWhere(user, projectAlias = 'p') {
   const role = normalizeRole(user);
   if (role === 'ADMIN') return { sql: '1 = 1', params: [] };
   if (role === 'PM') {
     return {
-      sql: `(${projectAlias}.owner_id = ? OR COALESCE(${projectAlias}.submitted_by_user_id, ${draftAlias}.submitted_by_user_id) = ?)`,
+      sql: `(${projectAlias}.owner_id = ? OR ${projectAlias}.submitted_by_user_id = ?)`,
       params: [user.userId, user.userId],
     };
   }
@@ -26,7 +26,7 @@ function visibilityWhere(user, projectAlias = 'p', draftAlias = 'pd') {
         OR EXISTS (
           SELECT 1
           FROM app_user assigned_pm
-          WHERE assigned_pm.user_id = COALESCE(${projectAlias}.submitted_by_user_id, ${draftAlias}.submitted_by_user_id, ${projectAlias}.owner_id)
+          WHERE assigned_pm.user_id = COALESCE(${projectAlias}.submitted_by_user_id, ${projectAlias}.owner_id)
             AND assigned_pm.manager_id = ?
         )
       )`,
@@ -36,28 +36,12 @@ function visibilityWhere(user, projectAlias = 'p', draftAlias = 'pd') {
   return { sql: '1 = 0', params: [] };
 }
 
-async function tableColumnExists(tableName, columnName) {
-  const [rows] = await pool.promise().query(
-    `
-      SELECT 1
-      FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = ?
-        AND COLUMN_NAME = ?
-      LIMIT 1
-    `,
-    [tableName, columnName],
-  );
-  return rows.length > 0;
-}
-
 async function canAccessProject(user, projectId) {
   const visibility = visibilityWhere(user);
   const [rows] = await pool.promise().query(
     `
       SELECT p.project_id AS projectId
       FROM project p
-      LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
       WHERE p.project_id = ?
         AND ${visibility.sql}
       LIMIT 1
@@ -69,17 +53,15 @@ async function canAccessProject(user, projectId) {
 
 async function visibleCompletedBusinessProjectIds(user) {
   const visibility = visibilityWhere(user);
-  const hasRegressionColumn = await tableColumnExists('project', 'is_regression_data');
-  const regressionFilter = hasRegressionColumn ? 'AND COALESCE(p.is_regression_data, 0) = 0' : '';
+  const regressionFilter = 'AND COALESCE(p.is_regression_data, 0) = 0';
   
   // Try to find completed projects first
   let [rows] = await pool.promise().query(
     `
       SELECT p.project_id AS projectId
       FROM project p
-      LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
       WHERE ${visibility.sql}
-        AND COALESCE(p.workflow_status, pd.workflow_status) IN ('COMPLETED', 'COMPLETE', 'CLOSED')
+        AND p.workflow_status IN ('COMPLETED', 'COMPLETE', 'CLOSED')
         AND COALESCE(UPPER(p.project_type), UPPER(JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.basicInfo.project_type'))), '') <> 'TEST DATA'
         ${regressionFilter}
       ORDER BY p.actual_completion_date DESC, p.project_id DESC
@@ -94,7 +76,6 @@ async function visibleCompletedBusinessProjectIds(user) {
       `
         SELECT p.project_id AS projectId
         FROM project p
-        LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id
         WHERE ${visibility.sql}
           AND COALESCE(UPPER(p.project_type), UPPER(JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.basicInfo.project_type'))), '') <> 'TEST DATA'
           ${regressionFilter}
@@ -128,10 +109,9 @@ async function getProjectDetails(projectIds) {
         ap.planned_end_date AS plannedEndDate,
         ap.actual_completion_date AS actualCompletionDate,
         ap.industry,
-        COALESCE(ap.workflow_status, pd.workflow_status) AS status,
+        ap.workflow_status AS status,
         (SELECT COUNT(*) FROM change_request cr WHERE cr.project_id = ap.project_id AND cr.workflow_status = 'APPROVED') AS approvedCrCount
       FROM project ap
-      LEFT JOIN project_drafts pd ON pd.draft_id = ap.source_draft_id
       WHERE ap.project_id IN (?)
     `,
     [projectIds]

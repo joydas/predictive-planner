@@ -94,96 +94,6 @@ async function query(sql, params = []) {
   return rows;
 }
 
-async function tableExists(tableName) {
-  const rows = await query(
-    `
-      SELECT 1
-      FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = ?
-      LIMIT 1
-    `,
-    [tableName],
-  );
-  return rows.length > 0;
-}
-
-async function columnExists(tableName, columnName) {
-  const rows = await query(
-    `
-      SELECT 1
-      FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = ?
-        AND COLUMN_NAME = ?
-      LIMIT 1
-    `,
-    [tableName, columnName],
-  );
-  return rows.length > 0;
-}
-
-async function addColumnIfMissing(tableName, columnName, ddl) {
-  if (await tableExists(tableName) && !(await columnExists(tableName, columnName))) {
-    await query(ddl);
-  }
-}
-
-async function ensureRegressionSchema() {
-  await query(`
-    CREATE TABLE IF NOT EXISTS regression_run (
-      run_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-      organization_id BIGINT UNSIGNED NOT NULL,
-      requested_by_user_id BIGINT UNSIGNED NOT NULL,
-      requested_project_count INT NOT NULL DEFAULT 10,
-      status VARCHAR(32) NOT NULL DEFAULT 'RUNNING',
-      current_stage VARCHAR(100) NULL,
-      projects_created INT NOT NULL DEFAULT 0,
-      crs_created INT NOT NULL DEFAULT 0,
-      progress_snapshots_created INT NOT NULL DEFAULT 0,
-      completed_projects_created INT NOT NULL DEFAULT 0,
-      forecasts_run INT NOT NULL DEFAULT 0,
-      passed_steps INT NOT NULL DEFAULT 0,
-      failed_steps INT NOT NULL DEFAULT 0,
-      error_message TEXT NULL,
-      started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      ended_at TIMESTAMP NULL DEFAULT NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      PRIMARY KEY (run_id),
-      INDEX idx_regression_run_status (status),
-      INDEX idx_regression_run_started_at (started_at),
-      INDEX idx_regression_run_requested_by (requested_by_user_id),
-      INDEX idx_regression_run_org (organization_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
-  await query(`
-    CREATE TABLE IF NOT EXISTS regression_run_detail (
-      detail_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-      organization_id BIGINT UNSIGNED NOT NULL,
-      run_id BIGINT UNSIGNED NOT NULL,
-      step_name VARCHAR(150) NOT NULL,
-      entity_type VARCHAR(50) NULL,
-      entity_id BIGINT UNSIGNED NULL,
-      status VARCHAR(16) NOT NULL,
-      message TEXT NULL,
-      error_message TEXT NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (detail_id),
-      INDEX idx_regression_run_detail_run (run_id),
-      INDEX idx_regression_run_detail_status (status),
-      INDEX idx_regression_run_detail_org (organization_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
-  await addColumnIfMissing('project', 'is_regression_data', 'ALTER TABLE project ADD COLUMN is_regression_data TINYINT(1) NOT NULL DEFAULT 0 AFTER approved_data');
-  await addColumnIfMissing('project_drafts', 'is_regression_data', 'ALTER TABLE project_drafts ADD COLUMN is_regression_data TINYINT(1) NOT NULL DEFAULT 0 AFTER published_at');
-  await addColumnIfMissing('change_request', 'is_regression_data', 'ALTER TABLE change_request ADD COLUMN is_regression_data TINYINT(1) NOT NULL DEFAULT 0');
-  await addColumnIfMissing('project_progress_snapshot', 'is_regression_data', 'ALTER TABLE project_progress_snapshot ADD COLUMN is_regression_data TINYINT(1) NOT NULL DEFAULT 0');
-  await addColumnIfMissing('project_completion_history', 'is_regression_data', 'ALTER TABLE project_completion_history ADD COLUMN is_regression_data TINYINT(1) NOT NULL DEFAULT 0');
-  await addColumnIfMissing('project_completion_resource_loading', 'is_regression_data', 'ALTER TABLE project_completion_resource_loading ADD COLUMN is_regression_data TINYINT(1) NOT NULL DEFAULT 0');
-  await addColumnIfMissing('project_forecast_snapshot', 'is_regression_data', 'ALTER TABLE project_forecast_snapshot ADD COLUMN is_regression_data TINYINT(1) NOT NULL DEFAULT 0');
-}
-
 async function updateRun(runId, fields) {
   const entries = Object.entries(fields).filter(([, value]) => value !== undefined);
   if (!entries.length) return;
@@ -405,9 +315,7 @@ function buildProjectPayload(index, roleCatalog) {
 
 async function markRegression(tableName, whereSql, params) {
   const organizationId = TenantContext.getOrganizationId();
-  if (await columnExists(tableName, 'is_regression_data')) {
-    await query(`UPDATE ${tableName} SET is_regression_data = 1 ${whereSql} AND organization_id = ?`, [...params, organizationId]);
-  }
+  await query(`UPDATE ${tableName} SET is_regression_data = 1 ${whereSql} AND organization_id = ?`, [...params, organizationId]);
 }
 
 async function validateCount(tableName, whereSql, params) {
@@ -513,8 +421,7 @@ async function loadProjectContext(projectId) {
         project_name AS projectName,
         current_planned_effort AS plannedEffort,
         current_planned_budget AS plannedBudget,
-        current_planned_team_size AS plannedTeamSize,
-        source_draft_id AS sourceDraftId
+        current_planned_team_size AS plannedTeamSize
       FROM project
       WHERE project_id = ? AND organization_id = ?
       LIMIT 1
@@ -524,10 +431,10 @@ async function loadProjectContext(projectId) {
   return rows[0] || null;
 }
 
-async function validateWorkflowRows(runId, draftId, projectId) {
-  const projectWorkflowCount = await validateCount('project_workflow_history', 'WHERE project_id = ?', [draftId]);
+async function validateWorkflowRows(runId, projectId) {
+  const projectWorkflowCount = await validateCount('project_workflow_history', 'WHERE project_id = ?', [projectId]);
   if (projectWorkflowCount < 2) {
-    throw new Error(`Expected project workflow history for draft ${draftId}`);
+    throw new Error(`Expected project workflow history for project ${projectId}`);
   }
   const projectCount = await validateCount('project', 'WHERE project_id = ? AND project_type = ? AND is_regression_data = 1', [projectId, 'TEST DATA']);
   if (projectCount !== 1) {
@@ -564,19 +471,17 @@ async function executeRegressionRun(runId, options) {
         () => projectService.submitProject(actors.pm, projectMeta.payload, null, 'Regression suite project submission'),
         { entityType: 'PROJECT_DRAFT' },
       );
-      const draftId = Number(submitted.draftId || submitted.projectId);
-      await markRegression('project_drafts', 'WHERE draft_id = ?', [draftId]);
+      const projectId = Number(submitted.projectId || submitted.draftId);
+      await markRegression('project', 'WHERE project_id = ?', [projectId]);
       const approval = await runStep(
         runId,
         `Approve Test Project-${index}`,
-        () => projectService.transitionProject(draftId, actors.am, 'APPROVE', 'Regression suite project approval'),
-        { entityType: 'PROJECT_DRAFT', entityId: draftId },
+        () => projectService.transitionProject(projectId, actors.am, 'APPROVE', 'Regression suite project approval'),
+        { entityType: 'PROJECT', entityId: projectId },
       );
-      const projectId = Number(approval.publishedProjectId);
-      await markRegression('project', 'WHERE project_id = ?', [projectId]);
       const projectContext = await loadProjectContext(projectId);
-      await validateWorkflowRows(runId, draftId, projectId);
-      generatedProjects.push({ projectId, draftId, meta: projectMeta, context: projectContext });
+      await validateWorkflowRows(runId, projectId);
+      generatedProjects.push({ projectId, meta: projectMeta, context: projectContext });
       stats.projectsCreated += 1;
       await updateRun(runId, { projects_created: stats.projectsCreated });
     }
@@ -710,7 +615,6 @@ async function executeRegressionRun(runId, options) {
 
 async function startRegressionSuite(user, payload = {}) {
   assertAdmin(user);
-  await ensureRegressionSchema();
   const organizationId = TenantContext.getOrganizationId();
   const projectCount = PROJECT_COUNT_OPTIONS.includes(Number(payload.projectCount))
     ? Number(payload.projectCount)
@@ -745,7 +649,6 @@ async function startRegressionSuite(user, payload = {}) {
 
 async function listRegressionRuns(user, params = {}) {
   assertAdmin(user);
-  await ensureRegressionSchema();
   const organizationId = TenantContext.getOrganizationId();
   const page = Math.max(1, Number(params.page || 1));
   const pageSize = Math.min(Math.max(1, Number(params.pageSize || 10)), 50);
@@ -788,7 +691,6 @@ async function listRegressionRuns(user, params = {}) {
 
 async function getRegressionRun(user, runId) {
   assertAdmin(user);
-  await ensureRegressionSchema();
   const organizationId = TenantContext.getOrganizationId();
   const rows = await query(
     `

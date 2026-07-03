@@ -1,6 +1,5 @@
 const { pool } = require('../config/db.config');
 const projectRepository = require('../repositories/project.repository');
-const projectPublishingService = require('./projectPublishing.service');
 const workflowService = require('../workflow/workflow.service');
 const { normalizeStatus, validateTransition } = require('../workflow/workflow.validator');
 const mlPredictionService = require('./mlPrediction.service');
@@ -462,10 +461,6 @@ async function updateDraft(draftId, user, draftData) {
 async function getDraft(ownerId, draftId, organizationId) {
   const lifecycleProject = await projectRepository.getLifecycleProjectDraftById(draftId, ownerId, organizationId);
   if (!lifecycleProject) {
-    // Fallback for migration period if record still in legacy table
-    const legacyDraft = await projectRepository.getDraftById(draftId, ownerId);
-    if (legacyDraft) return legacyDraft;
-
     const error = new Error('Draft not found');
     error.status = 404;
     throw error;
@@ -624,33 +619,6 @@ async function submitProject(user, projectData, draftId = null, comment = '') {
   if (draftId) {
     const lifecycleProject = await projectRepository.getLifecycleProjectDraftById(draftId, ownerId, organizationId);
     if (!lifecycleProject) {
-      // Fallback for legacy drafts still in project_drafts during migration
-      const legacyDraft = await projectRepository.getDraftById(draftId, ownerId);
-      if (legacyDraft) {
-        // We should ideally migrate it here, but for now let's just use the legacy update
-        // and let the approval process handle the move to 'project' table.
-        // HOWEVER, the goal is to stop using project_drafts. 
-        // Let's at least try to keep it functional for the transition.
-        const updated = await projectRepository.updateDraft(draftId, ownerId, finalPayload, 'DRAFT');
-        if (!updated) {
-          const error = new Error('Draft not found or not editable');
-          error.status = 404;
-          throw error;
-        }
-        await workflowService.transitionWorkflow({
-          entityType: 'PROJECT',
-          entityId: draftId,
-          user: { userId: ownerId, role: 'PM' },
-          actionType: 'SUBMIT',
-          comment,
-        });
-        return {
-          projectId: draftId,
-          draftId,
-          ...finalPayload,
-        };
-      }
-      
       const error = new Error('Project not found, not owned by user, or not editable');
       error.status = 404;
       throw error;
@@ -891,8 +859,6 @@ async function saveProjectProgress(projectId, user, payload) {
 
 async function completeProject(projectId, user, payload) {
   assertPmUser(user);
-  await projectRepository.ensureApprovedProjectTables();
-  await projectRepository.ensureProjectCompletionTables();
 
   const completion = normalizeCompletionPayload(payload);
   validateCompletionPayload(completion);
@@ -933,7 +899,6 @@ async function completeProject(projectId, user, payload) {
     const completionRecord = await projectRepository.insertProjectCompletion(connection, {
       projectId,
       organizationId: user.organizationId,
-      sourceDraftId: project.sourceDraftId,
       completedByUserId: user.userId,
       payload,
       ...completion,
@@ -959,7 +924,6 @@ async function completeProject(projectId, user, payload) {
     }
     const marked = await projectRepository.markProjectComplete(
       connection,
-      project.sourceDraftId,
       projectId,
       user,
       comment,
@@ -978,7 +942,6 @@ async function completeProject(projectId, user, payload) {
     return {
       ...completionRecord,
       projectId,
-      sourceDraftId: project.sourceDraftId,
       status: 'COMPLETED',
       fullProjectCost: completion.fullProjectCost,
       actualEffort: completion.actualEffort,
@@ -993,20 +956,11 @@ async function completeProject(projectId, user, payload) {
 }
 
 async function getProject(projectId, organizationId) {
-  const approvedProject = await projectRepository.getProjectById(projectId, organizationId);
-  if (approvedProject) {
-    return approvedProject;
-  }
-  const draftProject = await projectRepository.getDraftProjectById(projectId, organizationId);
-  if (draftProject?.publishedProjectId) {
-    const publishedProject = await projectRepository.getProjectById(draftProject.publishedProjectId, organizationId);
-    if (publishedProject) return publishedProject;
-  }
-  return draftProject;
+  return projectRepository.getProjectById(projectId, organizationId);
 }
 
 async function getDraftProject(draftId, organizationId) {
-  return projectRepository.getDraftProjectById(draftId, organizationId);
+  return projectRepository.getProjectById(draftId, organizationId);
 }
 
 async function getWorkflowHistory(projectId) {
@@ -1019,50 +973,9 @@ async function transitionProject(projectId, user, actionType, comment) {
     return transitionLifecycleProject(lifecycleProject, user, actionType, comment);
   }
 
-  if (String(actionType || '').toUpperCase() !== 'APPROVE') {
-    return workflowService.transitionWorkflow({
-      entityType: 'PROJECT',
-      entityId: projectId,
-      user,
-      actionType,
-      comment,
-    });
-  }
-
-  await projectRepository.ensureDraftTable();
-  await projectRepository.ensureApprovedProjectTables();
-  await workflowService.ensureWorkflowSchema('PROJECT');
-
-  const connection = await pool.promise().getConnection();
-  try {
-    await connection.beginTransaction();
-    const transition = await workflowService.transitionWorkflowInTransaction(connection, {
-      entityType: 'PROJECT',
-      entityId: projectId,
-      user,
-      actionType,
-      comment,
-    });
-    const published = await projectPublishingService.publishApprovedDraft(connection, projectId, user.userId);
-    await connection.commit();
-
-    // Notification
-    const project = await projectRepository.getProjectById(published.projectId, user.organizationId);
-    if (project) {
-      const projectName = project.name || `Project ${project.projectId}`;
-      await notificationService.notifyProjectUpdate(project, 'PROJECT_APPROVED', 'Project Approved', `Project "${projectName}" has been approved.`);
-    }
-
-    return {
-      ...transition,
-      publishedProjectId: published.projectId,
-    };
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
+  const error = new Error('Project not found');
+  error.status = 404;
+  throw error;
 }
 
 async function listApprovedProjectsForPm(user, query) {
@@ -1083,50 +996,7 @@ async function listApprovedProjectsForPm(user, query) {
 }
 
 async function listProjectsAvailableForCr(user) {
-  await projectRepository.ensureDraftTable();
-  await projectRepository.ensureApprovedProjectTables();
-
-  const accessibleApprovedDrafts = await projectRepository.findProjectsForPm({
-    userId: user.userId,
-    role: user.role,
-    page: 1,
-    pageSize: 100,
-    status: 'APPROVED',
-    sortBy: 'updatedAt',
-    sortOrder: 'DESC',
-  });
-
-  const unpublishedApprovedDrafts = (accessibleApprovedDrafts.items || []).filter(
-    (project) => project.recordType !== 'APPROVED_PROJECT' && !project.publishedProjectId,
-  );
-
-  for (const draft of unpublishedApprovedDrafts) {
-    const connection = await pool.promise().getConnection();
-    try {
-      await connection.beginTransaction();
-      await projectPublishingService.publishApprovedDraft(connection, draft.draftId || draft.projectId, null);
-      await connection.commit();
-    } catch (error) {
-      await connection.rollback();
-      if (error.status !== 409) {
-        throw error;
-      }
-    } finally {
-      connection.release();
-    }
-  }
-
   return projectRepository.findApprovedProjectsAvailableForCr(user);
-}
-
-async function transitionProjectLegacy(projectId, user, actionType, comment) {
-  return workflowService.transitionWorkflow({
-    entityType: 'PROJECT',
-    entityId: projectId,
-    user,
-    actionType,
-    comment,
-  });
 }
 
 module.exports = {

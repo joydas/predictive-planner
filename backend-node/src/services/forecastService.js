@@ -5,7 +5,6 @@ const TenantContext = require('../utils/tenantContext');
 const DEFAULT_ML_API_URL = 'http://127.0.0.1:8000';
 const normalizeUrl = (url) => String(url || DEFAULT_ML_API_URL).replace(/\/+$/, '');
 const ML_API_URL = normalizeUrl(process.env.ML_API_URL || DEFAULT_ML_API_URL);
-let snapshotTableReady = false;
 
 const TREND_THRESHOLDS = {
   scheduleDays: Number(process.env.FORECAST_TREND_SCHEDULE_STABLE_DAYS || 2),
@@ -19,13 +18,13 @@ function normalizeRole(user) {
   return role === 'AM' ? 'ACCOUNT_MANAGER' : role;
 }
 
-function visibilityWhere(user, projectAlias = 'p', draftAlias = 'pd') {
+function visibilityWhere(user, projectAlias = 'p') {
   const role = normalizeRole(user);
   const organizationId = TenantContext.getOrganizationId();
   if (role === 'ADMIN') return { sql: `${projectAlias}.organization_id = ?`, params: [organizationId] };
   if (role === 'PM') {
     return {
-      sql: `${projectAlias}.organization_id = ? AND (${projectAlias}.owner_id = ? OR COALESCE(${projectAlias}.submitted_by_user_id, ${draftAlias}.submitted_by_user_id) = ?)`,
+      sql: `${projectAlias}.organization_id = ? AND (${projectAlias}.owner_id = ? OR ${projectAlias}.submitted_by_user_id = ?)`,
       params: [organizationId, user.userId, user.userId],
     };
   }
@@ -36,7 +35,7 @@ function visibilityWhere(user, projectAlias = 'p', draftAlias = 'pd') {
         OR EXISTS (
           SELECT 1
           FROM app_user assigned_pm
-          WHERE assigned_pm.user_id = COALESCE(${projectAlias}.submitted_by_user_id, ${draftAlias}.submitted_by_user_id, ${projectAlias}.owner_id)
+          WHERE assigned_pm.user_id = COALESCE(${projectAlias}.submitted_by_user_id, ${projectAlias}.owner_id)
             AND assigned_pm.manager_id = ?
             AND assigned_pm.organization_id = ${projectAlias}.organization_id
         )
@@ -47,31 +46,6 @@ function visibilityWhere(user, projectAlias = 'p', draftAlias = 'pd') {
   return { sql: '1 = 0', params: [] };
 }
 
-async function ensureSnapshotTable() {
-  if (snapshotTableReady) return;
-  await pool.promise().query(`
-    CREATE TABLE IF NOT EXISTS project_forecast_snapshot (
-      snapshot_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-      organization_id BIGINT UNSIGNED NOT NULL,
-      project_id BIGINT UNSIGNED NOT NULL,
-      snapshot_date DATE NOT NULL,
-      forecast_completion_date DATE NULL,
-      forecast_delay_days INT NULL,
-      forecast_final_effort DECIMAL(14,2) NULL,
-      forecast_final_budget DECIMAL(16,2) NULL,
-      forecast_confidence DECIMAL(5,2) NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      PRIMARY KEY (snapshot_id),
-      UNIQUE KEY uq_project_forecast_snapshot_date (project_id, snapshot_date, organization_id),
-      INDEX idx_project_forecast_snapshot_project (project_id),
-      INDEX idx_project_forecast_snapshot_date (snapshot_date),
-      INDEX idx_project_forecast_snapshot_org (organization_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
-  snapshotTableReady = true;
-}
-
 async function canAccessProject(user, projectId) {
   const visibility = visibilityWhere(user);
   const organizationId = TenantContext.getOrganizationId();
@@ -79,7 +53,6 @@ async function canAccessProject(user, projectId) {
     `
       SELECT p.project_id AS projectId
       FROM project p
-      LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id AND pd.organization_id = p.organization_id
       WHERE p.project_id = ?
         AND p.organization_id = ?
         AND ${visibility.sql}
@@ -180,7 +153,6 @@ async function upsertForecastSnapshot(projectId, forecast, snapshotDate = null, 
   if (!hasAnyForecast && !options.persistAttempt) return null;
 
   const organizationId = TenantContext.getOrganizationId();
-  await ensureSnapshotTable();
   await pool.promise().query(
     `
       INSERT INTO project_forecast_snapshot (
@@ -218,7 +190,6 @@ async function upsertForecastSnapshot(projectId, forecast, snapshotDate = null, 
 
 async function readForecastHistory(projectId) {
   const organizationId = TenantContext.getOrganizationId();
-  await ensureSnapshotTable();
   const [rows] = await pool.promise().query(
     `
       SELECT

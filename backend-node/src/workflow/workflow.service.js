@@ -3,8 +3,8 @@ const { normalizeRole, normalizeStatus, validateTransition } = require('./workfl
 
 const ENTITY_CONFIG = {
   PROJECT: {
-    tableName: 'project_drafts',
-    idColumn: 'draft_id',
+    tableName: 'project',
+    idColumn: 'project_id',
     historyTableName: 'project_workflow_history',
     historyEntityColumn: 'project_id',
   },
@@ -15,14 +15,6 @@ const ENTITY_CONFIG = {
     historyEntityColumn: 'cr_id',
   },
 };
-
-async function ensureWorkflowSchema(entityType) {
-  const config = ENTITY_CONFIG[entityType];
-  if (!config) {
-    throw new Error(`Unsupported workflow entity: ${entityType}`);
-  }
-  return true;
-}
 
 async function getWorkflowEntity(connection, entityType, entityId) {
   const config = ENTITY_CONFIG[entityType];
@@ -101,11 +93,12 @@ async function transitionWorkflow({ entityType, entityId, user, actionType, comm
     await connection.query(
       `
         INSERT INTO ${config.historyTableName}
-          (${config.historyEntityColumn}, from_status, to_status, action_by_user_id, action_by_role, action_comment, action_type)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+          (${config.historyEntityColumn}, organization_id, from_status, to_status, action_by_user_id, action_by_role, action_comment, action_type)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         entityId,
+        user.organizationId,
         fromStatus,
         transition.toStatus,
         user.userId,
@@ -168,11 +161,12 @@ async function transitionWorkflowInTransaction(connection, { entityType, entityI
   await connection.query(
     `
       INSERT INTO ${config.historyTableName}
-        (${config.historyEntityColumn}, from_status, to_status, action_by_user_id, action_by_role, action_comment, action_type)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+        (${config.historyEntityColumn}, organization_id, from_status, to_status, action_by_user_id, action_by_role, action_comment, action_type)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `,
     [
       entityId,
+      user.organizationId,
       fromStatus,
       transition.toStatus,
       user.userId,
@@ -223,7 +217,6 @@ async function getWorkflowHistory(entityType, entityId) {
 }
 
 module.exports = {
-  ensureWorkflowSchema,
   getWorkflowHistory,
   transitionWorkflowInTransaction,
   transitionWorkflow,

@@ -5,79 +5,6 @@ async function query(sql, params = []) {
   return rows;
 }
 
-async function tableExists(tableName) {
-  const rows = await query(
-    `
-      SELECT 1
-      FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = ?
-      LIMIT 1
-    `,
-    [tableName],
-  );
-  return rows.length > 0;
-}
-
-async function columnExists(tableName, columnName) {
-  const rows = await query(
-    `
-      SELECT 1
-      FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = ?
-        AND COLUMN_NAME = ?
-      LIMIT 1
-    `,
-    [tableName, columnName],
-  );
-  return rows.length > 0;
-}
-
-async function addColumnIfMissing(tableName, columnName, ddl) {
-  if (await tableExists(tableName) && !(await columnExists(tableName, columnName))) {
-    await query(ddl);
-  }
-}
-
-async function ensureOrganizationAdministrationSchema() {
-  if (!(await tableExists('organization'))) {
-    await query(`
-      CREATE TABLE organization (
-        organization_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-        organization_code VARCHAR(32) NOT NULL,
-        organization_name VARCHAR(255) NOT NULL,
-        status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
-        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        PRIMARY KEY (organization_id),
-        UNIQUE KEY uq_organization_code (organization_code)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    `);
-  }
-
-  await addColumnIfMissing(
-    'organization',
-    'status',
-    "ALTER TABLE organization ADD COLUMN status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE' AFTER organization_name",
-  );
-  await addColumnIfMissing(
-    'organization',
-    'created_at',
-    'ALTER TABLE organization ADD COLUMN created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP',
-  );
-  await addColumnIfMissing(
-    'organization',
-    'updated_at',
-    'ALTER TABLE organization ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP',
-  );
-  await addColumnIfMissing(
-    'app_user',
-    'last_login_at',
-    'ALTER TABLE app_user ADD COLUMN last_login_at TIMESTAMP NULL DEFAULT NULL AFTER active_flag',
-  );
-}
-
 function mapOrganization(row) {
   return {
     organizationId: row.organizationId,
@@ -108,7 +35,6 @@ function mapOrganizationSummary(row) {
 }
 
 async function listOrganizations() {
-  await ensureOrganizationAdministrationSchema();
   const rows = await query(`
     SELECT
       o.organization_id AS organizationId,
@@ -129,7 +55,6 @@ async function listOrganizations() {
 }
 
 async function listOrganizationOptions({ activeOnly = false } = {}) {
-  await ensureOrganizationAdministrationSchema();
   const rows = await query(
     `
       SELECT organization_id AS organizationId,
@@ -145,7 +70,6 @@ async function listOrganizationOptions({ activeOnly = false } = {}) {
 }
 
 async function findById(organizationId) {
-  await ensureOrganizationAdministrationSchema();
   const rows = await query(
     `
       SELECT organization_id AS organizationId,
@@ -164,7 +88,6 @@ async function findById(organizationId) {
 }
 
 async function findByCode(organizationCode, excludeOrganizationId = null) {
-  await ensureOrganizationAdministrationSchema();
   const params = [String(organizationCode || '').trim().toUpperCase()];
   let excludeSql = '';
   if (excludeOrganizationId) {
@@ -185,7 +108,6 @@ async function findByCode(organizationCode, excludeOrganizationId = null) {
 }
 
 async function createOrganization(values) {
-  await ensureOrganizationAdministrationSchema();
   const [result] = await pool.promise().query(
     `
       INSERT INTO organization (organization_name, organization_code, status)
@@ -197,7 +119,6 @@ async function createOrganization(values) {
 }
 
 async function updateOrganization(organizationId, values) {
-  await ensureOrganizationAdministrationSchema();
   const [result] = await pool.promise().query(
     `
       UPDATE organization
@@ -213,7 +134,6 @@ async function updateOrganization(organizationId, values) {
 }
 
 async function getOrganizationSummary(organizationId) {
-  await ensureOrganizationAdministrationSchema();
   const rows = await query(
     `
       SELECT
@@ -253,7 +173,6 @@ async function getOrganizationSummary(organizationId) {
 
 module.exports = {
   createOrganization,
-  ensureOrganizationAdministrationSchema,
   findByCode,
   findById,
   getOrganizationSummary,

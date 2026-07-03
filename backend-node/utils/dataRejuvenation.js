@@ -522,40 +522,18 @@ async function generateCompletionHistory(connection, orgId, projectId, project, 
   const fullProjectCost = resourceCost + managementCost + contingencyCost;
   const actualEffort    = actualRows.reduce((s, r) => s + (r.count * r.effort), 0);
 
-  // Create a draft record (required FK for completion_history)
-  const [draftResult] = await connection.query(
-    `INSERT INTO project_drafts
-       (organization_id, owner_id, draft_data, status, workflow_status,
-        submitted_by_user_id, is_published, published_project_id)
-     VALUES (?, ?, ?, 'PUBLISHED', 'APPROVED', ?, 1, ?)`,
-    [
-      orgId,
-      ownerId,
-      JSON.stringify({ projectName: project.projectName, teamRows: project.teamRows, technologyStack: project.technologyStack }),
-      ownerId,
-      projectId,
-    ]
-  );
-  const sourceDraftId = draftResult.insertId;
-
-  await connection.query(
-    'UPDATE project SET source_draft_id = ? WHERE project_id = ?',
-    [sourceDraftId, projectId]
-  );
-
   // Insert completion header
   const [completionResult] = await connection.query(
     `INSERT INTO project_completion_history
-       (organization_id, project_id, source_draft_id, completed_by_user_id,
+       (organization_id, project_id, completed_by_user_id,
         final_resource_loading, management_cost, contingency_cost,
         resource_cost, full_project_cost,
         actual_final_estimated_value, completion_payload,
         actual_completion_date, completed_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       orgId,
       projectId,
-      sourceDraftId,
       ownerId,
       JSON.stringify(actualRows),         // final_resource_loading JSON
       Math.ceil(managementCost),

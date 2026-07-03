@@ -1,5 +1,4 @@
 -- Phase 1: single project table lifecycle foundation.
--- This migration is intentionally additive and keeps project_drafts intact.
 
 DELIMITER $$
 
@@ -20,21 +19,6 @@ BEGIN
     PREPARE stmt FROM @ddl;
     EXECUTE stmt;
     DEALLOCATE PREPARE stmt;
-  END IF;
-END $$
-
-DROP PROCEDURE IF EXISTS make_project_source_draft_nullable $$
-CREATE PROCEDURE make_project_source_draft_nullable()
-BEGIN
-  IF EXISTS (
-    SELECT 1
-    FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME = 'project'
-      AND COLUMN_NAME = 'source_draft_id'
-      AND IS_NULLABLE = 'NO'
-  ) THEN
-    ALTER TABLE project MODIFY source_draft_id BIGINT UNSIGNED NULL;
   END IF;
 END $$
 
@@ -85,25 +69,7 @@ BEGIN
   END IF;
 END $$
 
-DROP PROCEDURE IF EXISTS make_project_completion_source_draft_nullable $$
-CREATE PROCEDURE make_project_completion_source_draft_nullable()
-BEGIN
-  IF EXISTS (
-    SELECT 1
-    FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME = 'project_completion_history'
-      AND COLUMN_NAME = 'source_draft_id'
-      AND IS_NULLABLE = 'NO'
-  ) THEN
-    ALTER TABLE project_completion_history MODIFY source_draft_id BIGINT UNSIGNED NULL;
-  END IF;
-END $$
-
 DELIMITER ;
-
-CALL make_project_source_draft_nullable();
-CALL make_project_completion_source_draft_nullable();
 
 CALL add_project_lifecycle_column(
   'status',
@@ -132,12 +98,9 @@ CALL add_project_lifecycle_column(
 
 UPDATE project
 SET status = COALESCE(NULLIF(status, ''), 'APPROVED'),
-    workflow_status = COALESCE(NULLIF(workflow_status, ''), 'APPROVED')
-WHERE source_draft_id IS NOT NULL;
+    workflow_status = COALESCE(NULLIF(workflow_status, ''), 'APPROVED');
 
 CALL seed_project_workflow_statuses();
 
 DROP PROCEDURE IF EXISTS add_project_lifecycle_column;
-DROP PROCEDURE IF EXISTS make_project_source_draft_nullable;
-DROP PROCEDURE IF EXISTS make_project_completion_source_draft_nullable;
 DROP PROCEDURE IF EXISTS seed_project_workflow_statuses;

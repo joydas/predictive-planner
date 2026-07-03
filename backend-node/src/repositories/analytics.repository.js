@@ -1,5 +1,4 @@
 const { pool } = require('../config/db.config');
-const projectRepository = require('./project.repository');
 const TenantContext = require('../utils/tenantContext');
 
 const db = pool.promise();
@@ -39,7 +38,6 @@ function hideRegressionForRole(user, aliases = {}) {
   if (normalizeRole(user) === 'ADMIN') return '';
   const clauses = [];
   if (aliases.project) clauses.push(`COALESCE(${aliases.project}.is_regression_data, 0) = 0`);
-  if (aliases.draft) clauses.push(`COALESCE(${aliases.draft}.is_regression_data, 0) = 0`);
   if (aliases.cr) clauses.push(`COALESCE(${aliases.cr}.is_regression_data, 0) = 0`);
   return clauses.length ? ` AND ${clauses.join(' AND ')}` : '';
 }
@@ -53,14 +51,10 @@ async function getPmSummary(user) {
         SELECT
           SUM(CASE WHEN workflow_status IN ('SUBMITTED', 'APPROVED', 'ACTIVE') THEN 1 ELSE 0 END) AS activeProjects,
           SUM(CASE WHEN workflow_status = 'RETURNED' THEN 1 ELSE 0 END) AS returnedProjects
-        FROM (
-          SELECT owner_id, submitted_by_user_id, workflow_status, is_regression_data, organization_id FROM project_drafts
-          UNION ALL
-          SELECT owner_id, submitted_by_user_id, workflow_status, is_regression_data, organization_id FROM project WHERE source_draft_id IS NULL
-        ) p
+        FROM project p
         WHERE (p.owner_id = ? OR p.submitted_by_user_id = ?)
           AND p.organization_id = ?
-          ${hideRegressionForRole(user, { draft: 'p' })}
+          ${hideRegressionForRole(user, { project: 'p' })}
       `,
       [userId, userId, organizationId],
     ),
@@ -76,14 +70,10 @@ async function getPmSummary(user) {
       `
         SELECT f.staffing_override_diff AS diff
         FROM ml_prediction_feedback f
-        INNER JOIN (
-          SELECT draft_id AS id, owner_id, submitted_by_user_id, is_regression_data, organization_id FROM project_drafts
-          UNION ALL
-          SELECT project_id AS id, owner_id, submitted_by_user_id, is_regression_data, organization_id FROM project WHERE source_draft_id IS NULL
-        ) p ON p.id = f.project_draft_id AND p.organization_id = f.organization_id
+        INNER JOIN project p ON p.project_id = f.project_id AND p.organization_id = f.organization_id
         WHERE (p.owner_id = ? OR p.submitted_by_user_id = ?)
           AND f.organization_id = ?
-          ${hideRegressionForRole(user, { draft: 'p' })}
+          ${hideRegressionForRole(user, { project: 'p' })}
       `,
       [userId, userId, organizationId],
     ),
@@ -92,10 +82,9 @@ async function getPmSummary(user) {
         SELECT DATE_FORMAT(cr.created_at, '%Y-%m') AS period, COUNT(*) AS count
         FROM change_request cr
         INNER JOIN project p ON p.project_id = cr.project_id AND p.organization_id = cr.organization_id
-        LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id AND pd.organization_id = p.organization_id
-        WHERE (COALESCE(p.owner_id, pd.owner_id) = ? OR COALESCE(p.submitted_by_user_id, pd.submitted_by_user_id) = ?)
+        WHERE (p.owner_id = ? OR p.submitted_by_user_id = ?)
           AND cr.organization_id = ?
-          ${hideRegressionForRole(user, { cr: 'cr', project: 'p', draft: 'pd' })}
+          ${hideRegressionForRole(user, { cr: 'cr', project: 'p' })}
         GROUP BY DATE_FORMAT(cr.created_at, '%Y-%m')
         ORDER BY period DESC
         LIMIT 6
@@ -119,41 +108,29 @@ async function getAmSummary(user) {
   const [[pending], [highRisk], [turnaround], [returns]] = await Promise.all([
     db.query(`
       SELECT COUNT(*) AS pendingApprovals 
-      FROM (
-        SELECT workflow_status, is_regression_data, organization_id FROM project_drafts
-        UNION ALL
-        SELECT workflow_status, is_regression_data, organization_id FROM project WHERE source_draft_id IS NULL
-      ) p 
+      FROM project p 
       WHERE p.workflow_status = "SUBMITTED" 
         AND p.organization_id = ?
-        ${hideRegressionForRole(user, { draft: 'p' })}
+        ${hideRegressionForRole(user, { project: 'p' })}
     `, [organizationId]),
     db.query(
       `
         SELECT COUNT(*) AS highRiskProjects
-        FROM (
-          SELECT draft_data, is_regression_data, organization_id FROM project_drafts
-          UNION ALL
-          SELECT approved_data AS draft_data, is_regression_data, organization_id FROM project WHERE source_draft_id IS NULL
-        ) p
-        WHERE JSON_UNQUOTE(JSON_EXTRACT(p.draft_data, '$.mlRecommendation.recommendation.risk.riskLevel')) IN ('High', 'Critical')
+        FROM project p
+        WHERE JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.mlRecommendation.recommendation.risk.riskLevel')) IN ('High', 'Critical')
           AND p.organization_id = ?
-          ${hideRegressionForRole(user, { draft: 'p' })}
+          ${hideRegressionForRole(user, { project: 'p' })}
       `,
       [organizationId],
     ),
     db.query(
       `
         SELECT AVG(TIMESTAMPDIFF(HOUR, p.submitted_at, p.approved_at)) AS approvalTurnaroundHours
-        FROM (
-          SELECT submitted_at, approved_at, approved_by_user_id, is_regression_data, organization_id FROM project_drafts
-          UNION ALL
-          SELECT submitted_at, approved_at, approved_by_user_id, is_regression_data, organization_id FROM project WHERE source_draft_id IS NULL
-        ) p
+        FROM project p
         WHERE p.approved_by_user_id = ? 
           AND p.organization_id = ?
           AND p.submitted_at IS NOT NULL AND p.approved_at IS NOT NULL
-          ${hideRegressionForRole(user, { draft: 'p' })}
+          ${hideRegressionForRole(user, { project: 'p' })}
       `,
       [userId, organizationId],
     ),
@@ -161,14 +138,10 @@ async function getAmSummary(user) {
       `
         SELECT h.project_id AS projectId, COUNT(*) AS returnCount
         FROM project_workflow_history h
-        INNER JOIN (
-          SELECT draft_id AS id, is_regression_data, organization_id FROM project_drafts
-          UNION ALL
-          SELECT project_id AS id, is_regression_data, organization_id FROM project WHERE source_draft_id IS NULL
-        ) p ON p.id = h.project_id AND p.organization_id = h.organization_id
+        INNER JOIN project p ON p.project_id = h.project_id AND p.organization_id = h.organization_id
         WHERE h.action_type = 'RETURN'
           AND h.organization_id = ?
-          ${hideRegressionForRole(user, { draft: 'p' })}
+          ${hideRegressionForRole(user, { project: 'p' })}
         GROUP BY h.project_id
         ORDER BY returnCount DESC
         LIMIT 5
@@ -258,27 +231,26 @@ async function getProjectRisk(user) {
   const organizationId = TenantContext.getOrganizationId();
   const [rows] = await db.query(
     `
-      SELECT p.draft_id AS projectId,
-             JSON_UNQUOTE(JSON_EXTRACT(p.draft_data, '$.basicInfo.project_name')) AS projectName,
+      SELECT p.project_id AS projectId,
+             p.project_name AS projectName,
              p.workflow_status AS status,
-             JSON_UNQUOTE(JSON_EXTRACT(p.draft_data, '$.mlRecommendation.recommendation.risk.riskLevel')) AS predictedRisk,
+             JSON_UNQUOTE(JSON_EXTRACT(p.approved_data, '$.mlRecommendation.recommendation.risk.riskLevel')) AS predictedRisk,
              COALESCE(cr.crCount, 0) AS crCount,
              COALESCE(ret.returnCount, 0) AS returnCount
-      FROM project_drafts p
-      LEFT JOIN project ap ON ap.source_draft_id = p.draft_id AND ap.organization_id = p.organization_id
+      FROM project p
       LEFT JOIN (
         SELECT project_id, organization_id, COUNT(*) AS crCount
         FROM change_request
         GROUP BY project_id, organization_id
-      ) cr ON cr.project_id = ap.project_id AND cr.organization_id = ap.organization_id
+      ) cr ON cr.project_id = p.project_id AND cr.organization_id = p.organization_id
       LEFT JOIN (
         SELECT project_id, organization_id, COUNT(*) AS returnCount
         FROM project_workflow_history
         WHERE action_type = 'RETURN'
         GROUP BY project_id, organization_id
-      ) ret ON ret.project_id = p.draft_id AND ret.organization_id = p.organization_id
+      ) ret ON ret.project_id = p.project_id AND ret.organization_id = p.organization_id
       WHERE p.organization_id = ?
-        ${hideRegressionForRole(user, { draft: 'p', project: 'ap' })}
+        ${hideRegressionForRole(user, { project: 'p' })}
       ORDER BY p.updated_at DESC
       LIMIT 100
     `,
@@ -302,9 +274,8 @@ async function getCrTrends(user) {
              SUM(cr.estimated_effort_hours) AS effortHours
       FROM change_request cr
       INNER JOIN project p ON p.project_id = cr.project_id AND p.organization_id = cr.organization_id
-      INNER JOIN project_drafts pd ON pd.draft_id = p.source_draft_id AND pd.organization_id = p.organization_id
       WHERE cr.organization_id = ?
-        ${hideRegressionForRole(user, { cr: 'cr', project: 'p', draft: 'pd' })}
+        ${hideRegressionForRole(user, { cr: 'cr', project: 'p' })}
       GROUP BY DATE_FORMAT(cr.created_at, '%Y-%m')
       ORDER BY period DESC
       LIMIT 12
@@ -315,8 +286,6 @@ async function getCrTrends(user) {
 }
 
 async function getVarianceDashboard(user, options = {}) {
-  await projectRepository.ensureApprovedProjectTables();
-  await projectRepository.ensureProjectProgressTables();
   const organizationId = TenantContext.getOrganizationId();
   const role = String(user.role || '').toUpperCase();
   if (!['PM', 'ACCOUNT_MANAGER', 'AM', 'ADMIN'].includes(role)) {
@@ -345,7 +314,6 @@ async function getVarianceDashboard(user, options = {}) {
 
   const scopedBaseFrom = `
     FROM project p
-    LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id AND pd.organization_id = p.organization_id
     LEFT JOIN app_user pm ON pm.user_id = p.owner_id AND pm.organization_id = p.organization_id
     LEFT JOIN app_user am ON am.user_id = p.approved_by_user_id AND am.organization_id = p.organization_id
     LEFT JOIN project_progress_snapshot latest_progress
@@ -366,11 +334,11 @@ async function getVarianceDashboard(user, options = {}) {
       GROUP BY project_id, organization_id
     ) cr_schedule
       ON cr_schedule.project_id = p.project_id AND cr_schedule.organization_id = p.organization_id
-    WHERE (p.workflow_status IN ('APPROVED', 'ACTIVE', 'COMPLETE', 'COMPLETED') OR pd.workflow_status IN ('APPROVED', 'COMPLETE'))
+    WHERE p.workflow_status IN ('APPROVED', 'ACTIVE', 'COMPLETE', 'COMPLETED')
       AND newer_progress.snapshot_id IS NULL
       AND p.organization_id = ?
       AND ${scope.sql}
-      ${hideRegressionForRole(user, { project: 'p', draft: 'pd' })}
+      ${hideRegressionForRole(user, { project: 'p' })}
   `;
   const tableBaseFrom = `
     ${scopedBaseFrom}
@@ -456,7 +424,7 @@ function buildVarianceScope(user) {
   const organizationId = TenantContext.getOrganizationId();
   if (role === 'PM') {
     return {
-      sql: 'p.organization_id = ? AND (p.owner_id = ? OR pd.submitted_by_user_id = ?)',
+      sql: 'p.organization_id = ? AND (p.owner_id = ? OR p.submitted_by_user_id = ?)',
       params: [organizationId, user.userId, user.userId],
     };
   }
@@ -472,7 +440,7 @@ function buildVarianceScope(user) {
       OR EXISTS (
         SELECT 1
         FROM app_user assigned_pm
-        WHERE assigned_pm.user_id = COALESCE(pd.submitted_by_user_id, p.owner_id)
+        WHERE assigned_pm.user_id = COALESCE(p.submitted_by_user_id, p.owner_id)
           AND assigned_pm.manager_id = ?
           AND assigned_pm.organization_id = p.organization_id
       )

@@ -1,43 +1,6 @@
 const { pool } = require('../config/db.config');
 const TenantContext = require('../utils/tenantContext');
 
-async function ensureCrSchema() {
-  const projectRepository = require('./project.repository');
-  await projectRepository.ensureApprovedProjectTables();
-  await addColumnIfMissing('change_request', 'is_regression_data', `
-    ALTER TABLE change_request
-    ADD COLUMN is_regression_data TINYINT(1) NOT NULL DEFAULT 0
-  `);
-  await addColumnIfMissing('change_request', 'cr_staffing_baseline_snapshot', `
-    ALTER TABLE change_request
-    ADD COLUMN cr_staffing_baseline_snapshot JSON NULL AFTER infrastructure_cost_impact
-  `);
-  await addColumnIfMissing('change_request', 'cr_staffing_delta', `
-    ALTER TABLE change_request
-    ADD COLUMN cr_staffing_delta JSON NULL AFTER cr_staffing_baseline_snapshot
-  `);
-  return true;
-}
-
-async function addColumnIfMissing(tableName, columnName, alterSql) {
-  const [columns] = await pool.promise().query(
-    `
-      SELECT COLUMN_NAME AS columnName
-      FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = ?
-        AND COLUMN_NAME = ?
-      LIMIT 1
-    `,
-    [tableName, columnName],
-  );
-
-  if (columns.length) {
-    return false;
-  }
-  await pool.promise().query(alterSql);
-  return true;
-}
 
 const CR_SELECT = `
   cr.cr_id AS crId,
@@ -47,7 +10,7 @@ const CR_SELECT = `
   cr.project_id AS projectId,
   CONCAT('PRJ-', LPAD(cr.project_id, 6, '0')) AS projectCode,
   p.project_name AS projectName,
-  COALESCE(p.workflow_status, pd.workflow_status) AS projectWorkflowStatus,
+  COALESCE(p.workflow_status, 'APPROVED') AS projectWorkflowStatus,
   cr.cr_title AS title,
   COALESCE(cr.cr_description, cr.root_cause) AS description,
   cr.cr_category AS crType,
@@ -232,7 +195,6 @@ function applyStaffingDeltas(baselineRows = [], deltas = []) {
 }
 
 async function createDraft(crData, createdBy) {
-  await ensureCrSchema();
   const organizationId = TenantContext.getOrganizationId();
   const [result] = await pool.promise().query(
     `
@@ -255,7 +217,6 @@ async function createDraft(crData, createdBy) {
 }
 
 async function updateDraft(crId, crData) {
-  await ensureCrSchema();
   const organizationId = TenantContext.getOrganizationId();
   const [result] = await pool.promise().query(
     `
@@ -269,14 +230,12 @@ async function updateDraft(crId, crData) {
 }
 
 async function getChangeRequestById(crId) {
-  await ensureCrSchema();
   const organizationId = TenantContext.getOrganizationId();
   const [rows] = await pool.promise().query(
     `
       SELECT ${CR_SELECT}
       FROM change_request cr
       INNER JOIN project p ON p.project_id = cr.project_id AND p.organization_id = cr.organization_id
-      LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id AND pd.organization_id = p.organization_id
       LEFT JOIN app_user submitter ON submitter.user_id = cr.submitted_by_user_id AND submitter.organization_id = cr.organization_id
       WHERE cr.cr_id = ? AND cr.organization_id = ?
       LIMIT 1
@@ -299,7 +258,6 @@ async function getChangeRequestForUpdate(connection, crId) {
       SELECT ${CR_SELECT}
       FROM change_request cr
       INNER JOIN project p ON p.project_id = cr.project_id AND p.organization_id = cr.organization_id
-      LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id AND pd.organization_id = p.organization_id
       LEFT JOIN app_user submitter ON submitter.user_id = cr.submitted_by_user_id AND submitter.organization_id = cr.organization_id
       WHERE cr.cr_id = ? AND cr.organization_id = ?
       LIMIT 1
@@ -317,7 +275,6 @@ async function getChangeRequestForUpdate(connection, crId) {
 }
 
 async function getProjectBaseStaffingSnapshot(projectId) {
-  await ensureCrSchema();
   const organizationId = TenantContext.getOrganizationId();
   const [rows] = await pool.promise().query(
     `
@@ -345,7 +302,6 @@ async function getProjectBaseStaffingSnapshot(projectId) {
 }
 
 async function getApprovedStaffingDeltas(projectId, excludeCrId = null) {
-  await ensureCrSchema();
   const organizationId = TenantContext.getOrganizationId();
   const params = [projectId, organizationId];
   let excludeSql = '';
@@ -394,7 +350,6 @@ async function accumulateApprovedCrImpact(connection, changeRequest) {
   const [result] = await connection.query(
     `
       UPDATE project p
-      LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id AND pd.organization_id = p.organization_id
       SET p.current_planned_effort = COALESCE(p.current_planned_effort, 0) + ?,
           p.current_planned_budget = COALESCE(p.current_planned_budget, 0) + ?,
           p.current_planned_team_size = COALESCE(p.current_planned_team_size, 0) + ?,
@@ -404,7 +359,7 @@ async function accumulateApprovedCrImpact(connection, changeRequest) {
           p.actual_final_estimated_value = COALESCE(p.actual_final_estimated_value, p.pm_estimated_value, 0) + ?,
           p.total_cr_estimation_impact = COALESCE(p.total_cr_estimation_impact, 0) + ?
       WHERE p.project_id = ? AND p.organization_id = ?
-        AND COALESCE(p.workflow_status, pd.workflow_status) IN ('APPROVED', 'ACTIVE')
+        AND p.workflow_status IN ('APPROVED', 'ACTIVE')
     `,
     [
       effortImpact,
@@ -423,14 +378,12 @@ async function accumulateApprovedCrImpact(connection, changeRequest) {
 }
 
 async function getChangeRequestsByProject(projectId) {
-  await ensureCrSchema();
   const organizationId = TenantContext.getOrganizationId();
   const [rows] = await pool.promise().query(
     `
       SELECT ${CR_SELECT}
       FROM change_request cr
       INNER JOIN project p ON p.project_id = cr.project_id AND p.organization_id = cr.organization_id
-      LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id AND pd.organization_id = p.organization_id
       LEFT JOIN app_user submitter ON submitter.user_id = cr.submitted_by_user_id AND submitter.organization_id = cr.organization_id
       WHERE cr.project_id = ? AND cr.organization_id = ?
       ORDER BY cr.updated_at DESC, cr.cr_id DESC
@@ -550,7 +503,6 @@ function mapCrListRow(row) {
 }
 
 async function findCrsForPm(filters) {
-  await ensureCrSchema();
   const page = Math.max(1, Number(filters.page) || 1);
   const pageSize = Math.min(100, Math.max(1, Number(filters.pageSize) || 10));
   const offset = (page - 1) * pageSize;
@@ -563,7 +515,6 @@ async function findCrsForPm(filters) {
       SELECT COUNT(*) AS totalRecords
       FROM change_request cr
       INNER JOIN project p ON p.project_id = cr.project_id AND p.organization_id = cr.organization_id
-      LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id AND pd.organization_id = p.organization_id
       WHERE ${where.sql}
     `,
     where.params,
@@ -575,7 +526,7 @@ async function findCrsForPm(filters) {
              COALESCE(cr.cr_code, CONCAT('CR-', LPAD(cr.cr_id, 6, '0'))) AS crNumber,
              cr.project_id AS projectId,
              p.project_name AS projectName,
-             COALESCE(p.workflow_status, pd.workflow_status) AS projectWorkflowStatus,
+             p.workflow_status AS projectWorkflowStatus,
              cr.cr_category AS category,
              cr.severity,
              cr.priority,
@@ -589,7 +540,6 @@ async function findCrsForPm(filters) {
              cr.updated_at AS updatedAt
       FROM change_request cr
       INNER JOIN project p ON p.project_id = cr.project_id AND p.organization_id = cr.organization_id
-      LEFT JOIN project_drafts pd ON pd.draft_id = p.source_draft_id AND pd.organization_id = p.organization_id
       WHERE ${where.sql}
       ORDER BY ${sortColumn} ${sortOrder}, cr.cr_id DESC
       LIMIT ? OFFSET ?
@@ -608,7 +558,6 @@ async function findCrsForPm(filters) {
 }
 
 async function countByProject(projectId) {
-  await ensureCrSchema();
   const organizationId = TenantContext.getOrganizationId();
   const [rows] = await pool.promise().query(
     'SELECT COUNT(*) AS crCount FROM change_request WHERE project_id = ? AND organization_id = ?',
@@ -621,7 +570,6 @@ module.exports = {
   applyStaffingDeltas,
   countByProject,
   createDraft,
-  ensureCrSchema,
   findCrsForPm,
   accumulateApprovedCrImpact,
   getCurrentApprovedStaffing,

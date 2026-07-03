@@ -5,7 +5,6 @@ const { pool } = require('../config/db.config');
  * This repository returns normalized fields for service consumption.
  */
 async function findByEmail(email) {
-  await ensureUserAdministrationSchema();
   const query = `
     SELECT
       u.user_id AS userId,
@@ -27,25 +26,6 @@ async function findByEmail(email) {
   return rows[0] || null;
 }
 
-async function ensureUserAdministrationSchema() {
-  const [columns] = await pool.promise().query(
-    `
-      SELECT COLUMN_NAME AS columnName
-      FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = 'app_user'
-        AND COLUMN_NAME = 'organization_id'
-      LIMIT 1
-    `,
-  );
-  if (!columns.length) {
-    // This is a safety check, but the migration script should have handled this.
-    // If organization_id is missing, we don't attempt to add it here dynamically 
-    // to avoid partial migration state.
-    console.warn('organization_id column missing in app_user table. Please run migrations.');
-  }
-}
-
 function mapUser(row) {
   return {
     userId: row.userId,
@@ -64,7 +44,6 @@ function mapUser(row) {
 }
 
 async function listUsers(organizationId) {
-  await ensureUserAdministrationSchema();
   const [rows] = await pool.promise().query(
     `
       SELECT u.user_id AS userId,
@@ -88,7 +67,6 @@ async function listUsers(organizationId) {
 }
 
 async function listActiveAccountManagers(organizationId) {
-  await ensureUserAdministrationSchema();
   const [rows] = await pool.promise().query(
     `
       SELECT user_id AS userId,
@@ -108,7 +86,6 @@ async function listActiveAccountManagers(organizationId) {
 }
 
 async function findById(userId, organizationId) {
-  await ensureUserAdministrationSchema();
   const [rows] = await pool.promise().query(
     `
       SELECT u.user_id AS userId,
@@ -132,7 +109,6 @@ async function findById(userId, organizationId) {
 }
 
 async function createUser(user) {
-  await ensureUserAdministrationSchema();
   const [result] = await pool.promise().query(
     `
       INSERT INTO app_user (organization_id, user_name, email, password_hash, role_name, manager_id, active_flag)
@@ -144,7 +120,6 @@ async function createUser(user) {
 }
 
 async function updateUser(userId, organizationId, user) {
-  await ensureUserAdministrationSchema();
   const values = [
     user.userName,
     user.email,
@@ -185,7 +160,6 @@ async function recordLastLogin(userId) {
 
 module.exports = {
   createUser,
-  ensureUserAdministrationSchema,
   findByEmail,
   findById,
   listActiveAccountManagers,

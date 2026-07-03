@@ -37,17 +37,3 @@ SET p.industry_code = mi.industry_code,
 WHERE p.industry_code IS NULL
   AND p.industry IS NOT NULL
   AND p.industry <> '';
-
-UPDATE project_drafts pd
-JOIN md_industry mi
-  ON LOWER(mi.industry_name) = LOWER(JSON_UNQUOTE(JSON_EXTRACT(pd.draft_data, '$.basicInfo.industry')))
-  OR LOWER(mi.industry_code) = LOWER(JSON_UNQUOTE(JSON_EXTRACT(pd.draft_data, '$.basicInfo.industry')))
-SET pd.draft_data = JSON_SET(
-  pd.draft_data,
-  '$.basicInfo.industry',
-  mi.industry_name,
-  '$.basicInfo.industry_code',
-  mi.industry_code
-)
-WHERE JSON_UNQUOTE(JSON_EXTRACT(pd.draft_data, '$.basicInfo.industry')) IS NOT NULL
-  AND JSON_UNQUOTE(JSON_EXTRACT(pd.draft_data, '$.basicInfo.industry')) <> '';

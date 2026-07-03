@@ -6,17 +6,17 @@ const DEFAULT_ML_API_URL = 'http://127.0.0.1:8000';
 const normalizeUrl = (url) => String(url || DEFAULT_ML_API_URL).replace(/\/+$/, '');
 const ML_API_URL = normalizeUrl(process.env.ML_API_URL || DEFAULT_ML_API_URL);
 
-async function logPrediction({ userId, projectDraftId, predictionType, requestPayload, predictionResponse }) {
+async function logPrediction({ userId, projectId, predictionType, requestPayload, predictionResponse }) {
   const organizationId = TenantContext.getOrganizationId();
   const [result] = await pool.promise().query(
     `
       INSERT INTO ml_prediction_log
-        (organization_id, project_draft_id, generated_by_user_id, prediction_type, request_payload, prediction_response)
+        (organization_id, project_id, generated_by_user_id, prediction_type, request_payload, prediction_response)
       VALUES (?, ?, ?, ?, ?, ?)
     `,
     [
       organizationId,
-      projectDraftId || null,
+      projectId || null,
       userId || null,
       predictionType,
       JSON.stringify(requestPayload || {}),
@@ -69,7 +69,7 @@ async function getProjectRecommendations(projectData, userId) {
 
   const predictionId = await logPrediction({
     userId,
-    projectDraftId: projectData.draftId || projectData.projectDraftId || null,
+    projectId: projectData.projectId || projectData.draftId || projectData.projectDraftId || null,
     predictionType: 'project_creation_recommendation',
     requestPayload: projectData,
     predictionResponse: response,
@@ -103,10 +103,11 @@ function diffStaffing(mlStaffing = {}, finalStaffing = {}) {
   }, {});
 }
 
-async function recordPredictionFeedback({ projectDraftId, projectData, actualOutcome = {} }) {
+async function recordPredictionFeedback({ projectId, projectDraftId, projectData, actualOutcome = {} }) {
   const recommendation = projectData?.mlRecommendation?.recommendation || {};
   const predictionId = recommendation.predictionId || projectData?.predictionId || null;
-  if (!predictionId && !projectDraftId) return null;
+  const targetProjectId = projectId || projectDraftId || projectData?.projectId || projectData?.draftId || null;
+  if (!predictionId && !targetProjectId) return null;
 
   const organizationId = TenantContext.getOrganizationId();
   const finalStaffing = aggregateFinalStaffing(projectData?.teamComposition?.rows || []);
@@ -118,16 +119,16 @@ async function recordPredictionFeedback({ projectDraftId, projectData, actualOut
     `
       SELECT feedback_id AS feedbackId
       FROM ml_prediction_feedback
-      WHERE (prediction_id <=> ?) AND (project_draft_id <=> ?) AND organization_id = ?
+      WHERE (prediction_id <=> ?) AND (project_id <=> ?) AND organization_id = ?
       LIMIT 1
     `,
-    [predictionId, projectDraftId || null, organizationId],
+    [predictionId, targetProjectId || null, organizationId],
   );
 
   const values = [
     organizationId,
     predictionId,
-    projectDraftId || null,
+    targetProjectId || null,
     JSON.stringify(finalStaffing),
     JSON.stringify(overrideDiff),
     finalEffort,
@@ -160,7 +161,7 @@ async function recordPredictionFeedback({ projectDraftId, projectData, actualOut
   const [result] = await pool.promise().query(
     `
       INSERT INTO ml_prediction_feedback
-        (organization_id, prediction_id, project_draft_id, final_staffing, staffing_override_diff, final_effort,
+        (organization_id, prediction_id, project_id, final_staffing, staffing_override_diff, final_effort,
          actual_effort, actual_schedule_variance, actual_staffing, actual_cr_count, pm_override_reason)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
@@ -169,9 +170,10 @@ async function recordPredictionFeedback({ projectDraftId, projectData, actualOut
   return result.insertId;
 }
 
-async function recordActualOutcome({ predictionId, projectDraftId, actualEffort, actualScheduleVariance, actualStaffing, actualCrCount }) {
-  if (!predictionId && !projectDraftId) {
-    const error = new Error('predictionId or projectDraftId is required');
+async function recordActualOutcome({ predictionId, projectId, projectDraftId, actualEffort, actualScheduleVariance, actualStaffing, actualCrCount }) {
+  const targetProjectId = projectId || projectDraftId || null;
+  if (!predictionId && !targetProjectId) {
+    const error = new Error('predictionId or projectId is required');
     error.status = 400;
     throw error;
   }
@@ -183,7 +185,7 @@ async function recordActualOutcome({ predictionId, projectDraftId, actualEffort,
           actual_schedule_variance = ?,
           actual_staffing = ?,
           actual_cr_count = ?
-      WHERE ((prediction_id <=> ?) OR (project_draft_id <=> ?)) AND organization_id = ?
+      WHERE ((prediction_id <=> ?) OR (project_id <=> ?)) AND organization_id = ?
     `,
     [
       actualEffort ?? null,
@@ -191,7 +193,7 @@ async function recordActualOutcome({ predictionId, projectDraftId, actualEffort,
       actualStaffing ? JSON.stringify(actualStaffing) : null,
       actualCrCount ?? null,
       predictionId || null,
-      projectDraftId || null,
+      targetProjectId,
       organizationId,
     ],
   );

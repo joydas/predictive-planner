@@ -27,7 +27,6 @@ def build_project_features_from_projects(projects: pd.DataFrame) -> pd.DataFrame
         rows.append(
             {
                 "project_id": row.get("project_id"),
-                "source_draft_id": row.get("source_draft_id"),
                 "project_code": row.get("project_code"),
                 "project_name": row.get("project_name"),
                 "client_name": row.get("client_name"),

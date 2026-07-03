@@ -110,7 +110,6 @@ def build_recommendation_training_dataset(engine=None, output_path=None, organiz
     drop_columns.extend(
         [
             "project_id",
-            "source_draft_id",
             "project_code",
             "project_name",
             "client_name",
